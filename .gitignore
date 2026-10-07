@@ -1,0 +1,36 @@
+# Built binaries
+/imageorganizer
+/imageorganizer.exe
+*.test
+*.out
+
+# Library data: databases hold folder passwords, never commit them
+*.bolt
+*.bolt.*
+*.pre-regroup-*
+*.db
+*.db-shm
+*.db-wal
+
+# Models and runtimes (downloaded, large)
+*.onnx
+*.gguf
+*.so
+*.dll
+*.dylib
+
+# Generated caches if a data directory ends up inside the repo
+/data/
+/thumbs/
+/faces/
+/previews/
+/models/
+
+# Profiles and editor/OS clutter
+*.prof
+*.pprof
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store

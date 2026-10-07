@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ImageOrganizer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236d5efc'/%3E%3Cpath d='M7 22l6-7 4 5 3-3 5 5z' fill='white'/%3E%3Ccircle cx='21' cy='11' r='3' fill='white'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/vendor/leaflet.css">
+<link rel="stylesheet" href="/static/app.css?v=__CSS_HASH__" data-hot="app.css">
+<script>window.ASSET_HASH = "__ASSET_HASH__"; window.CSS_HASH = "__CSS_HASH__";</script>
+<script defer src="/static/vendor/leaflet.js"></script>
+<script defer src="/static/vendor/leaflet.markercluster.js"></script>
+<script defer src="/static/app.js?v=__ASSET_HASH__"></script>
+<script defer src="/static/vendor/alpine.min.js"></script>
+</head>
+<body x-data="app" x-init="init()" :class="{'lightbox-open': lightbox.open}" @keydown.window="onKey($event)">
+
+<!-- Connection banner: shown while the server is unreachable -->
+<div class="conn-banner" x-show="!conn.online" x-transition.opacity x-cloak>
+  <span class="pulse-dot"></span>
+  <span x-text="conn.everConnected ? 'Server disconnected — reconnecting…' : 'Connecting to server…'"></span>
+</div>
+<div class="toast" x-show="toast.show" x-transition x-cloak>
+  <span x-text="toast.text"></span>
+  <button class="toast-action" x-show="toast.action" @click="runToastAction()" x-text="toast.action ? toast.action.label : ''"></button>
+</div>
+
+<aside class="sidebar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" class="brand-mark"><rect width="32" height="32" rx="9"/><path d="M7 22l6-7 4 5 3-3 5 5z"/><circle cx="21" cy="11" r="3"/></svg>
+    <div>
+      <div class="brand-name">ImageOrganizer</div>
+      <div class="brand-sub" x-text="fmtCount(stats.library.images) + ' photos'"></div>
+    </div>
+  </div>
+  <nav>
+    <template x-for="n in nav" :key="n.id">
+      <a href="#" class="nav-item" :class="{active: isNav(n)}" @click.prevent="goNav(n)">
+        <span class="nav-icon" x-html="icons[n.icon]"></span>
+        <span x-text="n.label"></span>
+        <span class="nav-badge" :class="!n.badge && 'quiet'" x-show="navCount(n)" x-text="fmtCount(navCount(n))"></span>
+      </a>
+    </template>
+  </nav>
+
+  <div class="sidebar-foot">
+    <div class="scan-card" x-show="scan.running" x-transition x-cloak>
+      <div class="scan-title"><span class="spinner"></span> Scanning folders</div>
+      <div class="scan-folder" x-text="scan.folder"></div>
+      <div class="scan-nums"><span x-text="fmtCount(scan.found) + ' found'"></span><span x-text="fmtCount(scan.pending) + ' new or changed'"></span></div>
+    </div>
+    <div class="scan-card" x-show="remaining() > 0" x-transition x-cloak>
+      <div class="scan-title"><span class="spinner" x-show="processingActive()"></span> Processing photos</div>
+      <div class="scan-folder" x-show="processingNote()" x-text="processingNote()"></div>
+      <div class="bar"><div :style="`width:${processedPct()}%`"></div></div>
+      <div class="scan-nums"><span x-text="fmtCount(remaining()) + ' left'"></span><span x-text="etaLabel()"></span></div>
+    </div>
+    <div class="foot-row">
+      <div class="conn-pill" :class="conn.online ? 'ok' : 'down'">
+        <span class="dot"></span><span x-text="conn.online ? (conn.dev ? 'Live · dev' : 'Live') : 'Offline'"></span>
+      </div>
+      <a href="#" class="gear" :class="{active: view === 'settings'}" @click.prevent="setView('settings')" :title="stats.issues ? 'Settings — something needs attention' : 'Settings'">
+        <span x-html="icons.gear"></span>
+        <span class="gear-alert" x-show="stats.issues" x-cloak>!</span>
+      </a>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <!-- Search filters the photo views (grid, table, map); other views have their own headers -->
+  <header class="topbar" x-show="isPhotoView()">
+    <div class="search">
+      <div class="search-box" @click.self="$refs.search.focus()">
+        <span class="search-icon" x-html="icons.search" @click="$refs.search.focus()"></span>
+        <template x-for="t in tokens" :key="t.id">
+          <span class="token" :class="t.special && 'special'"><span x-text="t.name"></span><button type="button" title="Remove" @click="removeToken(t)">×</button></span>
+        </template>
+        <input type="search" x-ref="search" :placeholder="tokens.length ? 'and…' : 'Search your photos — “Anna in the garden 2010”, “snow”, “birthday cake”…'" x-model.debounce.300ms="q" @input.debounce.300ms="reload()" @input="updateSuggest()" @click="updateSuggest()" @keydown="suggestKey($event)" @blur="setTimeout(() => suggest.items = [], 150)" autocomplete="off">
+        <kbd x-show="!q && !tokens.length">/</kbd>
+      </div>
+      <ul class="suggest" x-show="suggest.items.length" x-cloak>
+        <template x-for="(p, i) in suggest.items" :key="p.id">
+          <li :class="i === suggest.i && 'on'" @mousedown.prevent="pickSuggest(p)" @mouseenter="suggest.i = i">
+            <img :src="p.cover ? faceURL(p.cover) : ''" alt="" x-show="p.cover">
+            <span class="suggest-special" x-show="p.special">?</span>
+            <span x-text="p.name"></span>
+            <small class="muted" x-show="p.hint" x-text="p.hint"></small>
+            <small x-text="fmtCount(p.photos) + ' photos'"></small>
+          </li>
+        </template>
+      </ul>
+    </div>
+    <div class="topbar-tools" x-show="view === 'photos' || view === 'table'">
+      <select x-model="sort" @change="reload()" class="select">
+        <option value="taken_desc">Newest first</option>
+        <option value="taken_asc">Oldest first</option>
+        <option value="added_desc">Recently added</option>
+        <option value="rating">Rating</option>
+        <option value="size_desc">Largest files</option>
+        <option value="camera">Camera</option>
+      </select>
+      <label class="zoom" x-show="view === 'photos'" title="Thumbnail size">
+        <span x-html="icons.grid"></span>
+        <input type="range" min="120" max="360" step="10" x-model.number="rowHeight" @input="layout()">
+      </label>
+    </div>
+  </header>
+
+  <!-- Empty library -->
+  <section class="empty" x-show="ready && stats.library.images === 0 && view !== 'folders'" x-cloak>
+    <div class="empty-art" x-html="icons.photos"></div>
+    <h2>Your library is empty</h2>
+    <p>Add a folder and ImageOrganizer will find every photo in it — including subfolders.</p>
+    <button class="btn primary" @click="setView('folders')">Add a folder</button>
+  </section>
+
+  <!-- Photos: justified grid grouped by month -->
+  <section class="photos" x-show="view === 'photos' && stats.library.images > 0" x-ref="photos" @scroll.passive="onScroll()">
+    <div class="result-line person-line" x-show="person" x-cloak>
+      <span class="chip">Photos of <b x-text="personLabel()"></b></span>
+      <button class="btn ghost" @click="clearPerson()">Show all photos</button>
+    </div>
+    <div class="result-line" x-show="q || fav || tokens.length">
+      <span class="smart" x-show="semantic" title="Ranked by EmbeddingGemma 2 image–text similarity">✦ Smart search</span>
+      <template x-for="p in searchPeople" :key="p.id"><span class="chip person-chip" x-text="p.name"></span></template>
+      <template x-for="w in searchSpecial" :key="w"><span class="chip" x-text="{unknown: 'with someone not named yet', known: 'with someone you’ve named', alone: 'one person only'}[w]"></span></template>
+      <span class="chip" x-show="dateRange" x-text="dateRange"></span>
+      <template x-if="semantic"><span>Most relevant to “<b x-text="searchText"></b>” first</span></template>
+      <template x-if="!semantic">
+        <span>
+          <span x-text="fmtCount(total) + (total === 1 ? ' photo' : ' photos')"></span><template x-if="searchText"><span> matching “<b x-text="searchText"></b>”</span></template><template x-if="dateRange"><span> from <b x-text="dateRange"></b></span></template><template x-if="fav"><span> in favorites</span></template>
+        </span>
+      </template>
+    </div>
+    <template x-for="sec in sections" :key="sec.key">
+      <div class="section">
+        <h3 class="section-head" x-show="sec.title" x-text="sec.title"></h3>
+        <template x-for="row in sec.rows" :key="row.key">
+          <div class="row" :style="`height:${row.h}px`">
+            <template x-for="it in row.items" :key="it.im.id">
+              <figure class="tile" :style="`width:${it.w}px`" @click="openLightbox(it.idx)">
+                <img :src="thumbURL(it.im)" loading="lazy" decoding="async" alt="" @load="$el.classList.add('in')">
+                <span class="fav-badge" x-show="it.im.fav" x-html="icons.heartFill"></span>
+                <figcaption><span x-text="fmtDateShort(it.im.taken)"></span></figcaption>
+              </figure>
+            </template>
+          </div>
+        </template>
+      </div>
+    </template>
+    <div class="sentinel" x-ref="sentinel"></div>
+    <div class="loading" x-show="loading"><span class="spinner"></span></div>
+    <div class="end-note" x-show="!loading && !semantic && items.length > 0 && items.length >= total" x-text="'That’s everything · ' + fmtCount(total) + ' photos'"></div>
+  </section>
+
+  <!-- Year scrubber -->
+  <nav class="scrubber" x-show="view === 'photos' && years.length > 1 && sort.startsWith('taken')" x-cloak>
+    <template x-for="y in years" :key="y.year">
+      <button @click="jumpToYear(y.year)" :class="{active: y.year === currentYear}" :title="fmtCount(y.n) + ' photos'" x-text="y.year"></button>
+    </template>
+  </nav>
+
+  <!-- People: the directory of known people -->
+  <section class="people" x-show="view === 'people'" x-ref="people" x-cloak>
+    <template x-if="openPersonId && openedPerson()">
+      <div class="person-detail">
+        <button class="btn ghost back" @click="closePerson()" x-html="icons.left + '<span>All people</span>'"></button>
+        <div class="person-head">
+          <img class="avatar big clickable" :src="faceURL(openedPerson().cover)" alt="" x-show="openedPerson().cover" title="See the photo" @click="openedPerson().cover_image && openImageById(openedPerson().cover_image)">
+          <div class="person-meta">
+            <label class="name-edit" title="Rename">
+              <input class="name-input" :value="openedPerson().name" @change="renamePerson($event.target)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape="$event.target.value = openedPerson().name; $event.target.blur()" spellcheck="false" aria-label="Name">
+              <span class="name-pencil" x-html="icons.edit"></span>
+            </label>
+            <div class="muted">
+              <span x-text="fmtCount(openedPerson().photos) + ' photos · ' + openedPerson().groups + (openedPerson().groups === 1 ? ' group' : ' groups')"></span>
+              <span x-show="openedPerson().est_birth"> · <span x-text="birthLabel(openedPerson().est_birth)"></span></span>
+            </div>
+            <label class="birth">Birth year
+              <input class="input small-input" type="number" min="1850" max="2100" placeholder="unknown"
+                     :value="openedPerson().birth_year || ''" @change="updatePerson({birth_year: +$event.target.value || 0})">
+            </label>
+          </div>
+          <button class="btn primary" @click="showPersonPhotos(openedPerson())">Show photos</button>
+        </div>
+
+        <h3 class="sub-head">Groups</h3>
+        <p class="muted small">Each group is <span x-text="openedPerson().name"></span> at a particular age. Click a face to see its photo. Open a group to see all its faces, take wrong ones out or pick the picture. Tick groups to move them to another person (e.g. two people with the same name).</p>
+        <div class="group-grid">
+          <template x-for="g in personGroups" :key="g.id">
+            <div class="group-card" :class="{auto: g.auto, selected: groupSel[g.id]}">
+              <label class="group-pick" title="Select, e.g. to move to another person">
+                <input type="checkbox" :checked="!!groupSel[g.id]" @change="groupSel[g.id] = $event.target.checked; if (!$event.target.checked) delete groupSel[g.id]">
+              </label>
+              <div class="group-faces">
+                <template x-for="f in g.faces" :key="f.id">
+                  <img :src="faceURL(f.crop)" loading="lazy" alt="" :class="f.odd && 'odd'" :title="(f.odd ? 'Looks least like the rest. ' : '') + 'Click to see the photo'" @click="openImageById(f.image)">
+                </template>
+              </div>
+              <div class="group-meta muted small">
+                <span x-text="fmtCount(g.size) + (g.size === 1 ? ' photo' : ' photos')"></span>
+                <span x-show="g.est_birth" x-text="' · ' + birthLabel(g.est_birth)"></span>
+                <span class="auto-note" x-show="g.auto" title="It closely matches groups you confirmed — check and press Correct or Not">· filed automatically</span>
+              </div>
+              <div class="group-actions">
+                <button class="btn ghost" @click="openGroupView(g)" :title="'All ' + fmtCount(g.size) + ' faces'">Open</button>
+                <button class="btn primary" x-show="g.auto" :disabled="isBusy(g)" @click="confirmGroup(g)">Correct</button>
+                <button class="btn ghost danger" :disabled="isBusy(g)" @click="removeGroup(g)" x-text="'Not ' + openedPerson().name"></button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Move selected groups: splits a person who is really two -->
+        <div class="move-bar" x-show="selectedGroups().length" x-cloak>
+          <span x-text="selectedGroups().length + (selectedGroups().length === 1 ? ' group' : ' groups') + ' selected'"></span>
+          <span class="muted">Move to</span>
+          <input class="input" list="people-names" placeholder="New or existing person" x-model="moveTo" spellcheck="false" @keydown.enter.prevent="moveGroups()">
+          <button class="btn primary" :disabled="!moveTo.trim() || moving" @click="moveGroups()" x-text="moving ? 'Moving…' : 'Move'"></button>
+          <button class="btn ghost" @click="groupSel = {}; moveTo = ''">Cancel</button>
+        </div>
+
+        <div class="merge-row" x-show="peopleData.people.length > 1">
+          <span class="muted">Same person as</span>
+          <select class="select" x-model="mergeInto">
+            <option value="">choose…</option>
+            <template x-for="p in peopleData.people.filter(p => p.id !== openPersonId)" :key="p.id">
+              <option :value="p.id" x-text="p.name"></option>
+            </template>
+          </select>
+          <button class="btn" :disabled="!mergeInto" @click="mergePerson()">Merge</button>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!openPersonId || !openedPerson()">
+      <div>
+        <div class="people-head">
+          <h2>People</h2>
+          <span class="muted" x-text="fmtCount(peopleData.people.length) + ' named'"></span>
+          <select class="select review-order" x-model="peopleOrder" @change="savePeopleOrder()" title="Order">
+            <option value="name">Name</option>
+            <option value="most">Most photos</option>
+            <option value="fewest">Fewest photos</option>
+            <option value="oldest">Oldest first</option>
+            <option value="youngest">Youngest first</option>
+          </select>
+        </div>
+        <div class="person-grid" x-show="peopleData.people.length">
+          <template x-for="p in sortedPeople()" :key="p.id">
+            <button class="person-card" @click="openPerson(p)">
+              <img class="avatar" :src="faceURL(p.cover)" alt="" x-show="p.cover" loading="lazy">
+              <div class="person-name" x-text="p.name"></div>
+              <div class="muted small" x-text="fmtCount(p.photos) + ' photos'"></div>
+              <div class="muted small" x-show="bornYear(p)" x-text="(p.birth_year ? 'born ' : 'born ~') + bornYear(p)"></div>
+            </button>
+          </template>
+        </div>
+        <div class="empty-people muted" x-show="!peopleData.people.length">
+          People are added from your photos: open <a href="#" @click.prevent="setView('review')">Review</a> and name the faces you know.
+        </div>
+      </div>
+    </template>
+  </section>
+
+  <!-- Review: the inbox of faces found in new photos -->
+  <section class="people" x-show="view === 'review'" x-ref="review" @scroll.passive="onReviewScroll()" x-cloak>
+    <div class="people-head">
+      <h2>Review</h2>
+      <span class="muted" x-text="fmtCount(reviewFaces) + (reviewFaces === 1 ? ' face' : ' faces') + ' in ' + fmtCount(reviewTotal) + (reviewTotal === 1 ? ' group' : ' groups') + ' to go'"></span>
+      <select class="select review-order" x-model="reviewOrder" @change="setReviewOrder()" title="Order">
+        <option value="size">Largest groups first</option>
+        <option value="match">Likely match first</option>
+        <option value="newest">Newest photos first</option>
+        <option value="oldest">Oldest photos first</option>
+      </select>
+    </div>
+    <p class="muted small review-intro">Each card is one person at one age, found in your photos. Pick who it is, type a new name, or skip. Photos that clearly match someone you’ve named are filed automatically and never show up here.</p>
+    <div class="group-grid">
+      <template x-for="it in reviewCards()" :key="it.id">
+        <div class="group-card" :class="reviewFocus && reviewFocus.id === it.id && 'focused'">
+          <div class="focus-head" x-show="reviewFocus && reviewFocus.id === it.id">
+            <span>From your photo</span>
+            <button class="btn ghost" @click="closeGroup()">Back to inbox</button>
+          </div>
+          <button class="icon-btn hide-btn" title="Hide (strangers, statues, pets…)" @click="reviewAct(it, 'hide')" x-html="icons.close"></button>
+          <div class="group-faces">
+            <template x-for="f in it.faces" :key="f.id">
+              <img :src="faceURL(f.crop)" loading="lazy" alt="" @click="openImageById(f.image)" :class="f.odd && 'odd'" :title="f.odd ? 'Looks least like the rest — check this one' : ''">
+            </template>
+          </div>
+          <div class="group-meta muted small">
+            <span x-text="fmtCount(it.size) + ' photos'"></span>
+            <span x-show="it.est_birth" x-text="' · ' + birthLabel(it.est_birth)"></span>
+          </div>
+          <template x-if="it.auto && it.person">
+            <div class="auto-confirm">
+              <div>Filed as <b x-text="personName(it.person)"></b> automatically</div>
+              <div class="group-actions">
+                <button class="btn primary" :disabled="isBusy(it)" @click="reviewAct(it, 'person', it.person)">Correct</button>
+                <button class="btn ghost danger" :disabled="isBusy(it)" @click="reviewAct(it, 'reject')" x-text="'Not ' + personName(it.person)"></button>
+              </div>
+            </div>
+          </template>
+          <div class="suggestions" x-show="!it.auto && it.suggestions.length">
+            <template x-for="p in it.suggestions" :key="p.id">
+              <button class="suggestion" :disabled="isBusy(it)" @click="reviewAct(it, 'person', p.id)" :title="'Similarity ' + Math.round(p.score * 100) + '%'">
+                <img :src="faceURL(p.cover)" alt="" x-show="p.cover"><span x-text="p.name"></span><small class="match-pct" x-text="Math.round(p.score * 100) + '%'"></small>
+              </button>
+            </template>
+          </div>
+          <form class="name-form" @submit.prevent="reviewAct(it, 'name')">
+            <input class="input" list="people-names" placeholder="Who is this?" x-model="names[it.id]" spellcheck="false" @input="saveDrafts()">
+            <button class="btn primary" :disabled="!(names[it.id] || '').trim() || isBusy(it)" x-text="isBusy(it) ? 'Saving…' : 'Save'"></button>
+          </form>
+          <button class="btn ghost skip" :disabled="isBusy(it)" @click="reviewAct(it, 'skip')">Skip for now</button>
+        </div>
+      </template>
+    </div>
+    <datalist id="people-names">
+      <template x-for="p in peopleData.people" :key="p.id"><option :value="p.name"></option></template>
+    </datalist>
+    <div class="loading" x-show="reviewLoading"><span class="spinner"></span></div>
+    <div class="muted pad" x-show="!reviewLoading && !reviewItems.length">All caught up — nothing to review.</div>
+  </section>
+
+  <!-- Settings -->
+  <section class="settings" x-show="view === 'settings'" x-cloak>
+    <div class="people-head"><h2>Settings</h2></div>
+    <template x-if="settings">
+      <div class="settings-body">
+        <div class="issues" x-show="settings.issues.length">
+          <template x-for="(it, i) in settings.issues" :key="i">
+            <div class="issue" :class="it.level">
+              <span class="issue-mark" x-text="it.level === 'info' ? 'i' : '!'"></span>
+              <span x-text="it.text"></span>
+              <button class="btn primary" x-show="it.level === 'info' && settings.restart_needed" @click="restartServer()" :disabled="restarting" x-text="restarting ? 'Restarting…' : 'Restart now'"></button>
+            </div>
+          </template>
+        </div>
+
+        <div class="set-group">
+          <h3>Search by meaning</h3>
+          <p class="muted small">A llama.cpp server running a multimodal embedding model (EmbeddingGemma 2 with <code>--mmproj</code>). It turns photos and search text into comparable vectors.</p>
+          <label class="set-row"><span>Embedding server</span>
+            <span class="set-field">
+              <input class="input" x-model="form.embed_url" :placeholder="settings.effective.embed_url" :disabled="!!settings.locked.embed_url" spellcheck="false">
+              <button class="btn ghost" @click.prevent="testEmbed()" :disabled="testing" x-text="testing ? 'Testing…' : 'Test'"></button>
+            </span>
+            <small class="muted">URL of llama-server, or “off” to turn search by meaning off. Applies at once.</small>
+            <small class="test-result" x-show="testResult" :class="testResult && (testResult.ok ? 'ok' : 'bad')" x-text="testText()"></small>
+          </label>
+          <label class="set-row"><span>Model</span>
+            <input class="input" x-model="form.embed_model" placeholder="Whatever the server has loaded" :disabled="!!settings.locked.embed_model" spellcheck="false">
+            <small class="muted">Sent as “model” with each request, for servers that host several. Photos are re-indexed when the model changes.</small>
+          </label>
+          <label class="set-row"><span>Parallel requests</span>
+            <input class="input narrow" type="number" min="1" max="64" x-model.number="form.embed_workers" :placeholder="settings.effective.embed_workers" :disabled="!!settings.locked.embed_workers">
+            <small class="muted">Match llama-server’s <code>--parallel</code>. After restart.</small>
+          </label>
+        </div>
+
+        <div class="set-group">
+          <h3>Faces</h3>
+          <p class="muted small">Detection, recognition and age models run with ONNX Runtime. These apply after a restart.</p>
+          <label class="set-row"><span>Models folder</span>
+            <input class="input" x-model="form.face_models" :placeholder="settings.effective.face_models || (settings.data_dir + '/models')" :disabled="!!settings.locked.face_models" spellcheck="false">
+          </label>
+          <label class="set-row"><span>ONNX Runtime library</span>
+            <input class="input" x-model="form.onnxruntime" :placeholder="settings.effective.onnxruntime" :disabled="!!settings.locked.onnxruntime" spellcheck="false">
+            <small class="muted">A GPU build of ONNX Runtime lets faces run on the graphics card.</small>
+          </label>
+          <label class="set-row"><span>Run on</span>
+            <select class="select" x-model="form.face_device" :disabled="!!settings.locked.face_device">
+              <option value="" x-text="'Default (' + settings.defaults.face_device + ')'"></option>
+              <option value="auto">Automatic: GPU if available</option>
+              <option value="cuda">GPU (CUDA)</option>
+              <option value="cpu">CPU</option>
+            </select>
+          </label>
+          <label class="set-row"><span>GPU memory per model</span>
+            <span class="set-field"><input class="input narrow" type="number" min="128" step="128" x-model.number="form.face_gpu_mem_mb" :placeholder="settings.effective.face_gpu_mem_mb" :disabled="!!settings.locked.face_gpu_mem_mb"> <span class="muted">MB</span></span>
+          </label>
+        </div>
+
+        <div class="set-group">
+          <h3>People</h3>
+          <label class="set-row check"><input type="checkbox" :checked="!form.auto_file_off" @change="form.auto_file_off = !$event.target.checked">
+            <span>File confident matches automatically</span>
+            <small class="muted">Groups that look very much like someone you confirmed are filed under them, and wait in Review for you to confirm.</small>
+          </label>
+          <label class="set-row" x-show="!form.auto_file_off"><span>Confidence needed</span>
+            <span class="set-field"><input type="range" min="0.5" max="0.8" step="0.01" :value="form.auto_file_min || 0.6" @input="form.auto_file_min = +$event.target.value"> <b x-text="Math.round((form.auto_file_min || 0.6) * 100) + '%'"></b></span>
+            <small class="muted">60% was always right in tests on a real library; lower files more, with more mistakes.</small>
+          </label>
+          <label class="set-row"><span>Smallest group in Review</span>
+            <input class="input narrow" type="number" min="1" max="50" x-model.number="form.review_min" placeholder="2">
+            <small class="muted">Groups with fewer photos are left out of Review.</small>
+          </label>
+        </div>
+
+        <div class="set-group">
+          <h3>Import</h3>
+          <p class="muted small">These apply after a restart.</p>
+          <label class="set-row"><span>Parallel imports</span>
+            <input class="input narrow" type="number" min="1" max="64" x-model.number="form.workers" :placeholder="settings.effective.workers" :disabled="!!settings.locked.workers">
+          </label>
+          <label class="set-row"><span>Connections per network folder</span>
+            <input class="input narrow" type="number" min="1" max="16" x-model.number="form.conns" :placeholder="settings.effective.conns" :disabled="!!settings.locked.conns">
+          </label>
+          <label class="set-row"><span>Look for new photos every</span>
+            <span class="set-field"><input class="input narrow" type="number" min="-1" x-model.number="form.rescan_minutes" :placeholder="settings.effective.rescan_minutes" :disabled="!!settings.locked.rescan_minutes"> <span class="muted">minutes (−1: never)</span></span>
+          </label>
+        </div>
+
+        <div class="set-group">
+          <h3>Map</h3>
+          <label class="set-row"><span>Map tiles</span>
+            <input class="input" x-model="form.map_tiles" placeholder="https://tile.openstreetmap.org/{z}/{x}/{y}.png" spellcheck="false">
+            <small class="muted">A tile server URL with {z}, {x} and {y}. Applies when the map is next opened.</small>
+          </label>
+        </div>
+
+        <p class="muted small" x-show="Object.keys(settings.locked).length">Greyed-out settings are set on the command line (<span x-text="Object.values(settings.locked).join(', ')"></span>), which takes priority.</p>
+        <p class="muted small">Data folder: <code x-text="settings.data_dir"></code></p>
+
+        <div class="settings-actions">
+          <button class="btn primary" @click="saveSettings()" :disabled="savingSettings" x-text="savingSettings ? 'Saving…' : 'Save'"></button>
+          <button class="btn ghost" @click="resetForm()">Undo changes</button>
+        </div>
+      </div>
+    </template>
+  </section>
+
+  <!-- Map -->
+  <section class="mapview" x-show="view === 'map'" x-cloak>
+    <div id="map" x-ref="map"></div>
+    <div class="map-bar">
+      <button class="btn map-back" x-show="mapReturn" @click="backFromMap()">← Back to photo</button>
+      <div class="map-badge" x-text="fmtCount(geoCount) + ' geotagged photos' + (tokens.length ? ' matching' : '')"></div>
+    </div>
+  </section>
+
+  <!-- Table -->
+  <section class="tableview" x-show="view === 'table' && stats.library.images > 0" x-ref="table" @scroll.passive="onScroll()" x-cloak>
+    <table>
+      <thead><tr>
+        <th></th>
+        <th>Name</th>
+        <th><button @click="setSort('taken')" :class="sortClass('taken')">Taken</button></th>
+        <th>Dimensions</th>
+        <th><button @click="setSort('size_desc')" :class="sortClass('size')">Size</button></th>
+        <th><button @click="setSort('camera')" :class="sortClass('camera')">Camera</button></th>
+        <th>Exposure</th>
+        <th>Location</th>
+        <th><button @click="setSort('rating')" :class="sortClass('rating')">Rating</button></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="(im, idx) in items" :key="im.id">
+          <tr @click="openLightbox(idx)">
+            <td class="t-thumb"><img :src="thumbURL(im)" loading="lazy" alt=""></td>
+            <td class="t-name"><div x-text="baseName(im.path)"></div><small x-text="dirName(im.path)"></small></td>
+            <td x-text="fmtDate(im.taken)"></td>
+            <td class="num" x-text="im.w + ' × ' + im.h"></td>
+            <td class="num" x-text="fmtBytes(im.size)"></td>
+            <td x-text="[im.make, im.model].filter(Boolean).join(' ') || '—'"></td>
+            <td x-text="exposureLine(im) || '—'"></td>
+            <td x-text="im.lat != null ? im.lat.toFixed(4) + ', ' + im.lon.toFixed(4) : '—'"></td>
+            <td><span class="stars" x-text="'★'.repeat(im.rating) || '—'"></span></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    <div class="sentinel" x-ref="tableSentinel"></div>
+    <div class="loading" x-show="loading"><span class="spinner"></span></div>
+  </section>
+
+  <!-- Folders / settings -->
+  <section class="folders" x-show="view === 'folders'" x-cloak>
+    <div class="panel">
+      <h2>Library folders</h2>
+      <p class="muted">Folders can be local or on a network share. ImageOrganizer scans them and all their subfolders; moving files around keeps every rating, note and person tag.</p>
+      <div class="folder-list">
+        <template x-for="f in folders" :key="f.id">
+          <div class="folder-row">
+            <span class="folder-icon" x-html="f.location.startsWith('/') ? icons.folder : icons.server"></span>
+            <div class="folder-main">
+              <div class="folder-path" x-text="f.location"></div>
+              <div class="muted small" x-text="fmtCount(f.images) + ' photos · ' + (f.last_scan ? 'scanned ' + fmtAgo(f.last_scan) : 'not scanned yet')"></div>
+            </div>
+            <button class="btn ghost danger" @click="removeFolder(f)">Remove</button>
+          </div>
+        </template>
+        <div class="muted" x-show="folders.length === 0">No folders yet.</div>
+      </div>
+      <div class="add-box">
+        <div class="seg">
+          <button :class="{on: add.kind === 'file'}" @click="add.kind = 'file'"><span x-html="icons.folder"></span>This computer</button>
+          <button :class="{on: add.kind === 'smb'}" @click="add.kind = 'smb'"><span x-html="icons.server"></span>Network share (SMB)</button>
+        </div>
+        <form class="add-folder" @submit.prevent="addFolder()">
+          <template x-if="add.kind === 'file'">
+            <div class="fields">
+              <input class="input grow" x-model="add.path" placeholder="/home/you/Pictures" spellcheck="false">
+            </div>
+          </template>
+          <template x-if="add.kind === 'smb'">
+            <div class="fields">
+              <input class="input" x-model="add.host" placeholder="Server, e.g. nas.local" spellcheck="false">
+              <input class="input" x-model="add.user" placeholder="User (DOMAIN;user ok)" spellcheck="false" autocomplete="username">
+              <input class="input" type="password" x-model="add.password" placeholder="Password" autocomplete="current-password">
+              <input class="input grow" x-model="add.path" placeholder="/share/folder" spellcheck="false">
+            </div>
+          </template>
+          <div class="add-actions">
+            <button type="button" class="btn" @click="openBrowser()" :disabled="add.kind === 'smb' && !add.host">Browse…</button>
+            <button class="btn primary" :disabled="add.busy || !(add.kind === 'file' ? add.path : add.host && add.path)" x-text="add.busy ? 'Connecting…' : 'Add folder'"></button>
+          </div>
+        </form>
+      </div>
+      <div class="error" x-show="folderError" x-text="folderError"></div>
+      <div class="folder-actions">
+        <button class="btn" @click="rescan()" :disabled="scan.running" x-text="scan.running ? 'Scanning…' : 'Rescan now'"></button>
+      </div>
+    </div>
+
+    <div class="panel stats-panel">
+      <h2>Library</h2>
+      <div class="stat-grid">
+        <div class="stat"><b x-text="fmtCount(stats.library.images)"></b><span>photos</span></div>
+        <div class="stat"><b x-text="fmtBytes(stats.library.bytes)"></b><span>on disk</span></div>
+        <div class="stat"><b x-text="fmtCount(stats.library.geo)"></b><span>geotagged</span></div>
+        <div class="stat"><b x-text="fmtCount(stats.library.files - stats.library.images)"></b><span>duplicate files</span></div>
+        <div class="stat"><b x-text="fmtCount(stats.library.lost)"></b><span>missing (kept)</span></div>
+      </div>
+      <div class="muted small" x-show="scan.last_error" x-text="'Last error: ' + scan.last_error"></div>
+    </div>
+
+    <!-- Directory browser -->
+    <div class="modal-back" x-show="browser.open" x-transition.opacity @click.self="browser.open = false" x-cloak>
+      <div class="modal">
+        <div class="modal-head">
+          <button class="icon-btn" @click="browse(browser.parent)" :disabled="!browser.parent" x-html="icons.up" title="Up"></button>
+          <div class="crumb" x-text="browser.location"></div>
+        </div>
+        <div class="dir-list">
+          <div class="muted pad" x-show="browser.loading"><span class="spinner"></span></div>
+          <div class="error pad" x-show="browser.error" x-text="browser.error"></div>
+          <template x-for="d in browser.dirs" :key="d">
+            <button class="dir" @click="browse(childLocation(browser.location, d))"><span x-html="icons.folder"></span><span x-text="d"></span></button>
+          </template>
+          <div class="muted pad" x-show="!browser.loading && !browser.error && browser.dirs.length === 0">No subfolders</div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn ghost" @click="browser.open = false">Cancel</button>
+          <button class="btn primary" @click="chooseBrowsed()" :disabled="!canChoose()">Choose this folder</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Lightbox -->
+<!-- One group, all its faces: take wrong ones out, pick the person's picture -->
+<div class="group-view" x-show="groupView.g" x-transition.opacity.duration.120ms x-cloak @click.self="closeGroupView()">
+  <template x-if="groupView.g">
+    <div class="group-view-panel">
+      <div class="group-view-head">
+        <div>
+          <h3 x-text="(openedPerson() ? openedPerson().name : 'Group') + ' · ' + fmtCount(groupView.faces.length || groupView.g.size) + ' faces'"></h3>
+          <div class="muted small">
+            <span x-show="groupView.g.est_birth" x-text="birthLabel(groupView.g.est_birth) + ' · '"></span>
+            Oldest photo first. Hover a face: ★ makes it the picture, ✕ takes it out. Click to see the photo.
+          </div>
+        </div>
+        <button class="icon-btn" title="Close (Esc)" @click="closeGroupView()" x-html="icons.close"></button>
+      </div>
+      <div class="loading" x-show="groupView.loading"><span class="spinner"></span></div>
+      <div class="group-view-grid">
+        <template x-for="f in groupView.faces" :key="f.id">
+          <div class="gv-face" :class="isCover(f) && 'cover'">
+            <img :src="faceURL(f.crop)" loading="lazy" alt="" @click="openImageById(f.image)" @mouseenter="peekFace($event, f)" @mouseleave="peek = null">
+            <div class="gv-actions">
+              <button title="Use as picture" @click="setCover(f)" x-text="isCover(f) ? '★' : '☆'"></button>
+              <button title="Not this person — take out" @click="takeOutFace(f)">✕</button>
+            </div>
+            <small x-show="f.taken" x-text="fmtDateShort(f.taken)"></small>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+</div>
+
+<div class="lightbox" :class="{'with-info': lightbox.info}" x-show="lightbox.open" x-transition.opacity.duration.150ms x-cloak>
+  <div class="lb-stage" @click.self="closeLightbox()">
+    <template x-if="current()">
+      <div class="lb-frame" @click.self="closeAssign()">
+        <img class="lb-img" :src="previewURL(current())" :key="current().id" alt="" @click="closeAssign()">
+        <!-- Who is in the photo: toggle with the faces button or F -->
+        <template x-if="lightbox.faces && detail && detail.id === current().id">
+          <div>
+            <template x-for="f in detail.faces || []" :key="f.id">
+              <button class="face-box" :class="{known: f.person, bg: f.bg && !f.person, active: assign.face && assign.face.id === f.id}" :style="boxStyle(f)"
+                      @click.stop="openAssign(f)" :title="f.person ? f.person_name : 'Who is this?'">
+                <span x-show="f.person || !f.bg" x-text="f.person ? f.person_name : 'Who is this?'"></span>
+              </button>
+            </template>
+          </div>
+        </template>
+        <!-- Assign a face's group to a person, right from the photo -->
+        <div class="assign-pop" x-show="assign.face" x-transition.opacity :style="assignStyle()" @click.stop x-cloak>
+          <template x-if="assign.face">
+            <div>
+              <div class="assign-head">
+                <img :src="faceURL(assign.face.crop)" alt="">
+                <div>
+                  <b x-text="assign.face.person ? assign.face.person_name : 'Who is this?'"></b>
+                  <small class="muted" x-show="assign.face.age >= 0" x-text="'looks ~' + Math.round(assign.face.age)"></small>
+                </div>
+              </div>
+              <template x-if="true">
+                <div>
+                  <div class="suggestions" x-show="assign.group && assign.group.suggestions.length">
+                    <template x-for="p in assign.group ? assign.group.suggestions : []" :key="p.id">
+                      <button class="suggestion" :disabled="assign.busy" @click="assignFace(p.id)">
+                        <img :src="faceURL(p.cover)" alt="" x-show="p.cover"><span x-text="p.name"></span>
+                      </button>
+                    </template>
+                  </div>
+                  <form class="name-form" @submit.prevent="assignFace()">
+                    <input class="input" list="people-names" x-model="assign.name" x-ref="assignInput" spellcheck="false"
+                           :placeholder="assign.face.person ? 'Someone else…' : 'Name'">
+                    <button class="btn primary" :disabled="!assign.name.trim() || assign.busy" x-text="assign.busy ? 'Saving…' : 'Save'"></button>
+                  </form>
+                  <div class="assign-actions">
+                    <button class="btn ghost danger" x-show="assign.face.person" :disabled="assign.busy" @click="unassignFace()" x-text="'Not ' + assign.face.person_name"></button>
+                    <button class="btn ghost" :disabled="assign.busy" @click="notAFace()" title="A cat, a statue, a pattern…">Not a person</button>
+                  </div>
+                  <a href="#" class="assign-group small" x-show="assign.group && assign.group.size > 1" @click.prevent="openGroup(assign.face.group)"
+                     x-text="'See all ' + fmtCount(assign.group?.size) + ' photos in this group →'"></a>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+    <button class="lb-nav prev" @click="step(-1)" x-show="lightbox.idx > 0" x-html="icons.left"></button>
+    <button class="lb-nav next" @click="step(1)" x-show="lightbox.idx < total - 1" x-html="icons.right"></button>
+  </div>
+  <div class="lb-top">
+    <button class="icon-btn" @click="closeLightbox()" x-html="icons.close" title="Close (Esc)"></button>
+    <div class="lb-title" x-text="current() && (current().title || baseName(current().path))"></div>
+    <div class="lb-actions">
+      <button class="icon-btn" :disabled="rotating" @click="rotateCurrent(90)" x-html="icons.rotate" title="Turn clockwise — for photos the camera saved sideways (R)"></button>
+      <button class="icon-btn" :class="{active: lightbox.faces}" @click="toggleFaces()" x-html="icons.people" title="Show who is in the photo (F)"></button>
+      <button class="icon-btn" :class="{on: current()?.fav}" @click="toggleFav(current())" x-html="current()?.fav ? icons.heartFill : icons.heart" title="Favorite (H)"></button>
+      <a class="icon-btn" :href="current() && '/original/' + current().id + '?download'" x-html="icons.download" title="Download original"></a>
+      <button class="icon-btn" :class="{on: lightbox.info}" @click="lightbox.info = !lightbox.info" x-html="icons.info" title="Info (I)"></button>
+    </div>
+  </div>
+  <aside class="lb-info" x-show="lightbox.info" x-transition.opacity>
+    <template x-if="detail">
+      <div>
+        <div class="info-date" x-text="fmtDateLong(detail.taken)"></div>
+        <input class="input title-input" placeholder="Add a title" :value="detail.title" @change="saveEdit({title: $event.target.value})">
+        <div class="rating">
+          <template x-for="n in 5"><button @click="saveEdit({rating: detail.rating === n ? 0 : n})" :class="{on: n <= detail.rating}">★</button></template>
+        </div>
+        <dl>
+          <template x-if="detail.model"><div><dt x-html="icons.camera"></dt><dd><b x-text="[detail.make, detail.model].filter(Boolean).join(' ')"></b><small x-text="[detail.lens, exposureLine(detail)].filter(Boolean).join(' · ')"></small></dd></div></template>
+          <div><dt x-html="icons.image"></dt><dd><b x-text="baseName(detail.path)"></b><small x-text="`${detail.w} × ${detail.h} · ${(detail.w*detail.h/1e6).toFixed(1)} MP · ${fmtBytes(detail.size)} · ${detail.format.toUpperCase()}`"></small></dd></div>
+          <template x-if="detail.lat != null"><div><dt x-html="icons.pin"></dt><dd><b x-text="detail.lat.toFixed(5) + ', ' + detail.lon.toFixed(5)"></b><small><a href="#" @click.prevent="showOnMap(detail)">Show on map</a></small></dd></div></template>
+        </dl>
+        <div class="lb-faces" x-show="detail.faces && detail.faces.length">
+          <template x-for="f in (detail.faces || []).filter(f => f.person || !f.bg)" :key="f.id">
+            <button class="lb-face" :class="{unknown: !f.person}" @click="f.person ? (closeLightbox(), openPerson({id: f.person})) : (lightbox.faces = true, openAssign(f))">
+              <img :src="faceURL(f.crop)" alt="">
+              <span x-text="f.person ? f.person_name : 'Unknown'"></span>
+            </button>
+          </template>
+        </div>
+        <textarea class="input notes" placeholder="Notes" :value="detail.notes" @change="saveEdit({notes: $event.target.value})"></textarea>
+        <div class="files">
+          <div class="files-head">Locations</div>
+          <template x-for="f in detail.files" :key="f.path">
+            <div class="file" :class="{gone: f.missing_since}">
+              <span x-text="f.path"></span>
+              <small x-show="f.missing_since" x-text="'moved away ' + fmtAgo(f.missing_since)"></small>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+  </aside>
+</div>
+<!-- A bigger look at a small face crop, on hover -->
+<div class="face-peek" x-show="peek" x-cloak :style="peek && `left:${peek.x}px;top:${peek.y}px`">
+  <template x-if="peek">
+    <div><img :src="faceURL(peek.f.crop)" alt=""><small x-show="peek.f.taken" x-text="fmtDate(peek.f.taken)"></small></div>
+  </template>
+</div>
+<!-- After naming someone (photo viewer or Review): "Is this also <name>?" for their likeliest other groups -->
+<div class="also-pop" x-show="also.person && also.items.length" x-transition.opacity x-cloak>
+  <div class="also-head">
+    <b x-text="'Is this also ' + alsoName() + '?'"></b>
+    <button class="icon-btn" title="Done (Esc)" @click="closeAlso()" x-html="icons.close"></button>
+  </div>
+  <template x-for="g in also.items" :key="g.id">
+    <div class="also-row" :class="also.busy === g.id && 'busy'">
+      <div class="also-faces">
+        <template x-for="f in g.faces.slice(0, 4)" :key="f.id"><img :src="faceURL(f.crop)" alt="" :class="f.odd && 'odd'" @mouseenter="peekFace($event, f)" @mouseleave="peek = null" @click="peek = null; openImageById(f.image)"></template>
+      </div>
+      <div class="also-meta muted small">
+        <span x-text="fmtCount(g.size) + (g.size === 1 ? ' photo' : ' photos')"></span>
+        <span x-show="g.est_birth" x-text="birthLabel(g.est_birth)"></span>
+      </div>
+      <div class="also-actions">
+        <button class="btn primary" :disabled="!!also.busy" @click="alsoAnswer(g, true)">Yes</button>
+        <button class="btn ghost" :disabled="!!also.busy" @click="alsoAnswer(g, false)">No</button>
+      </div>
+    </div>
+  </template>
+</div>
+</body>
+</html>
