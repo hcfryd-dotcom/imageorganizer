@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -165,13 +166,16 @@ func TestSiblingsBornApartStaySeparate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// New photos join automatically: the older child's to the person, the
-	// younger child's not.
+	// New photos are filed automatically: the older child's under the
+	// person, the younger child's not.
 	fo := h.photo(day(2001, 20), variant(r, older, 0.02), 8.2)
+	fy := h.photo(day(2006, 20), variant(r, younger, 0.02), 8.2)
+	if _, _, err := h.s.FileFaces(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if c := h.s.clusters[h.group(fo)]; c.PersonID != pid {
 		t.Errorf("new photo of the older child not recognised")
 	}
-	fy := h.photo(day(2006, 20), variant(r, younger, 0.02), 8.2)
 	if c := h.s.clusters[h.group(fy)]; c.PersonID == pid {
 		t.Errorf("younger sibling recognised as the older one")
 	}
@@ -271,25 +275,24 @@ func TestRejectRemoveMergeAndPersist(t *testing.T) {
 	}
 }
 
-// A change of grouping rules regroups everything at startup, keeping who
-// the user said people are.
+// A change of grouping rules regroups everything, keeping who the user
+// said people are: the faces they saw keep their person wherever they're
+// grouped, and it's stored.
 func TestRegroupKeepsNames(t *testing.T) {
 	h := newHarness(t)
 	r := rand.New(rand.NewPCG(5, 5))
 	ctx := context.Background()
 	a := identity(r)
 	var fs []int64
-	for i := range 5 {
+	for i := range 10 {
 		fs = append(fs, h.photo(day(2020, 1+i), variant(r, a, 0.02), 30))
 	}
-	pid, err := h.s.NameGroup(ctx, h.group(fs[0]), 0, "Ann")
+	// Four seen and named; the rest, the same person, never.
+	pid, err := h.s.ConfirmFaces(ctx, 0, "Ann", fs[:4], nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Pretend the data was grouped by older rules.
-	if err := h.s.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(bucketMeta).Put(keyGroupingVersion, []byte("1"))
-	}); err != nil {
+	if err := h.s.db.Update(h.s.regroup); err != nil {
 		t.Fatal(err)
 	}
 	path := h.s.db.Path()
@@ -299,40 +302,44 @@ func TestRegroupKeepsNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s2.Close()
-	for _, f := range fs {
-		if c := s2.clusters[s2.faces[f].ClusterID]; c == nil || c.PersonID != pid {
-			t.Fatalf("face %d lost its person after regrouping", f)
+	for i, f := range fs {
+		c := s2.clusters[s2.faces[f].ClusterID]
+		if named := c != nil && c.PersonID == pid; named != (i < 4) {
+			t.Errorf("face %d (seen: %v) is named after regrouping: %v", f, i < 4, named)
 		}
 	}
 }
 
-// The regroup that lost names in a real library: a named group whose faces
-// end up in a new group together with many never-named faces of the same
-// person. Only named faces vote, so the name survives.
-func TestRegroupKeepsNamesWhenMixedWithUnnamed(t *testing.T) {
+// Starting over (the one-off migration): no face named, each keeping who it was (Was), the
+// people and their family kept.
+func TestStartOverKeepsWhoItWas(t *testing.T) {
 	h := newHarness(t)
 	r := rand.New(rand.NewPCG(8, 8))
 	ctx := context.Background()
 	a := identity(r)
 	var fs []int64
-	for i := range 10 {
+	for i := range 6 {
 		fs = append(fs, h.photo(day(2020, 1+i), variant(r, a, 0.02), 30))
 	}
-	pid, err := h.s.NameGroup(ctx, h.group(fs[0]), 0, "Ann")
+	pid, err := h.s.ConfirmFaces(ctx, 0, "Ann", fs[:3], nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Simulate older rules having split the person: six of the ten faces
-	// sat in a separate group nobody named.
+	kid, _ := h.s.ConfirmFaces(ctx, 0, "Kid", nil, fs[3:4])
+	paint, _ := h.s.ConfirmFaces(ctx, 0, "Painting", fs[5:6], nil)
+	yes := true
+	if err := h.s.UpdatePerson(ctx, paint, PersonEdit{Picture: &yes}); err != nil {
+		t.Fatal(err)
+	}
+	year := 1990
+	if err := h.s.UpdatePerson(ctx, pid, PersonEdit{BirthYear: &year}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.s.SetRelation(ctx, kid, pid, KinParent, true); err != nil {
+		t.Fatal(err)
+	}
 	if err := h.s.db.Update(func(tx *bolt.Tx) error {
-		for _, id := range fs[4:] {
-			f := *h.s.faces[id]
-			f.ClusterID = 999
-			if err := put(tx, bucketFaces, f.ID, &f); err != nil {
-				return err
-			}
-		}
-		return tx.Bucket(bucketMeta).Put(keyGroupingVersion, []byte("1"))
+		return tx.Bucket(bucketMeta).Put(keyGroupingVersion, []byte(strconv.Itoa(min(startOverBelow, groupingVersion)-1)))
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -343,13 +350,30 @@ func TestRegroupKeepsNamesWhenMixedWithUnnamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s2.Close()
-	for _, f := range fs {
-		if c := s2.clusters[s2.faces[f].ClusterID]; c == nil || c.PersonID != pid {
-			t.Fatalf("face %d lost its person: 4 of 10 faces were named, all agreeing", f)
+	for i, id := range fs {
+		f := s2.faces[id]
+		if c := s2.clusters[f.ClusterID]; f.Tagged != 0 || c != nil && c.PersonID != 0 {
+			t.Errorf("face %d still named after starting over", id)
+		}
+		want := map[bool]int64{true: pid, false: 0}[i < 3]
+		if i == 5 {
+			want = paint
+		}
+		if f.Was != want {
+			t.Errorf("face %d was %d, want %d", id, f.Was, want)
 		}
 	}
+	if p := s2.people[pid]; p == nil || p.Name != "Ann" || p.BirthYear != 0 || s2.people[kid].Parents != nil {
+		t.Errorf("only names should stay: %+v %+v", p, s2.people[kid])
+	}
+	if !s2.people[paint].Picture {
+		t.Error("a painting stopped being one")
+	}
+	if f := s2.faces[fs[3]]; f.Not != nil {
+		t.Errorf("'not Kid' kept: %v", f.Not)
+	}
 	if matches, _ := filepath.Glob(path + ".pre-regroup-*"); len(matches) == 0 {
-		t.Error("no backup was written before regrouping")
+		t.Error("no backup was written before starting over")
 	}
 }
 
@@ -407,11 +431,51 @@ func TestKnownUnknownPhotos(t *testing.T) {
 		t.Fatal(err)
 	}
 	img := func(fid int64) int64 { return h.s.faces[fid].ImageID }
-	if got := h.s.FaceImageIDs(true); !slices.Equal(got, []int64{img(fa)}) {
+	if got := h.s.FaceImageIDs("known", ""); !slices.Equal(got, []int64{img(fa)}) {
 		t.Errorf("known photos = %v, want Ann's photo %d", got, img(fa))
 	}
-	if got := h.s.FaceImageIDs(false); !slices.Equal(got, []int64{img(fb)}) {
+	if got := h.s.FaceImageIDs("unknown", ""); !slices.Equal(got, []int64{img(fb)}) {
 		t.Errorf("unknown photos = %v, want only Bob's photo %d (hidden groups count as neither)", got, img(fb))
+	}
+}
+
+func TestFaceFilterCounts(t *testing.T) {
+	h := newHarness(t)
+	r := rand.New(rand.NewPCG(11, 12))
+	ctx := context.Background()
+	ann, bob, cat := identity(r), identity(r), identity(r)
+	a1, b1 := h.crowd(day(2020, 1), variant(r, ann, 0.02), variant(r, bob, 0.02))
+	a2, _ := h.crowd(day(2020, 2), variant(r, ann, 0.02), variant(r, bob, 0.02))
+	c3 := h.photo(day(2020, 3), variant(r, cat, 0.02), 30)
+	if _, err := h.s.NameGroup(ctx, h.group(a1), 0, "Ann"); err != nil {
+		t.Fatal(err)
+	}
+	// Bob's background faces filed by themselves, not confirmed.
+	h.s.clusters[h.group(b1[0])].PersonID = 999
+	img := func(fid int64) int64 { return h.s.faces[fid].ImageID }
+	both, alone := []int64{img(a1), img(a2)}, []int64{img(c3)}
+	for _, tc := range []struct {
+		kind, count string
+		want        []int64
+	}{
+		{"confirmed", "", both},
+		{"unconfirmed", "", both},
+		{"known", "", both},
+		{"known", "many", both},
+		{"known", "one", nil},
+		{"confirmed", "one", both},
+		{"unknown", "", alone},
+		{"unknown", "one", alone},
+		{"unknown", "many", nil},
+	} {
+		got := h.s.FaceImageIDs(tc.kind, tc.count)
+		slices.Sort(got)
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("%s: %v, want %v", FaceFilterName(tc.kind, tc.count), got, tc.want)
+		}
+	}
+	if n := h.s.FacePhotoCounts(); n["many-known"] != 2 || n["one-unknown"] != 1 || n["many-unknown"] != 0 {
+		t.Errorf("counts %v", n)
 	}
 }
 
@@ -474,11 +538,11 @@ func TestBackgroundFacesStayOutOfReview(t *testing.T) {
 	if slices.Contains(ids, h.group(backs[0])) {
 		t.Errorf("a group of background faces is in review: %v", ids)
 	}
-	if got := h.s.FaceImageIDs(false); len(got) != 3 {
+	if got := h.s.FaceImageIDs("unknown", ""); len(got) != 3 {
 		t.Errorf("$unknown: %d photos, want the 3 with an unnamed main face", len(got))
 	}
 	pid, _ := h.s.NameGroup(ctx, h.group(mains[0]), 0, "Son")
-	if got := h.s.FaceImageIDs(false); len(got) != 0 {
+	if got := h.s.FaceImageIDs("unknown", ""); len(got) != 0 {
 		t.Errorf("$unknown still finds %d photos with only background strangers left", len(got))
 	}
 	_ = pid
@@ -517,32 +581,46 @@ func TestOnePersonPerPhoto(t *testing.T) {
 	}
 }
 
-func TestAutoFiledAndUndone(t *testing.T) {
+// Faces near certain someone's are filed under them by themselves, one by
+// one, learning from what's filed; "Not Ann" takes one out for good.
+func TestFileFaces(t *testing.T) {
 	h := newHarness(t)
 	r := rand.New(rand.NewPCG(13, 14))
 	ctx := context.Background()
 	ann := identity(r)
 	// Ann in 2010 and again in 2020: outside one group's time window, but
-	// the same face, so the later group is filed under her automatically.
+	// the same face.
 	f1 := h.photo(day(2010, 1), variant(r, ann, 0.02), 30)
-	h.photo(day(2010, 2), variant(r, ann, 0.02), 30)
-	pid, _ := h.s.NameGroup(ctx, h.group(f1), 0, "Ann")
+	f0 := h.photo(day(2010, 2), variant(r, ann, 0.02), 30)
+	pid, _ := h.s.ConfirmFaces(ctx, 0, "Ann", []int64{f1, f0}, nil)
 	f2 := h.photo(day(2020, 1), variant(r, ann, 0.02), 40)
-	c := h.s.clusters[h.group(f2)]
-	if h.group(f2) == h.group(f1) || c.PersonID != pid || !c.Auto {
-		t.Fatalf("later group: person %d auto %v, want filed under Ann automatically", c.PersonID, c.Auto)
+	f3 := h.photo(day(2020, 3), variant(r, ann, 0.02), 40)
+	if c := h.s.clusters[h.group(f2)]; c.PersonID != 0 {
+		t.Fatal("a new face named without anyone seeing it")
 	}
-	h.photo(day(2020, 3), variant(r, ann, 0.02), 40) // 2 faces: big enough for review
-	if !c.inReview(2) {
-		t.Fatal("an automatically filed group should wait in review for confirmation")
+	if n, _, err := h.s.FileFaces(ctx); err != nil || n != 2 {
+		t.Fatalf("filed %d (%v), want both later faces", n, err)
 	}
-	// "Not Ann" sticks: the group isn't filed again as it grows.
-	if err := h.s.RejectGroup(ctx, c.id, pid); err != nil {
+	for _, f := range []int64{f2, f3} {
+		if c := h.s.clusters[h.group(f)]; c.PersonID != pid || h.s.faces[f].Tagged != 0 {
+			t.Fatalf("face %d: person %d tagged %d, want filed under Ann, not confirmed", f, c.PersonID, h.s.faces[f].Tagged)
+		}
+	}
+	// Someone unlike her stays unnamed.
+	if f := h.photo(day(2020, 5), identity(r), 40); h.s.clusters[h.group(f)].PersonID != 0 {
+		t.Fatal("a stranger filed")
+	}
+	h.s.FileFaces(ctx)
+	// "Not Ann" sticks.
+	if _, err := h.s.ConfirmFaces(ctx, pid, "", nil, []int64{f3}); err != nil {
 		t.Fatal(err)
 	}
-	f3 := h.photo(day(2020, 2), variant(r, ann, 0.02), 40)
-	if h.group(f3) != c.id || c.PersonID != 0 || c.Auto {
-		t.Fatalf("after Not Ann: person %d auto %v", c.PersonID, c.Auto)
+	h.s.FileFaces(ctx)
+	if c := h.s.clusters[h.group(f3)]; c.PersonID != 0 {
+		t.Fatal("a face said not to be Ann filed under her again")
+	}
+	if c := h.s.clusters[h.group(f2)]; c.PersonID != pid {
+		t.Fatal("the other face left Ann")
 	}
 }
 
@@ -588,28 +666,6 @@ func TestTagFaceIsJustThatFace(t *testing.T) {
 	}
 }
 
-func TestSeenFacesAreTagged(t *testing.T) {
-	h := newHarness(t)
-	r := rand.New(rand.NewPCG(17, 18))
-	ctx := context.Background()
-	ann := identity(r)
-	f1 := h.photo(day(2020, 1), variant(r, ann, 0.02), 30)
-	f2 := h.photo(day(2020, 2), variant(r, ann, 0.02), 30)
-	pid, _ := h.s.NameGroup(ctx, h.group(f1), 0, "Ann")
-	if err := h.s.MarkSeen(ctx, pid, []int64{f1}); err != nil {
-		t.Fatal(err)
-	}
-	if h.s.faces[f1].Tagged != pid || h.s.faces[f2].Tagged != 0 {
-		t.Fatal("only the face the user saw should be tagged")
-	}
-	if err := h.s.db.Update(h.s.regroup); err != nil {
-		t.Fatal(err)
-	}
-	if h.s.clusters[h.group(f1)].PersonID != pid {
-		t.Fatal("seen face lost its person in a regroup")
-	}
-}
-
 func TestPickedCover(t *testing.T) {
 	h := newHarness(t)
 	r := rand.New(rand.NewPCG(19, 20))
@@ -627,7 +683,7 @@ func TestPickedCover(t *testing.T) {
 		return ""
 	}
 	want := h.s.faceView(h.s.faces[f2]).Crop
-	if err := h.s.UpdatePerson(ctx, pid, nil, nil, &f2); err != nil {
+	if err := h.s.UpdatePerson(ctx, pid, PersonEdit{CoverFace: &f2}); err != nil {
 		t.Fatal(err)
 	}
 	if got := cover(); got != want {
@@ -730,5 +786,87 @@ func TestAlonePhotos(t *testing.T) {
 	}
 	if slices.Contains(got, pair) {
 		t.Error("two people side by side are not $alone")
+	}
+}
+
+// Someone not named yet who looks like Ann, and is in photos with her (so
+// someone else), isn't filed as her before they're named, however much
+// alike: their own group vouches against it.
+func TestRivalNotFiled(t *testing.T) {
+	h := newHarness(t)
+	r := rand.New(rand.NewPCG(23, 24))
+	ctx := context.Background()
+	ann := identity(r)
+	bea := variant(r, ann, 0.03) // a look-alike: sister, cousin
+	var as []int64
+	for i := range 6 {
+		as = append(as, h.photo(day(2010, 1+i), variant(r, ann, 0.02), 30))
+	}
+	pid, _ := h.s.ConfirmFaces(ctx, 0, "Ann", as, nil)
+	// Bea, unnamed: with Ann in three photos, and on her own in more.
+	var bs []int64
+	for i := range 3 {
+		_, b := h.side(day(2011, 1+i), variant(r, ann, 0.02), variant(r, bea, 0.02), 31, 31)
+		bs = append(bs, b)
+	}
+	for i := range 4 {
+		bs = append(bs, h.photo(day(2011, 10+i), variant(r, bea, 0.02), 31))
+	}
+	h.s.mu.RLock()
+	like := dot(unitVec(h.s.faces[bs[3]].emb), clusterUnit(h.s.clusters[h.group(as[0])]))
+	h.s.mu.RUnlock()
+	if like < fileSim+fileLead {
+		// alike enough to be filed, were it not for her own group
+		t.Fatalf("test setup: Bea only %.2f like Ann", like)
+	}
+	for range 3 {
+		h.s.FileFaces(ctx)
+	}
+	for _, b := range bs {
+		if c := h.s.clusters[h.group(b)]; c.PersonID == pid {
+			t.Fatalf("Bea (%.2f like Ann, never named, seen with her) filed as Ann", like)
+		}
+	}
+}
+
+// Faces filed by themselves don't move how old someone looks when: a
+// look-alike older sibling's faces, once filed under the younger, are
+// judged by the younger's confirmed faces, and taken back out.
+func TestFiledDontMoveAge(t *testing.T) {
+	h := newHarness(t)
+	r := rand.New(rand.NewPCG(27, 28))
+	ctx := context.Background()
+	kid := identity(r)
+	elder := variant(r, kid, 0.014) // near-identical, born five years before
+	var ks []int64
+	for i := range 8 {
+		ks = append(ks, h.photo(day(2014+i/2, 1+i), variant(r, kid, 0.02), float32(4+i/2)))
+	}
+	pid, _ := h.s.ConfirmFaces(ctx, 0, "Kid", ks, nil)
+	// The elder at the same ages, five years earlier, slipped in as them.
+	var es []int64
+	for i := range 20 {
+		es = append(es, h.photo(day(2009+i/5, 1+i), variant(r, elder, 0.02), float32(4+i/5)))
+	}
+	h.s.mu.Lock()
+	for _, id := range es {
+		h.s.placeFiled(h.s.faces[id], pid)
+	}
+	b := h.s.personIndex()[pid].ages.birth
+	h.s.mu.Unlock()
+	if b < 2009.5 {
+		t.Fatalf("the filed faces moved their birth year to %.1f", b)
+	}
+	if _, _, err := h.s.FileFaces(ctx); err != nil {
+		t.Fatal(err)
+	}
+	left := 0
+	for _, id := range es {
+		if c := h.s.clusters[h.group(id)]; c.PersonID == pid {
+			left++
+		}
+	}
+	if left > 0 {
+		t.Errorf("%d of the elder's %d faces still filed as the younger", left, len(es))
 	}
 }

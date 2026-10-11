@@ -32,7 +32,8 @@ type Config struct {
 	Library   string // libonnxruntime.so
 	Detector  string // SCRFD .onnx
 	Recognize string // ArcFace .onnx (112×112 aligned input, 512-d output)
-	Age       string // MiVOLO v2 age .onnx; empty disables age estimation
+	Age       string // MiVOLO v2 .onnx (age, and gender when it has a "head" output); empty disables age estimation
+	NSFW      string // an NSFW image classifier .onnx (ViT, 224×224, logits normal/nsfw); empty or missing disables it
 	Threads   int    // intra-op threads per model run (CPU)
 	// Device is "cpu", "cuda", or "auto" (CUDA if the runtime and a GPU
 	// are available, else CPU). CUDA needs an ONNX Runtime GPU build.
@@ -47,11 +48,23 @@ func DefaultConfig(dir string) Config {
 		Library:   "/usr/lib/libonnxruntime.so",
 		Detector:  filepath.Join(dir, "scrfd_10g.onnx"),
 		Recognize: filepath.Join(dir, "arcface_w600k_r50.onnx"),
-		Age:       filepath.Join(dir, "mivolo_v2_age.onnx"),
+		Age:       ageModel(dir),
+		NSFW:      filepath.Join(dir, "nsfw_vit.onnx"),
 		Threads:   1, // parallelism comes from concurrent workers
 		Device:    "auto",
 	}
 }
+
+// ageModel prefers the MiVOLO export that also gives gender (the same
+// network with its head output exposed), else the age-only one.
+func ageModel(dir string) string {
+	if p := filepath.Join(dir, "mivolo_v2_age_gender.onnx"); fileExists(p) {
+		return p
+	}
+	return filepath.Join(dir, "mivolo_v2_age.onnx")
+}
+
+func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 // Face is one detected face in image coordinates of the upright photo,
 // normalised to 0..1 so it is independent of the analysed resolution.
@@ -63,14 +76,18 @@ type Face struct {
 	Crop      []byte        // JPEG of the face for the UI and later age estimation
 	CropBox   [4]float32    // the face's box inside Crop, 0..1
 	// Age is the apparent age when estimated during analysis (AgeDone),
-	// -1 if the face is too small to judge.
+	// -1 if the face is too small to judge; Female the estimated
+	// probability that the face is a woman's or girl's (-1: unknown).
 	Age     float32
+	Female  float32
 	AgeDone bool
 }
 
 // Engine runs the models. Safe for concurrent use.
 type Engine struct {
 	det, rec, age *ort.DynamicAdvancedSession
+	nsfw          *ort.DynamicAdvancedSession
+	gender        bool   // the age model also gives gender (its "head" output)
 	device        string // "cuda" or "cpu", as actually used
 	// gpu feeds model runs to a few dedicated OS threads. ONNX Runtime's
 	// CUDA provider keeps cuBLAS/cuDNN handles and workspaces per calling
@@ -188,6 +205,15 @@ func Open(c Config) (*Engine, error) {
 				e.Close()
 				return nil, fmt.Errorf("age model: %w", err)
 			}
+			if _, out, err := ort.GetInputOutputInfo(c.Age); err == nil && len(out) == 2 && out[1].Name == "head" {
+				e.gender = true
+			}
+		}
+	}
+	if c.NSFW != "" && fileExists(c.NSFW) {
+		if e.nsfw, err = open(c.NSFW); err != nil {
+			e.Close()
+			return nil, fmt.Errorf("nsfw model: %w", err)
 		}
 	}
 	return e, nil
@@ -224,7 +250,7 @@ func (e *Engine) Close() {
 	if e.gpu != nil {
 		close(e.gpu)
 	}
-	for _, s := range []*ort.DynamicAdvancedSession{e.det, e.rec, e.age} {
+	for _, s := range []*ort.DynamicAdvancedSession{e.det, e.rec, e.age, e.nsfw} {
 		if s != nil {
 			s.Destroy()
 		}
@@ -269,13 +295,13 @@ func (e *Engine) Analyze(img *image.RGBA) ([]Face, error) {
 		// enough to do here, while the full photo is at hand; on a CPU the
 		// age stage estimates it later from the stored crop instead.
 		if e.age != nil && e.device == "cuda" {
-			age, ok, err := e.AgeFull(img, d.box)
+			est, err := e.EstimateFull(img, d.box)
 			if err != nil {
 				return nil, err
 			}
-			f.Age, f.AgeDone = -1, true
-			if ok {
-				f.Age = age
+			f.Age, f.Female, f.AgeDone = -1, -1, true
+			if est.OK {
+				f.Age, f.Female = est.Age, est.Female
 			}
 		}
 		out = append(out, f)
@@ -443,8 +469,20 @@ func (e *Engine) embed(img *image.RGBA, kps [5][2]float32) ([]float32, error) {
 // estimateAge runs MiVOLO on the face crop (no body crop, which MiVOLO
 // supports by passing a black image).
 func (e *Engine) estimateAge(img *image.RGBA, box [4]float32) (float32, error) {
-	return e.runAge(letterbox(img, box, ageSize), nil, false)
+	a, _, err := e.runAge(letterbox(img, box, ageSize), nil, false)
+	return a, err
 }
+
+// Estimate is what MiVOLO tells of a face: apparent age, and the
+// probability that it is a woman's or girl's (-1 without a gender model).
+// OK is false when the face is too small to judge.
+type Estimate struct {
+	Age, Female float32
+	OK          bool
+}
+
+// HasGender reports whether the age model also estimates gender.
+func (e *Engine) HasGender() bool { return e.age != nil && e.gender }
 
 // ageSize is MiVOLO's input size for each of the face and body crops.
 const ageSize = 384
@@ -455,8 +493,14 @@ const ageSize = 384
 // detector): a region about three faces wide and seven tall, starting just
 // above the face. ok is false when the face is too small to judge.
 func (e *Engine) AgeFull(img *image.RGBA, box [4]float32) (age float32, ok bool, err error) {
+	est, err := e.EstimateFull(img, box)
+	return est.Age, est.OK, err
+}
+
+// EstimateFull is AgeFull with gender.
+func (e *Engine) EstimateFull(img *image.RGBA, box [4]float32) (Estimate, error) {
 	if e.age == nil || box[2]-box[0] < minAgeFace {
-		return 0, false, nil
+		return Estimate{Female: -1}, nil
 	}
 	face := letterbox(img, box, ageSize)
 	var body *image.RGBA
@@ -469,20 +513,25 @@ func (e *Engine) AgeFull(img *image.RGBA, box [4]float32) (age float32, ok bool,
 	if (bb[2]-bb[0])*(bb[3]-bb[1]) >= 2.5*w*h {
 		body = letterbox(img, bb, ageSize)
 	}
-	a1, err := e.runAge(face, body, false)
+	a1, f1, err := e.runAge(face, body, false)
 	if err != nil {
-		return 0, false, err
+		return Estimate{}, err
 	}
-	a2, err := e.runAge(face, body, true)
+	a2, f2, err := e.runAge(face, body, true)
 	if err != nil {
-		return 0, false, err
+		return Estimate{}, err
 	}
-	return (a1 + a2) / 2, true, nil
+	fem := float32(-1)
+	if f1 >= 0 && f2 >= 0 {
+		fem = (f1 + f2) / 2
+	}
+	return Estimate{Age: (a1 + a2) / 2, Female: fem, OK: true}, nil
 }
 
 // runAge runs MiVOLO on a letterboxed face and optional body crop (nil:
-// black, MiVOLO's "no body"), optionally mirrored.
-func (e *Engine) runAge(face, body *image.RGBA, flip bool) (float32, error) {
+// black, MiVOLO's "no body"), optionally mirrored. female is the
+// probability of a woman's or girl's face, -1 without a gender model.
+func (e *Engine) runAge(face, body *image.RGBA, flip bool) (age, female float32, err error) {
 	const S = ageSize
 	mean := [3]float32{0.485, 0.456, 0.406}
 	std := [3]float32{0.229, 0.224, 0.225}
@@ -518,15 +567,27 @@ func (e *Engine) runAge(face, body *image.RGBA, flip bool) (float32, error) {
 	fill(body, 3)
 	t, err := ort.NewTensor(ort.NewShape(1, 6, S, S), in)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	defer t.Destroy()
 	outs := []ort.Value{nil}
-	if err := e.run(e.age, []ort.Value{t}, outs); err != nil {
-		return 0, err
+	if e.gender {
+		outs = append(outs, nil)
 	}
-	defer outs[0].Destroy()
-	return outs[0].(*ort.Tensor[float32]).GetData()[0], nil
+	if err := e.run(e.age, []ort.Value{t}, outs); err != nil {
+		return 0, 0, err
+	}
+	for _, o := range outs {
+		defer o.Destroy()
+	}
+	age = outs[0].(*ort.Tensor[float32]).GetData()[0]
+	female = -1
+	if e.gender {
+		// The head: male and female logits, then the raw age.
+		h := outs[1].(*ort.Tensor[float32]).GetData()
+		female = float32(1 / (1 + math.Exp(float64(h[0]-h[1]))))
+	}
+	return age, female, nil
 }
 
 // cropJPEG cuts a square around the face with some margin, like a contact
@@ -561,12 +622,18 @@ func (e *Engine) HasAge() bool { return e.age != nil }
 // AgeFromCrop estimates the apparent age of the face at box (0..1) inside a
 // stored face crop. ok is false when the face is too small to judge.
 func (e *Engine) AgeFromCrop(crop []byte, box [4]float32) (age float32, ok bool, err error) {
+	est, err := e.EstimateFromCrop(crop, box)
+	return est.Age, est.OK, err
+}
+
+// EstimateFromCrop is AgeFromCrop with gender.
+func (e *Engine) EstimateFromCrop(crop []byte, box [4]float32) (Estimate, error) {
 	if e.age == nil {
-		return 0, false, errors.New("no age model")
+		return Estimate{}, errors.New("no age model")
 	}
 	src, err := jpeg.Decode(bytes.NewReader(crop))
 	if err != nil {
-		return 0, false, err
+		return Estimate{}, err
 	}
 	b := src.Bounds()
 	img := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
@@ -574,8 +641,8 @@ func (e *Engine) AgeFromCrop(crop []byte, box [4]float32) (age float32, ok bool,
 	W, H := float32(b.Dx()), float32(b.Dy())
 	px := [4]float32{box[0] * W, box[1] * H, box[2] * W, box[3] * H}
 	if px[2]-px[0] < minAgeFace {
-		return 0, false, nil
+		return Estimate{Female: -1}, nil
 	}
-	a, err := e.estimateAge(img, px)
-	return a, err == nil, err
+	a, fem, err := e.runAge(letterbox(img, px, ageSize), nil, false)
+	return Estimate{Age: a, Female: fem, OK: err == nil}, err
 }

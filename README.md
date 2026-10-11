@@ -22,7 +22,7 @@ never changed.
   - background faces (audiences, passers-by) and non-faces are kept out of
     the way.
 - **Search for people**: type a name and pick it from the list ("Anna in the
-  garden 2010"), or use `$unknown`, `$known` and `$alone`.
+  garden 2010"), or use `$unknown`, `$known` (`$confirmed` or `$unconfirmed`), `$alone`, and `one(…)` / `many(…)` of a face filter: `one($known) one($unknown)`.
 - **Fixes for camera mistakes**: photos saved sideways are detected from the
   faces, or turned by hand; the correction is stored, the file is untouched.
 
@@ -41,7 +41,9 @@ never changed.
   lets faces run on the graphics card) and three models in the models folder
   (default `~/.local/share/imageorganizer/models`): `scrfd_10g.onnx` (face
   detection), `arcface_w600k_r50.onnx` (recognition) and `mivolo_v2_age.onnx`
-  (age).
+  (age). With `mivolo_v2_age_gender.onnx` instead (the same MiVOLO v2 network
+  with its head output, `head`, exposed as well), adult faces' gender is
+  estimated too; it is preferred when present.
 
 Without the optional parts the app still works: browsing, the map and
 filename search, just without search by meaning or people.

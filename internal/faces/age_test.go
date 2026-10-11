@@ -47,7 +47,7 @@ func TestAgeMethods(t *testing.T) {
 	}
 	var errFace, errFull float64
 	for i, d := range dets {
-		a1, _ := e.runAge(letterbox(img, d.box, ageSize), nil, false)
+		a1, _, _ := e.runAge(letterbox(img, d.box, ageSize), nil, false)
 		a2, _, _ := e.AgeFull(img, d.box)
 		errFace += math.Abs(float64(a1) - truth[i])
 		errFull += math.Abs(float64(a2) - truth[i])

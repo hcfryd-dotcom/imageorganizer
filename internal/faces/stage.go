@@ -21,17 +21,29 @@ func AgeStage(e *Engine, st *store.Store, cropPath func(key string) string, work
 		Key:     func(j store.AgeJob) int64 { return j.FaceID },
 		Do: func(ctx context.Context, j store.AgeJob) error {
 			crop, err := os.ReadFile(cropPath(CropKey(j.Hash, j.Index)))
-			if err != nil {
-				return st.SetAge(ctx, j.FaceID, -1) // no crop: can't judge
+			if err != nil { // no crop: can't judge
+				if err := st.SetGender(ctx, j.FaceID, -1); err != nil {
+					return err
+				}
+				if j.GenderOnly {
+					return nil
+				}
+				return st.SetAge(ctx, j.FaceID, -1)
 			}
-			age, ok, err := e.AgeFromCrop(crop, j.CropBox)
+			est, err := e.EstimateFromCrop(crop, j.CropBox)
 			if err != nil {
 				return err
 			}
-			if !ok {
-				age = -1
+			if !est.OK {
+				est.Age, est.Female = -1, -1
 			}
-			return st.SetAge(ctx, j.FaceID, age)
+			if err := st.SetGender(ctx, j.FaceID, est.Female); err != nil {
+				return err
+			}
+			if j.GenderOnly { // keep the age it has (from the full photo, perhaps)
+				return nil
+			}
+			return st.SetAge(ctx, j.FaceID, est.Age)
 		},
 		Log: log,
 	}

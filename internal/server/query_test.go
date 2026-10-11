@@ -30,7 +30,7 @@ func TestExtractDates(t *testing.T) {
 }
 
 func TestExtractPeople(t *testing.T) {
-	people := []PersonName{{1, "Ben"}, {2, "Clara"}, {3, "Anna"}, {4, "Anna Maria"}, {5, "Søren"}}
+	people := []PersonName{{1, "Ben"}, {2, "Clara"}, {3, "Anna"}, {4, "Anna Maria"}, {5, "Gnøf"}}
 	for _, tc := range []struct {
 		in, text string
 		ids      []int64
@@ -41,7 +41,7 @@ func TestExtractPeople(t *testing.T) {
 		{"Anna Maria skiing", "skiing", []int64{4}},
 		{"Anna, Ben", "", []int64{3, 1}},
 		{"Bennett family", "Bennett family", nil},
-		{"Søren", "", []int64{5}},
+		{"Gnøf", "", []int64{5}},
 		{"garden", "garden", nil},
 	} {
 		text, found := extractPeople(tc.in, people)
@@ -66,6 +66,12 @@ func TestExtractSpecial(t *testing.T) {
 		{"price $5", "price $5", nil},
 		{"a$unknown", "a$unknown", nil},
 		{"Ben $alone beach", "Ben beach", []string{"alone"}},
+		{"Ben $picture", "Ben", []string{"picture"}},
+		{"one($known) one($unknown)", "", []string{"one-known", "one-unknown"}},
+		{"beach Many( $Confirmed ) $unconfirmed", "beach", []string{"many-confirmed", "unconfirmed"}},
+		{"one(known)", "", []string{"one-known"}},
+		{"one($alone)", "one($alone)", nil},
+		{"someone($known)", "someone($known)", nil},
 	} {
 		text, found := extractSpecial(tc.in)
 		if text != tc.text || !slices.Equal(found, tc.found) {

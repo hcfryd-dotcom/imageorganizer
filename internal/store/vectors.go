@@ -188,6 +188,21 @@ func (s *Store) Search(ctx context.Context, q []float32, f Filter) ([]Image, int
 	}
 	// Ties broken by id so pages stay stable while scrolling.
 	slices.SortFunc(hits, func(a, b hit) int { return cmp.Or(cmp.Compare(b.score, a.score), cmp.Compare(b.im.ID, a.im.ID)) })
+	// In another order (newest first, say): the best matches, so ordered.
+	// Every photo has a score, so all of them by date would bury the
+	// relevant ones.
+	if f.Sort != "" && f.Sort != SortRelevance {
+		hits = hits[:min(len(hits), searchTop)]
+		list := make([]*imageRec, len(hits))
+		score := make(map[*imageRec]float32, len(hits))
+		for i, h := range hits {
+			list[i], score[h.im] = h.im, h.score
+		}
+		sortImages(list, f.Sort)
+		for i, im := range list {
+			hits[i] = hit{im, score[im]}
+		}
+	}
 	if f.Limit <= 0 || f.Limit > 2000 {
 		f.Limit = 200
 	}
@@ -202,10 +217,28 @@ func (s *Store) Search(ctx context.Context, q []float32, f Filter) ([]Image, int
 	return out, len(hits), nil
 }
 
+// SortRelevance orders a search by how well photos match it, best first
+// (the default with search text).
+const SortRelevance = "relevance"
+
+// searchTop is how many of the best matches a search sorted another way
+// keeps.
+const searchTop = 300
+
 func dot(a, b []float32) float32 {
-	var s float32
-	for i := range min(len(a), len(b)) {
-		s += a[i] * b[i]
+	n := min(len(a), len(b))
+	a, b = a[:n], b[:n]
+	// Four sums at a time: the products don't wait on each other.
+	var s0, s1, s2, s3 float32
+	i := 0
+	for ; i+4 <= n; i += 4 {
+		s0 += a[i] * b[i]
+		s1 += a[i+1] * b[i+1]
+		s2 += a[i+2] * b[i+2]
+		s3 += a[i+3] * b[i+3]
 	}
-	return s
+	for ; i < n; i++ {
+		s0 += a[i] * b[i]
+	}
+	return s0 + s1 + s2 + s3
 }

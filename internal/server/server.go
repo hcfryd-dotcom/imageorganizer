@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lkarlslund/imageorganizer/internal/faces"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -36,21 +37,31 @@ type Config struct {
 	FaceCrops  *scanner.ThumbCache
 	Pool       *source.Pool
 	Embed      *embed.Client                       // nil disables semantic search
+	Faces      *faces.Engine                       // nil disables finding a face from a picture
 	Settings   *SettingsHooks                      // nil: no Settings page
 	Jobs       func() map[string]any               // background stage progress, for the UI
 	Control    func(stage string, pause bool) bool // pause/resume a stage
+	WakeImport func()                              // there is a file to (re)import now, e.g. a photo just turned
 	PreviewDir string
 	Web        fs.FS // UI assets; os.DirFS in dev mode so edits are picked up live
 	Dev        bool
 	BuildID    string
 	Log        *slog.Logger
+	// Restart shuts the server down to be started again (POST
+	// /debug/restart, dev mode): nil if it can't be.
+	Restart func()
 }
+
+// RestartCode is the exit code of a server that was asked to restart: the
+// dev supervisor starts it again at once (scripts/dev.sh).
+const RestartCode = 75
 
 type Server struct {
 	Config
 	assets  *assetWatcher
 	events  *broker
 	scanCtx context.Context
+	disc    discoverQueue
 }
 
 func New(ctx context.Context, c Config) *Server {
@@ -88,6 +99,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/browse", s.browse)
 	mux.HandleFunc("GET /api/images", s.listImages)
 	mux.HandleFunc("GET /api/images/{id}", s.getImage)
+	mux.HandleFunc("POST /api/face-search", s.faceSearch)
+	mux.HandleFunc("GET /api/images/{id}/around", s.aroundImage)
 	mux.HandleFunc("POST /api/images/{id}/rotate", s.rotateImage)
 	mux.HandleFunc("PATCH /api/images/{id}", s.editImage)
 	mux.HandleFunc("GET /api/geo", s.geo)
@@ -110,8 +123,26 @@ func (s *Server) Handler() http.Handler {
 				s.Log.Warn("database snapshot failed", "err", err)
 			}
 		})
+		// Restart now: shut down gracefully and exit with RestartCode, which
+		// the dev supervisor (scripts/dev.sh) answers by rebuilding and
+		// starting again at once, not waiting for edits to settle. This
+		// machine only.
+		mux.HandleFunc("POST /debug/restart", func(w http.ResponseWriter, r *http.Request) {
+			host, _, _ := net.SplitHostPort(r.RemoteAddr)
+			if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+				http.Error(w, "local only", http.StatusForbidden)
+				return
+			}
+			if s.Restart == nil {
+				http.Error(w, "can't restart", http.StatusNotImplemented)
+				return
+			}
+			writeJSON(w, map[string]bool{"ok": true})
+			s.Log.Info("restart requested")
+			go s.Restart()
+		})
 	}
-	return s.logRequests(mux)
+	return s.logRequests(s.countChanges(mux))
 }
 
 func (s *Server) logRequests(h http.Handler) http.Handler {
@@ -175,7 +206,17 @@ func (s *Server) thumb(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	// Content-addressed, so it can be cached forever.
+	// A photo turned but not drawn again yet: turn the old thumbnail, and
+	// don't let the browser keep it.
+	if deg := s.Store.ThumbRotation(hash); deg != 0 {
+		if data, err := turnJPEG(s.Thumbs.Path(hash), deg); err == nil {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Content-Type", "image/jpeg")
+			w.Write(data)
+			return
+		}
+	}
+	// Content-addressed (and rotation in the URL), so it can be cached forever.
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	http.ServeFile(w, r, s.Thumbs.Path(hash))
 }
@@ -220,6 +261,16 @@ func (s *Server) faceCrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if r.URL.Query().Has("level") { // light evened out, for comparing faces
+		data, err := levelFace(s.FaceCrops.Path(key))
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Write(data)
+		return
+	}
 	http.ServeFile(w, r, s.FaceCrops.Path(key))
 }
 
@@ -288,7 +339,7 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 500, err)
 		return
 	}
-	out := map[string]any{"library": st, "scan": s.Scanner.Status(), "issues": s.issueCount()}
+	out := map[string]any{"library": st, "scan": s.Scanner.Status(), "issues": s.issueCount(), "discover": s.discoverCount()}
 	if s.Jobs != nil {
 		out["jobs"] = s.Jobs()
 	}
@@ -433,7 +484,7 @@ func (s *Server) parseFilter(r *http.Request) store.Filter {
 type parsedQuery struct {
 	Range   *DateRange
 	People  []PersonName
-	Special []string // "known", "unknown"
+	Special []string // "known", "one-unknown", "alone", "nsfw", "blurry", "picture", ...
 }
 
 func (s *Server) parseQuery(r *http.Request) (store.Filter, parsedQuery) {
@@ -491,21 +542,33 @@ func (s *Server) parseQuery(r *http.Request) (store.Filter, parsedQuery) {
 	// People picked in the search box (people=1,2), and names typed in
 	// the text, mean "photos with all of them".
 	names := s.personNames()
-	// $known / $unknown, typed or picked as chips: photos with a named
-	// person, or with someone not named yet.
+	// $known, one($unknown), $nsfw, ..., typed or picked as chips.
 	f.Text, pq.Special = extractSpecial(f.Text)
 	for v := range strings.SplitSeq(q.Get("people"), ",") {
-		if (v == "known" || v == "unknown" || v == "alone") && !slices.Contains(pq.Special, v) {
+		if isSpecial(v) && !slices.Contains(pq.Special, v) {
 			pq.Special = append(pq.Special, v)
 		}
 	}
+	pictures := slices.Contains(pq.Special, "picture")
 	for _, v := range pq.Special {
-		if v == "alone" {
+		switch v {
+		case "picture":
+			// With people, pictures of them (below); alone, of anyone.
+		case "alone":
 			restrict(s.Store.AloneImageIDs())
-		} else {
-			restrict(s.Store.FaceImageIDs(v == "known"))
+		case "nsfw":
+			f.OnlyNsfw = true
+		case "blurry":
+			f.Blurry = true
+		default:
+			if kind, count, ok := faceFilter(v); ok {
+				restrict(s.Store.FaceImageIDs(kind, count))
+			}
 		}
 	}
+	// Photos not safe for work are left out unless asked for ($nsfw) or
+	// shown in Settings.
+	f.HideNsfw = !s.Store.Settings().ShowNsfw
 	for v := range strings.SplitSeq(q.Get("people"), ",") {
 		id, err := strconv.ParseInt(v, 10, 64)
 		if i := slices.IndexFunc(names, func(p PersonName) bool { return p.ID == id }); err == nil && i >= 0 {
@@ -520,7 +583,14 @@ func (s *Server) parseQuery(r *http.Request) (store.Filter, parsedQuery) {
 		}
 	}
 	for _, p := range pq.People {
-		restrict(s.Store.PersonImageIDs(p.ID))
+		if pictures {
+			restrict(s.Store.PictureImageIDs(p.ID)) // a picture of them, not them there
+		} else {
+			restrict(s.Store.PersonImageIDs(p.ID))
+		}
+	}
+	if pictures && len(pq.People) == 0 {
+		restrict(s.Store.PictureImageIDs(0))
 	}
 	return f, pq
 }
@@ -595,6 +665,9 @@ func (s *Server) rotateImage(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 404, err)
 		return
 	}
+	if s.WakeImport != nil {
+		s.WakeImport() // draw it again and find its faces upright now, not at the next round
+	}
 	writeJSON(w, map[string]int{"rot": rot})
 }
 
@@ -610,6 +683,22 @@ func (s *Server) getImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, d)
+}
+
+// aroundImage lists the photos taken just before and after one.
+func (s *Server) aroundImage(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		httpError(w, 400, err)
+		return
+	}
+	n, _ := strconv.Atoi(r.URL.Query().Get("n"))
+	a, err := s.Store.Around(r.Context(), id, min(max(n, 1), 200))
+	if err != nil {
+		httpError(w, 404, err)
+		return
+	}
+	writeJSON(w, a)
 }
 
 func (s *Server) editImage(w http.ResponseWriter, r *http.Request) {

@@ -19,6 +19,7 @@ type Image struct {
 	FileSize    int64    `json:"size"`
 	Format      string   `json:"format"`
 	TakenAt     *int64   `json:"taken"`
+	CameraTaken *int64   `json:"camera_taken,omitempty"` // the file's date, when the user set another
 	Lat         *float64 `json:"lat,omitempty"`
 	Lon         *float64 `json:"lon,omitempty"`
 	CameraMake  string   `json:"make,omitempty"`
@@ -34,7 +35,12 @@ type Image struct {
 	Title       string   `json:"title,omitempty"`
 	Notes       string   `json:"notes,omitempty"`
 	Caption     string   `json:"caption,omitempty"`
-	Rot         int      `json:"rot,omitempty"` // rotation correction, also busts cached thumbnails
+	Rot         int      `json:"rot,omitempty"`        // rotation correction, also busts cached thumbnails
+	Nsfw        bool     `json:"nsfw,omitempty"`       // not safe for work (the model's call, or the user's)
+	NsfwScore   float32  `json:"nsfw_score,omitempty"` // the model's estimate, 0..1
+	NsfwUser    *bool    `json:"nsfw_user,omitempty"`  // the user's say, when given
+	Blurry      bool     `json:"blurry,omitempty"`     // looks blurry (little fine detail)
+	Sharp       float32  `json:"sharp,omitempty"`      // the sharpness measured (media.Sharpness)
 	Path        string   `json:"path"`
 	Score       float32  `json:"score,omitempty"` // search relevance
 }
@@ -47,6 +53,13 @@ func (s *Store) view(im *imageRec) Image {
 		Lens: im.Lens, ISO: im.ISO, FNumber: im.FNumber, Exposure: im.Exposure, Focal: im.Focal,
 		HasThumb: im.HasThumb, Favorite: im.Favorite, Rating: im.Rating, Title: im.Title, Notes: im.Notes,
 		Caption: im.Caption, Rot: im.Rotate,
+		Nsfw: s.isNsfw(im), NsfwScore: max(im.Nsfw, 0), NsfwUser: im.UserNsfw, Blurry: isBlurry(im), Sharp: max(im.Sharp, 0),
+	}
+	if im.UserTaken != nil {
+		v.CameraTaken = im.CameraTaken
+		if v.CameraTaken == nil {
+			v.CameraTaken = new(int64) // the file had no date
+		}
 	}
 	if f := s.primaryFile(im.ID); f != nil {
 		v.Path = s.displayPath(f)
@@ -85,6 +98,9 @@ type Filter struct {
 	Offset   int
 	Limit    int
 	IDs      []int64 // restrict to these ids
+	// HideNsfw leaves out photos not safe for work; OnlyNsfw lists just them.
+	HideNsfw, OnlyNsfw bool
+	Blurry             bool // only photos that look blurry
 }
 
 // match reports whether im passes f; call with s.mu held.
@@ -96,6 +112,12 @@ func (s *Store) match(im *imageRec, f *Filter, words []string, ids map[int64]boo
 		return false
 	}
 	if f.HasGeo && im.Lat == nil {
+		return false
+	}
+	if f.OnlyNsfw && !s.isNsfw(im) || f.HideNsfw && !f.OnlyNsfw && s.isNsfw(im) {
+		return false
+	}
+	if f.Blurry && !isBlurry(im) {
 		return false
 	}
 	if f.From != nil && (im.TakenAt == nil || *im.TakenAt < f.From.Unix()) {
@@ -270,6 +292,16 @@ type UserEdit struct {
 	Rating   *int    `json:"rating"`
 	Title    *string `json:"title"`
 	Notes    *string `json:"notes"`
+	// Taken sets the capture date (Unix seconds) when the camera's is
+	// wrong; ResetTaken goes back to the file's date.
+	Taken      *int64 `json:"taken"`
+	ResetTaken bool   `json:"reset_taken"`
+	// DateOK says the date is right, though the faces seem to disagree.
+	DateOK *bool `json:"date_ok"`
+	// Nsfw says whether the photo is not safe for work, over the model;
+	// ResetNsfw leaves it to the model again.
+	Nsfw      *bool `json:"nsfw"`
+	ResetNsfw bool  `json:"reset_nsfw"`
 }
 
 func (s *Store) EditImage(ctx context.Context, id int64, e UserEdit) error {
@@ -292,8 +324,38 @@ func (s *Store) EditImage(ctx context.Context, id int64, e UserEdit) error {
 	if e.Notes != nil {
 		c.Notes = *e.Notes
 	}
+	switch {
+	case e.Taken != nil:
+		if c.UserTaken == nil {
+			c.CameraTaken = c.TakenAt
+		}
+		t := *e.Taken
+		c.UserTaken, c.TakenAt = &t, &t
+	case e.ResetTaken && c.UserTaken != nil:
+		c.TakenAt, c.UserTaken, c.CameraTaken = c.CameraTaken, nil, nil
+	}
+	if e.DateOK != nil {
+		c.DateOK = *e.DateOK
+	}
+	switch {
+	case e.Nsfw != nil:
+		v := *e.Nsfw
+		c.UserNsfw = &v
+	case e.ResetNsfw:
+		c.UserNsfw = nil
+	}
 	if err := s.db.Update(func(tx *bolt.Tx) error { return put(tx, bucketImages, id, &c) }); err != nil {
 		return err
+	}
+	if !ptrEq(c.TakenAt, im.TakenAt) {
+		// The faces' groups track capture dates: take them out under the
+		// old date and back in under the new one.
+		s.regroupFacesOf(id, func() {
+			s.unsetImage(im)
+			*im = c
+			s.setImage(im)
+		})
+		return nil
 	}
 	*im = c
 	return nil

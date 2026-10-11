@@ -49,6 +49,13 @@ func (s *Store) computeJunkDir() {
 // isJunk reports whether a detection is most likely not a face. Junk is
 // kept (so re-analysis doesn't bring it back as new) but never grouped,
 // named or shown as a person.
+// shown reports whether a face is shown in its photo: not said not to be
+// a face, nor an ungrouped detection that looks like junk. Questions about
+// a photo go by these faces only, or they'd speak of faces no one sees.
+func (s *Store) shown(f *faceRec) bool {
+	return !f.NotFace && !(f.ClusterID == 0 && s.isJunk(f))
+}
+
 func (s *Store) isJunk(f *faceRec) bool {
 	if s.junkDir == nil || len(f.emb) != len(s.junkDir) {
 		return false

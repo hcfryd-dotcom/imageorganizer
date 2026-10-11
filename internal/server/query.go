@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/lkarlslund/imageorganizer/internal/store"
 	"regexp"
 	"slices"
 	"strconv"
@@ -131,13 +132,17 @@ func isWordRune(r rune) bool {
 	return r != utf8.RuneError && (unicode.IsLetter(r) || unicode.IsDigit(r))
 }
 
-// specialRe matches the face filters $known (a named person is in the
-// photo), $unknown (someone not named yet is) and $alone (exactly one
-// person is).
-var specialRe = regexp.MustCompile(`(?i)(?:^|\s)\$(known|unknown|alone)(?:\s|$)`)
+// specialRe matches the search filters: $known (a named person is in the
+// photo, confirmed or not), $confirmed (one the user confirmed), $unconfirmed
+// (one filed by itself), $unknown (someone not named yet), $alone (exactly
+// one person is), $picture (a picture of someone is, on a wall), $nsfw and
+// $blurry. one($kind) and many($kind) ask for exactly one, or two or more,
+// of a face filter: one($known) one($unknown) is a named person with a
+// stranger.
+var specialRe = regexp.MustCompile(`(?i)(?:^|\s)(?:\$(known|unknown|confirmed|unconfirmed|alone|nsfw|blurry|picture)|(one|many)\(\s*\$?(known|unknown|confirmed|unconfirmed)\s*\))(?:\s|$)`)
 
-// extractSpecial pulls $known, $unknown and $alone out of a query,
-// returning the remaining text and the filters found ("known", ...).
+// extractSpecial pulls the search filters out of a query, returning the
+// remaining text and the filters found ("known", "one-unknown", ...).
 func extractSpecial(q string) (string, []string) {
 	var found []string
 	for {
@@ -145,10 +150,35 @@ func extractSpecial(q string) (string, []string) {
 		if m == nil {
 			break
 		}
-		if w := strings.ToLower(q[m[2]:m[3]]); !slices.Contains(found, w) {
+		w := ""
+		if m[2] >= 0 {
+			w = strings.ToLower(q[m[2]:m[3]])
+		} else {
+			w = strings.ToLower(q[m[4]:m[5]] + "-" + q[m[6]:m[7]])
+		}
+		if !slices.Contains(found, w) {
 			found = append(found, w)
 		}
 		q = q[:m[0]] + " " + q[m[1]:]
 	}
 	return strings.Join(strings.Fields(q), " "), found
+}
+
+// faceFilter splits a face filter's name into its kind and count
+// ("one-known" → "known", "one"); ok is false for other filters.
+func faceFilter(v string) (kind, count string, ok bool) {
+	for _, k := range store.FaceKinds {
+		for _, c := range store.FaceCounts {
+			if store.FaceFilterName(k, c) == v {
+				return k, c, true
+			}
+		}
+	}
+	return "", "", false
+}
+
+// isSpecial reports whether v names a search filter.
+func isSpecial(v string) bool {
+	_, _, face := faceFilter(v)
+	return face || v == "alone" || v == "nsfw" || v == "blurry" || v == "picture"
 }

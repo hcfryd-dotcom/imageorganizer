@@ -23,6 +23,11 @@ const (
 	// precise. A face's age version records which one produced it.
 	AgeFromCrop = 1
 	AgeFull     = 2
+	// Nsfw: how likely the photo is not safe for work (nudity), from the
+	// thumbnail. 2: the thumbnail is smoothed when shrunk, as the model expects.
+	Nsfw = 2
+	// Blur: how sharp the photo is, from the thumbnail.
+	Blur = 1
 )
 
 // Component names as stored on images.
@@ -30,6 +35,8 @@ const (
 	CMedia = "media"
 	CFaces = "faces"
 	CEmbed = "embed"
+	CNsfw  = "nsfw"
+	CBlur  = "blur"
 )
 
 // FromOriginal lists components that require reading the original file.

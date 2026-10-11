@@ -99,6 +99,34 @@ type imageRec struct {
 	// the face detector finding everyone on their side.
 	Rotate     int  `json:"rot,omitempty"`
 	RotateAuto bool `json:"rotauto,omitempty"`
+	// Nsfw is how likely the photo is not safe for work (nudity), from
+	// its thumbnail (-1: couldn't judge); UserNsfw is the user's say,
+	// which wins.
+	Nsfw     float32 `json:"nsfw,omitempty"`
+	UserNsfw *bool   `json:"unsfw,omitempty"`
+	// ThumbRot is the rotation the stored thumbnail was drawn with; nil
+	// (older records): the current one. Until a turned photo is analysed
+	// again, its thumbnail is turned when served.
+	ThumbRot *int `json:"trot,omitempty"`
+	// Sharp is the fine detail in the thumbnail's sharpest parts
+	// (media.Sharpness), -1 if it couldn't be judged.
+	Sharp float32 `json:"sharp,omitempty"`
+	// UserTaken is a capture date the user set because the camera's was
+	// wrong; TakenAt then holds it, and CameraTaken what the file says.
+	UserTaken   *int64 `json:"utaken,omitempty"`
+	CameraTaken *int64 `json:"ctaken,omitempty"`
+	// DateOK: the user said the date is right, though the faces in the
+	// photo seemed to disagree.
+	DateOK bool `json:"dok,omitempty"`
+}
+
+// fileTaken is the capture date the file itself gives (for matching a
+// moved file to its image), whatever date the user set.
+func (im *imageRec) fileTaken() *int64 {
+	if im.UserTaken != nil {
+		return im.CameraTaken
+	}
+	return im.TakenAt
 }
 
 // fileRec is the persisted file record.
@@ -141,9 +169,18 @@ type Store struct {
 	tune         tuning    // people settings in effect (settings.go)
 	// CropPath gives the file of a face crop by key (hash_index); set by
 	// the program so pictures can be judged on their pixels.
-	CropPath    func(key string) string
+	CropPath func(key string) string
+	// Gender: the age model also estimates gender, so faces without an
+	// estimate wait for the age stage. Set before the stages start.
+	Gender bool
+	// NsfwModel: an NSFW classifier is loaded, so photos without a score
+	// wait for the look stage. Set before the stages start.
+	NsfwModel   bool
 	qmu         sync.Mutex
 	qcache      map[int64]faceQuality
+	shotMu      sync.Mutex // see shots.go
+	shots       map[int64][]*faceRec
+	shotAt      shotKey
 	nextCluster int64
 }
 
@@ -299,8 +336,8 @@ func (s *Store) setImage(im *imageRec) {
 	}
 	s.images[im.ID] = im
 	s.byHash[im.Hash] = im.ID
-	if im.TakenAt != nil {
-		s.byTaken[*im.TakenAt] = append(s.byTaken[*im.TakenAt], im.ID)
+	if t := im.fileTaken(); t != nil {
+		s.byTaken[*t] = append(s.byTaken[*t], im.ID)
 	}
 }
 
@@ -310,12 +347,12 @@ func (s *Store) unsetImage(im *imageRec) {
 	if s.byHash[im.Hash] == im.ID {
 		delete(s.byHash, im.Hash)
 	}
-	if im.TakenAt != nil {
-		ids := slices.DeleteFunc(s.byTaken[*im.TakenAt], func(id int64) bool { return id == im.ID })
+	if t := im.fileTaken(); t != nil {
+		ids := slices.DeleteFunc(s.byTaken[*t], func(id int64) bool { return id == im.ID })
 		if len(ids) == 0 {
-			delete(s.byTaken, *im.TakenAt)
+			delete(s.byTaken, *t)
 		} else {
-			s.byTaken[*im.TakenAt] = ids
+			s.byTaken[*t] = ids
 		}
 	}
 }
@@ -653,6 +690,11 @@ type ImageData struct {
 	// AutoRotate is a rotation the import applied because the faces were
 	// all on their side; it is kept unless the user has set one.
 	AutoRotate int
+	// Rotated is the rotation correction the import worked with: if the
+	// user turned the photo again meanwhile, its analysis is out of date.
+	Rotated int
+	// ThumbRot is the rotation the thumbnail (with HasThumb) was drawn with.
+	ThumbRot int
 }
 
 func (d ImageData) apply(im *imageRec) {
@@ -662,6 +704,9 @@ func (d ImageData) apply(im *imageRec) {
 	if d.TakenAt != nil {
 		t := d.TakenAt.Unix()
 		im.TakenAt = &t
+	}
+	if im.UserTaken != nil { // the user's date stays
+		im.CameraTaken, im.TakenAt = im.TakenAt, im.UserTaken
 	}
 	im.Lat, im.Lon = d.Lat, d.Lon
 	im.CameraMake, im.CameraModel, im.Lens = d.CameraMake, d.CameraModel, d.Lens
@@ -719,6 +764,12 @@ func (s *Store) RecordFile(ctx context.Context, ref FileRef, d ImageData) (int64
 		im.Analysis = analysis.Versions{}
 	}
 	writeImage := res != ResSameHash
+	// Turned again while this import ran: its thumbnail and faces are for
+	// the old orientation. Keep the file waiting to be analysed again.
+	turned := res == ResSameHash && len(d.Analysis) > 0 && d.Rotated != im.Rotate
+	if turned {
+		d.Analysis, d.Faces, d.Vector = nil, nil, nil
+	}
 	_, didFaces := d.Analysis[analysis.CFaces]
 	if len(d.Analysis) > 0 {
 		im.Analysis = maps.Clone(im.Analysis)
@@ -729,9 +780,14 @@ func (s *Store) RecordFile(ctx context.Context, ref FileRef, d ImageData) (int64
 		im.HasThumb = im.HasThumb || d.HasThumb
 		writeImage = true
 	}
+	if d.HasThumb { // the file on disk is now drawn this way, whatever else is kept
+		tr := d.ThumbRot
+		im.ThumbRot = &tr
+		writeImage = true
+	}
 	var applyFaces func()
 
-	f := fileRec{FolderID: ref.FolderID, Path: ref.Path, Size: ref.Size, MTime: ref.MTime}
+	f := fileRec{FolderID: ref.FolderID, Path: ref.Path, Size: ref.Size, MTime: ref.MTime, Pending: turned}
 	if existingFile != nil {
 		f.ID = existingFile.ID
 	}
@@ -978,6 +1034,20 @@ func (s *Store) Snapshot(w io.Writer) error {
 
 // Rotation is the rotation correction of the image with this content hash
 // (0 if none or unknown).
+// ThumbRotation is how much more the stored thumbnail of the image with
+// this content must be turned to show it as it should be now: non-zero
+// for a photo turned but not drawn again yet.
+func (s *Store) ThumbRotation(hash string) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	id, ok := s.byHash[hash]
+	if !ok || s.images[id].ThumbRot == nil {
+		return 0
+	}
+	im := s.images[id]
+	return ((im.Rotate-*im.ThumbRot)%360 + 360) % 360
+}
+
 func (s *Store) Rotation(hash string) int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -1003,6 +1073,10 @@ func (s *Store) RotateImage(ctx context.Context, id int64, deg int) (int, error)
 		return 0, ErrNotFound
 	}
 	c := *im
+	if c.ThumbRot == nil { // the thumbnail is as the photo was until now
+		tr := c.Rotate
+		c.ThumbRot = &tr
+	}
 	c.Rotate, c.RotateAuto = ((c.Rotate+deg)%360+360)%360, false
 	c.Analysis = analysis.Versions{} // read and analyse it again
 	fc := *f

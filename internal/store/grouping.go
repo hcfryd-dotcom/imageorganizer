@@ -183,7 +183,7 @@ func (g *grouper) best(f *faceRec) *cluster {
 
 // simNorm is sim with the vector's norm already known.
 func (c *cluster) simNorm(v []float32, vn float32) float32 {
-	n := norm(c.sum) * float64(vn)
+	n := c.nrm * float64(vn)
 	if n == 0 {
 		return 0
 	}

@@ -31,6 +31,10 @@ type Settings struct {
 	AutoFileMin float32 `json:"auto_file_min"` // similarity to file a group without asking
 	ReviewMin   int     `json:"review_min"`    // smallest group shown in Review
 
+	// ShowNsfw lists photos the NSFW classifier (or the user) marked; by
+	// default they are left out of browsing and search ($nsfw lists them).
+	ShowNsfw bool `json:"show_nsfw"`
+
 	// Map tiles: a URL template with {z}/{x}/{y} (and optionally {s}).
 	MapTiles string `json:"map_tiles"`
 }
@@ -98,13 +102,6 @@ func (s *Store) reviewMinLocked() int {
 	return 2
 }
 
-// autoMinLocked is the auto-filing threshold in effect (0: off).
-func (s *Store) autoMinLocked() float32 {
-	if s.tune.autoOff {
-		return 0
-	}
-	if s.tune.autoMin > 0 {
-		return s.tune.autoMin
-	}
-	return autoAssign
-}
+// autoMinLocked was the threshold for filing whole groups automatically;
+// faces are filed one by one now (FileFaces), so it is always off.
+func (s *Store) autoMinLocked() float32 { return 0 }

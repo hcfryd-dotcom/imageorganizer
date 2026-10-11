@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -29,6 +30,10 @@ import (
 	"github.com/lkarlslund/imageorganizer/web"
 )
 
+// restart is set when the server was asked to restart (POST
+// /debug/restart): it exits with server.RestartCode once shut down.
+var restart atomic.Bool
+
 // shutdownGrace bounds how long in-flight work may take after a signal.
 // The dev supervisor waits longer than this before resorting to SIGKILL.
 const shutdownGrace = 8 * time.Second
@@ -40,6 +45,7 @@ type config struct {
 	embedURL, embedModel         string
 	workers, embedWorkers, conns int
 	rescan                       time.Duration
+	noScan, startOver            bool
 	faceModels, ortLib, faceDev  string
 	faceGPUMem                   int64
 }
@@ -122,6 +128,8 @@ func main() {
 	flag.Int64Var(&c.faceGPUMem, "face-gpu-mem", 1<<30, "GPU memory arena cap per face model in bytes")
 	flag.StringVar(&c.paused, "paused", "", "comma-separated stages to start paused (e.g. import)")
 	debug := flag.Bool("debug", false, "verbose logging")
+	flag.BoolVar(&c.noScan, "no-scan", false, "don't scan folders at all (not at startup either): work with the library as it is")
+	flag.BoolVar(&c.startOver, "start-over", false, "forget who is who (people, names, relationships) and group the faces afresh, keeping all analysis; refused on the default data directory")
 	flag.Parse()
 	explicit := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
@@ -134,6 +142,9 @@ func main() {
 	if err := run(log, c, explicit); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)
+	}
+	if restart.Load() {
+		os.Exit(server.RestartCode) // asked to restart: the supervisor starts it again
 	}
 }
 
@@ -160,6 +171,17 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 	st, err := store.Open(filepath.Join(dataDir, "library.bolt"))
 	if err != nil {
 		return err
+	}
+	if flags.startOver {
+		// Only on a copy: it forgets every naming decision for good.
+		if home, _ := os.UserHomeDir(); filepath.Clean(dataDir) == filepath.Join(home, ".local", "share", "imageorganizer") {
+			st.Close()
+			return fmt.Errorf("-start-over refused on the default data directory %s: use it on a copy (-data)", dataDir)
+		}
+		if err := st.StartOver(ctx); err != nil {
+			st.Close()
+			return err
+		}
 	}
 	// Saved settings fill in whatever the command line didn't set.
 	saved := st.Settings()
@@ -191,8 +213,9 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		log.Warn("face analysis disabled", "err", err)
 		faceEngine, faceErr = nil, err
 	} else {
-		log.Info("face analysis ready", "device", faceEngine.Device())
+		log.Info("face analysis ready", "device", faceEngine.Device(), "gender", faceEngine.HasGender())
 		defer faceEngine.Close()
+		st.Gender = faceEngine.HasGender() // faces without a gender estimate get one from the age stage
 	}
 	// Images whose original-dependent analysis is out of date (a version in
 	// package analysis was bumped) are read once more by import.
@@ -254,6 +277,11 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		importer.OnImage = chain(importer.OnImage, func(int64) { ageRunner.Wake() })
 		bg.Go(func() { ageRunner.Run(ctx) })
 	}
+	// Looking at thumbnails: sharpness, and NSFW with the classifier.
+	st.NsfwModel = faceEngine.HasNSFW()
+	lookRunner := pipeline.New(faces.LookStage(faceEngine, st, thumbs.Path, 4, log))
+	importer.OnImage = chain(importer.OnImage, func(int64) { lookRunner.Wake() })
+	bg.Go(func() { lookRunner.Run(ctx) })
 
 	control := func(stage string, pause bool) bool {
 		set := func(p, r func()) bool {
@@ -271,6 +299,8 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 			return set(embedRunner.Pause, embedRunner.Resume)
 		case stage == "age" && ageRunner != nil:
 			return set(ageRunner.Pause, ageRunner.Resume)
+		case stage == "look":
+			return set(lookRunner.Pause, lookRunner.Resume)
 		}
 		return false
 	}
@@ -283,6 +313,9 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 	sc := scanner.New(st, log)
 	sc.OnDiscovered = importRunner.Wake
 	bg.Go(func() {
+		if flags.noScan {
+			return
+		}
 		sc.ScanAll(ctx)
 		if rescan <= 0 {
 			return
@@ -381,6 +414,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 	srv := server.New(ctx, server.Config{
 		Store: st, Scanner: sc, Thumbs: thumbs, FaceCrops: faceCrops,
 		Pool: pool, Embed: emb, Control: control, Settings: settingsHooks,
+		Faces: faceEngine, WakeImport: importRunner.Wake,
 		Jobs: func() map[string]any {
 			j := map[string]any{"import": importRunner.Status(), "pending": st.PendingCount()}
 			if faceEngine != nil {
@@ -397,10 +431,13 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 				j["embed"] = embedRunner.Status()
 				j["embedded"], j["embeddable"] = done, total
 			}
+			j["look"] = lookRunner.Status()
+			j["look_done"], j["look_total"], j["nsfw_marked"], j["blurry"] = st.LookStats()
 			return j
 		},
 		PreviewDir: filepath.Join(dataDir, "previews"),
 		Web:        webFS, Dev: dev != "",
+		Restart: func() { restart.Store(true); stop() }, // shuts down as on a signal
 		BuildID: strconv.FormatInt(time.Now().UnixNano(), 36),
 		Log:     log,
 	})

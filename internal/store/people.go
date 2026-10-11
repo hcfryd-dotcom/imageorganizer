@@ -55,6 +55,7 @@ func birthTolerance(age float32) float32 { return 2 + 0.15*age }
 type cluster struct {
 	id       int64
 	sum      []float32
+	nrm      float64 // length of sum, kept up to date
 	n        int
 	birthSum float64
 	birthN   int
@@ -104,11 +105,14 @@ func (s *Store) clusterUpdate(c *cluster, f *faceRec, sign int) {
 		c.sum[i] += sg * x
 	}
 	c.n += sign
+	c.nrm = norm(c.sum)
 	if c.imgs == nil {
 		c.imgs = map[int64]int32{}
 	}
-	if c.imgs[f.ImageID] += int32(sign); c.imgs[f.ImageID] <= 0 {
-		delete(c.imgs, f.ImageID)
+	if !f.Picture { // a picture of someone doesn't take their place in the photo
+		if c.imgs[f.ImageID] += int32(sign); c.imgs[f.ImageID] <= 0 {
+			delete(c.imgs, f.ImageID)
+		}
 	}
 	if im := s.images[f.ImageID]; im != nil && im.TakenAt != nil {
 		if c.days == nil {
@@ -139,7 +143,7 @@ func (s *Store) clusterUpdate(c *cluster, f *faceRec, sign int) {
 // captureYear is the fractional year the face's photo was taken.
 func (s *Store) captureYear(f *faceRec) (float32, bool) {
 	im := s.images[f.ImageID]
-	if im == nil || im.TakenAt == nil {
+	if im == nil || im.TakenAt == nil || f.Picture {
 		return 0, false
 	}
 	t := time.Unix(*im.TakenAt, 0).UTC()
@@ -207,7 +211,7 @@ func norm(v []float32) float64 {
 
 // sim is the cosine similarity between a group centroid and a vector.
 func (c *cluster) sim(v []float32) float32 {
-	n := norm(c.sum) * norm(v)
+	n := c.nrm * norm(v)
 	if n == 0 {
 		return 0
 	}
@@ -237,7 +241,7 @@ func abs32(x float32) float32 {
 // impliedBirth returns capture year (fractional) minus apparent age.
 func (s *Store) impliedBirth(f *faceRec) (float32, bool) {
 	im := s.images[f.ImageID]
-	if f.AgeVersion == 0 || f.Age < 0 || im == nil || im.TakenAt == nil {
+	if f.AgeVersion == 0 || f.Age < 0 || im == nil || im.TakenAt == nil || scanned(im) || f.Picture {
 		return 0, false
 	}
 	t := time.Unix(*im.TakenAt, 0).UTC()
@@ -358,16 +362,7 @@ func (s *Store) autoAssignPerson(pid int64) []*cluster {
 	if pi == nil || len(pi.groups) == 0 {
 		return nil
 	}
-	unit := func(c *cluster) []float32 {
-		n := float32(norm(c.sum))
-		u := make([]float32, len(c.sum))
-		if n > 0 {
-			for i, x := range c.sum {
-				u[i] = x / n
-			}
-		}
-		return u
-	}
+	unit := clusterUnit
 	refs := make([][]float32, len(pi.groups))
 	for i, g := range pi.groups {
 		refs[i] = unit(g)
@@ -431,6 +426,11 @@ func (s *Store) autoAssign(cs []*cluster) []*cluster {
 			continue
 		}
 		if pid, score := idx.best(c); pid != 0 && score >= minSim {
+			// Filing without asking: the age must fit strictly (suggestions
+			// allow a very alike adult more, see fitsLike).
+			if cb, ca, cok := c.birth(); !idx[pid].ages.fits(cb, ca, cok) {
+				continue
+			}
 			c.PersonID, c.Auto = pid, true
 			changed = append(changed, c)
 		}
@@ -438,17 +438,20 @@ func (s *Store) autoAssign(cs []*cluster) []*cluster {
 	return changed
 }
 
-// bestCluster picks the group the face looks like, whose implied birth
-// year agrees and whose photos are from the same period of life, or
-// allocates a new group id. The cheap date checks run before the
-// embedding comparison.
-func (s *Store) bestCluster(f *faceRec) int64 {
+// bestCluster picks the unnamed group the face looks like, whose implied
+// birth year agrees and whose photos are from the same period of life, or
+// allocates a new group id. Named groups hold only faces the user saw.
+func (s *Store) bestCluster(f *faceRec) int64 { return s.bestClusterOf(f, 0) }
+
+// bestClusterOf is bestCluster among person pid's groups (0: unnamed
+// ones). The cheap date checks run before the embedding comparison.
+func (s *Store) bestClusterOf(f *faceRec, pid int64) int64 {
 	by, aged := s.impliedBirth(f)
 	ft, timed := s.captureYear(f)
 	best, bestSim := int64(0), float32(clusterJoin)
 	for id, c := range s.clusters {
-		if c.n == 0 || c.imgs[f.ImageID] > 0 {
-			continue // empty, or already has a face from this photo
+		if c.n == 0 || c.PersonID != pid || c.imgs[f.ImageID] > 0 {
+			continue // empty, someone else's, or already has a face from this photo
 		}
 		cb, ca, cok := c.birth()
 		if !birthCompatible(by, f.Age, aged, cb, ca, cok) {
@@ -466,7 +469,7 @@ func (s *Store) bestCluster(f *faceRec) int64 {
 				continue // same look, different period of life
 			}
 		}
-		if sim := c.sim(f.emb); sim >= bestSim {
+		if sim := c.simNorm(f.emb, f.en); sim >= bestSim {
 			best, bestSim = id, sim
 		}
 	}
@@ -477,9 +480,30 @@ func (s *Store) bestCluster(f *faceRec) int64 {
 	return best
 }
 
+// placeConfirmed moves face f, which the user said is person pid, into
+// the person's group it fits (or a new one of theirs), and tags it. It
+// changes memory only and returns the group; the caller stores both. Call
+// with s.mu held for writing.
+func (s *Store) placeConfirmed(f *faceRec, pid int64) *cluster {
+	f.Tagged = pid
+	if c := s.clusters[f.ClusterID]; c != nil && c.PersonID == pid {
+		return c
+	}
+	if old := s.clusters[f.ClusterID]; old != nil {
+		s.clusterRemove(old, f)
+	}
+	f.ClusterID = 0
+	c := s.clusterOf(s.bestClusterOf(f, pid))
+	c.PersonID, c.Auto, c.Hidden = pid, false, false
+	c.Rejected = slices.DeleteFunc(slices.Clone(c.Rejected), func(id int64) bool { return id == pid })
+	f.ClusterID = c.id
+	s.clusterAdd(c, f)
+	return c
+}
+
 // groupingVersion identifies the grouping rules; when it changes, all
 // faces are regrouped once at startup (see regroup).
-const groupingVersion = 4
+const groupingVersion = 8
 
 var keyGroupingVersion = []byte("grouping_version")
 
@@ -487,7 +511,8 @@ var keyGroupingVersion = []byte("grouping_version")
 // Call during load, with the write transaction.
 func (s *Store) regroupIfNeeded(tx *bolt.Tx) error {
 	meta := tx.Bucket(bucketMeta)
-	if v, _ := strconv.Atoi(string(meta.Get(keyGroupingVersion))); v >= groupingVersion {
+	v, _ := strconv.Atoi(string(meta.Get(keyGroupingVersion)))
+	if v >= groupingVersion {
 		return nil
 	}
 	if len(s.faces) > 0 {
@@ -498,6 +523,11 @@ func (s *Store) regroupIfNeeded(tx *bolt.Tx) error {
 			return fmt.Errorf("backup before regrouping: %w", err)
 		}
 		slog.Info("database backed up before regrouping", "path", backup)
+		if v < startOverBelow {
+			if err := s.startOver(tx, v); err != nil {
+				return err
+			}
+		}
 		if err := s.regroup(tx); err != nil {
 			return err
 		}
@@ -505,38 +535,82 @@ func (s *Store) regroupIfNeeded(tx *bolt.Tx) error {
 	return meta.Put(keyGroupingVersion, []byte(strconv.Itoa(groupingVersion)))
 }
 
+// startOverBelow: a library grouped under an older version than this
+// starts over, with no face named (see startOver).
+const startOverBelow = 8
+
+// startOver forgets everything about who is who but people's names (and
+// which "people" are paintings or statues): no
+// face is named (each keeps who it first was as Was, a record, never a
+// hint), and family, birth years, genders, pictures chosen, "not them",
+// strangers hidden and pictures on the wall are gone. Detections said not
+// to be faces, and photo dates, stay: they aren't about people. Naming
+// starts from Discover, with faces the user sees. from is the grouping
+// version the library had. Call before regroup, in its transaction.
+func (s *Store) startOver(tx *bolt.Tx, from int) error {
+	n := 0
+	for _, f := range s.faces {
+		if f.Tagged != 0 {
+			if f.Was == 0 && s.people[f.Tagged] != nil {
+				f.Was = f.Tagged
+			}
+			n++
+		}
+		// Before version 5 a named group's faces were all the user's
+		// naming; since, only tagged ones are (the rest were filed).
+		if c := s.clusters[f.ClusterID]; from < 5 && f.Was == 0 && f.Tagged == 0 && c != nil && c.PersonID != 0 && !c.Auto && s.people[c.PersonID] != nil {
+			f.Was = c.PersonID
+		}
+		f.Tagged, f.Not, f.Picture, f.Live, f.Skipped = 0, nil, false, false, 0
+	}
+	for _, c := range s.clusters {
+		c.PersonID, c.Auto, c.Hidden, c.Rejected, c.SkippedAt = 0, false, false, nil, 0
+	}
+	for id, p := range s.people {
+		// A painting or statue stays one: a fact about a thing, not who's who.
+		np := &personRec{ID: p.ID, Name: p.Name, CreatedAt: p.CreatedAt, Picture: p.Picture}
+		s.people[id] = np
+		if err := put(tx, bucketPeople, id, np); err != nil {
+			return err
+		}
+	}
+	slog.Info("starting over: only names kept", "were tagged", n, "people", len(s.people))
+	return nil
+}
+
 // regroup rebuilds every match group with the current rules, processing
-// faces in capture order, and carries the user's decisions over. Only faces
-// that had a decision vote: a new group becomes a person when at least 85%
-// of its previously named faces agree on that person and they are at least
-// a fifth of the group (or 3 faces).
-// Hidden and rejected decisions carry over the same way.
+// faces in capture order, and carries the user's decisions over. Only the
+// faces the user saw are named: they go into groups of their person's.
+// The rest are grouped unnamed; a face whose old group was named keeps
+// that as a hint (Was) for Discover. Hidden and rejected decisions carry
+// over by majority: a decision covering at least half of a new group, and
+// 3 faces or a fifth of it.
 func (s *Store) regroup(tx *bolt.Tx) error {
 	start := time.Now()
 	type decision struct {
-		person   int64
 		hidden   bool
 		rejected []int64
 	}
 	before := map[int64]decision{} // face id -> its old group's decisions
 	for _, f := range s.faces {
 		if c := s.clusters[f.ClusterID]; c != nil {
-			d := decision{c.PersonID, c.Hidden, c.Rejected}
-			if c.Auto {
-				d.person = 0 // only the user's decisions vote; filing is redone below
+			before[f.ID] = decision{c.Hidden, c.Rejected}
+			if c.PersonID != 0 && !c.Auto && f.Tagged == 0 && f.Was == 0 && s.people[c.PersonID] != nil {
+				f.Was = c.PersonID
 			}
-			if f.Tagged != 0 {
-				d.person = f.Tagged
-			}
-			before[f.ID] = d
 		}
 	}
 
-	// Rebuild groups from scratch, oldest photos first.
-	var order []*faceRec
+	// Rebuild the unnamed groups from scratch, oldest photos first.
+	var order, tagged []*faceRec
 	for _, f := range s.faces {
 		f.ClusterID = 0
-		if f.AgeVersion > 0 && !f.NotFace && !s.isJunk(f) {
+		switch {
+		case f.AgeVersion == 0 || f.NotFace || s.isJunk(f):
+		case f.Tagged != 0 && s.people[f.Tagged] != nil:
+			tagged = append(tagged, f)
+		default:
+			f.Tagged = 0
 			order = append(order, f)
 		}
 	}
@@ -546,32 +620,18 @@ func (s *Store) regroup(tx *bolt.Tx) error {
 	for _, f := range order {
 		f.ClusterID = g.of[f.ID].id
 	}
-	for _, f := range s.faces {
-		if err := put(tx, bucketFaces, f.ID, f); err != nil {
-			return err
-		}
-	}
 
-	// Carry decisions over by majority.
+	// Carry hiding and rejections over by majority.
 	members := map[int64][]*faceRec{}
 	for _, f := range order {
 		members[f.ClusterID] = append(members[f.ClusterID], f)
 	}
-	if err := tx.DeleteBucket(bucketGroups); err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
-		return err
-	}
-	if _, err := tx.CreateBucket(bucketGroups); err != nil {
-		return err
-	}
-	named, hidden := 0, 0
+	hidden := 0
 	for gid, fs := range members {
 		c := s.clusters[gid]
-		people, hide, rejects := map[int64]int{}, 0, map[int64]int{}
+		hide, rejects := 0, map[int64]int{}
 		for _, f := range fs {
 			d := before[f.ID]
-			if d.person != 0 {
-				people[d.person]++
-			}
 			if d.hidden {
 				hide++
 			}
@@ -579,65 +639,49 @@ func (s *Store) regroup(tx *bolt.Tx) error {
 				rejects[r]++
 			}
 		}
-		namedFaces := 0
-		for _, n := range people {
-			namedFaces += n
-		}
-		// enough: a decision covers a meaningful part of the new group.
-		enough := func(n int) bool { return n >= 3 || n*5 >= len(fs) }
-		// The user's own naming decides; no birth-year check here, which
-		// once dropped hundreds of a person's confirmed faces.
-		for pid, n := range people {
-			if s.people[pid] == nil || !enough(n) || n*100 < namedFaces*85 {
-				continue
-			}
-			c.PersonID = pid
-			named++
-		}
-		if c.PersonID == 0 && enough(hide) && hide*2 >= len(fs) {
+		enough := func(n int) bool { return (n >= 3 || n*5 >= len(fs)) && n*2 >= len(fs) }
+		if enough(hide) {
 			c.Hidden = true
 			hidden++
 		}
 		for pid, n := range rejects {
-			if enough(n) && n*2 >= len(fs) {
+			if enough(n) {
 				c.Rejected = append(c.Rejected, pid)
 			}
 		}
+	}
+
+	// The faces the user saw, into their person's groups, oldest first
+	// (so the groups follow them through life).
+	slices.SortFunc(tagged, func(a, b *faceRec) int {
+		ta, _ := s.captureYear(a)
+		tb, _ := s.captureYear(b)
+		return cmp.Or(cmp.Compare(ta, tb), cmp.Compare(a.ID, b.ID))
+	})
+	for _, f := range tagged {
+		s.placeConfirmed(f, f.Tagged)
+	}
+
+	for _, f := range s.faces {
+		if err := put(tx, bucketFaces, f.ID, f); err != nil {
+			return err
+		}
+	}
+	if err := tx.DeleteBucket(bucketGroups); err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
+		return err
+	}
+	if _, err := tx.CreateBucket(bucketGroups); err != nil {
+		return err
+	}
+	for _, c := range s.clusters {
 		if c.PersonID != 0 || c.Hidden || len(c.Rejected) > 0 {
 			if err := putGroup(tx, c); err != nil {
 				return err
 			}
 		}
 	}
-	// A face the user tagged keeps its person: if its new group went to
-	// someone else (or no one), it moves to a group of its own.
-	for _, f := range order {
-		c := s.clusters[f.ClusterID]
-		if f.Tagged == 0 || s.people[f.Tagged] == nil || c.PersonID == f.Tagged {
-			continue
-		}
-		s.clusterRemove(c, f)
-		s.nextCluster++
-		nc := &cluster{id: s.nextCluster, PersonID: f.Tagged}
-		s.clusters[nc.id] = nc
-		f.ClusterID = nc.id
-		s.clusterAdd(nc, f)
-		if err := put(tx, bucketFaces, f.ID, f); err != nil {
-			return err
-		}
-		if err := putGroup(tx, nc); err != nil {
-			return err
-		}
-	}
-	// Then file what now clearly matches a confirmed person.
-	auto := s.autoAssign(s.unnamedClusters())
-	for _, c := range auto {
-		if err := putGroup(tx, c); err != nil {
-			return err
-		}
-	}
-	slog.Info("regrouped faces", "faces", len(order), "groups", len(members),
-		"named", named, "auto", len(auto), "hidden", hidden, "took", time.Since(start).Round(time.Millisecond))
+	slog.Info("regrouped faces", "faces", len(order), "groups", len(members), "confirmed", len(tagged),
+		"hidden", hidden, "took", time.Since(start).Round(time.Millisecond))
 	return nil
 }
 
@@ -645,15 +689,23 @@ func (s *Store) regroup(tx *bolt.Tx) error {
 
 // Person is the API view of a person.
 type Person struct {
-	ID         int64   `json:"id"`
-	Name       string  `json:"name"`
-	BirthYear  int     `json:"birth_year,omitempty"`
-	EstBirth   float32 `json:"est_birth,omitempty"`
-	Groups     int     `json:"groups"`
-	Faces      int     `json:"faces"`
-	Photos     int     `json:"photos"`
-	Cover      string  `json:"cover"`       // face crop key
-	CoverImage int64   `json:"cover_image"` // the photo it is from
+	ID        int64   `json:"id"`
+	Name      string  `json:"name"`
+	BirthYear int     `json:"birth_year,omitempty"`
+	EstBirth  float32 `json:"est_birth,omitempty"`
+	Picture   bool    `json:"picture,omitempty"` // a painting, statue or poster
+	// With a birth year: how old the person looks at the latest age with
+	// enough photos ("at 50 looks 36").
+	LooksAt    float32    `json:"looks_at,omitempty"`
+	LooksAge   float32    `json:"looks_age,omitempty"`
+	Groups     int        `json:"groups"`
+	Faces      int        `json:"faces"`
+	Photos     int        `json:"photos"`
+	Cover      string     `json:"cover"`       // face crop key
+	CoverImage int64      `json:"cover_image"` // the photo it is from
+	Family     []Relative `json:"family,omitempty"`
+	Gender     string     `json:"gender,omitempty"`     // as entered
+	EstGender  string     `json:"est_gender,omitempty"` // estimated from their adult faces
 }
 
 // FaceView is the API view of a face.
@@ -667,24 +719,52 @@ type FaceView struct {
 	Group    int64      `json:"group,omitempty"`
 	PersonID int64      `json:"person,omitempty"`
 	Person   string     `json:"person_name,omitempty"`
-	Odd      bool       `json:"odd,omitempty"` // among a group's least alike faces, in a sample
-	Bg       bool       `json:"bg,omitempty"`  // a background face (isBackground)
+	Odd      bool       `json:"odd,omitempty"`   // among a group's least alike faces, in a sample
+	Bg       bool       `json:"bg,omitempty"`    // a background face (isBackground)
+	Score    float32    `json:"score,omitempty"` // likeness to a person, in FaceCandidates
+	// Twice: its group is filed under this person, who is another face in
+	// the same photo too (photo viewer): one of the two is wrong.
+	Twice     int64    `json:"twice,omitempty"`
+	TwiceName string   `json:"twice_name,omitempty"`
+	Company   []string `json:"company,omitempty"` // their family photographed that day, in FaceCandidates
+	Why       string   `json:"why,omitempty"`     // a relative of theirs beside it, in FaceCandidates
+	Hold      string   `json:"hold,omitempty"`    // why it isn't filed under them by itself (Match), in FaceCandidates
+	// Picture: a picture of the person (on the wall); PersonPicture: the
+	// person is a painting or statue; MaybePicture: someone already in the photo
+	// whom this face looks like, but not at their age at the time, so it
+	// may be a picture of them (photo viewer only).
+	Picture       bool `json:"picture,omitempty"`
+	PersonPicture bool `json:"person_picture,omitempty"`
+	// Auto: filed under the person automatically (FileFaces), not
+	// confirmed by the user.
+	Auto         bool  `json:"auto,omitempty"`
+	MaybePicture int64 `json:"maybe_picture,omitempty"`
+	// Strength is how strongly it's known to be them: "checked" (confirmed
+	// alone), "named" (with others), "filed" (by itself).
+	Strength string `json:"strength,omitempty"`
 }
 
 // GroupView is a match group with sample faces.
 type GroupView struct {
-	ID       int64      `json:"id"`
-	Size     int        `json:"size"`
-	EstBirth float32    `json:"est_birth,omitempty"`
-	PersonID int64      `json:"person,omitempty"`
-	Auto     bool       `json:"auto,omitempty"`  // filed automatically
-	Score    float32    `json:"score,omitempty"` // similarity, for candidates
-	Faces    []FaceView `json:"faces"`
-	Maybe    *Person    `json:"maybe,omitempty"` // likely person, for unknown groups
+	ID       int64   `json:"id"`
+	Size     int     `json:"size"`
+	EstBirth float32 `json:"est_birth,omitempty"`
+	PersonID int64   `json:"person,omitempty"`
+	// PersonName comes along so a card shows it even for someone named
+	// after the page loaded its list of people.
+	PersonName string     `json:"person_name,omitempty"`
+	Auto       bool       `json:"auto,omitempty"`  // filed automatically
+	Off        string     `json:"off,omitempty"`   // its faces read as the other gender than the person's: "reads as a man"
+	Score      float32    `json:"score,omitempty"` // similarity, for candidates
+	Faces      []FaceView `json:"faces"`
+	Maybe      *Person    `json:"maybe,omitempty"` // likely person, for unknown groups
 }
 
 func (s *Store) faceView(f *faceRec) FaceView {
 	v := FaceView{ID: f.ID, ImageID: f.ImageID, Box: f.Box, Age: f.Age, Group: f.ClusterID, Bg: s.passerBy(f)}
+	if c := s.clusters[f.ClusterID]; c != nil && c.Hidden {
+		v.Bg = true // a stranger: shown faint, like a passer-by
+	}
 	if im := s.images[f.ImageID]; im != nil {
 		v.Crop = im.Hash + "_" + strconv.Itoa(f.Index)
 		if im.Rotate != 0 {
@@ -692,13 +772,28 @@ func (s *Store) faceView(f *faceRec) FaceView {
 		}
 		v.Taken = im.TakenAt
 	}
+	v.Picture = f.Picture
 	if c := s.clusters[f.ClusterID]; c != nil && c.PersonID != 0 {
 		v.PersonID = c.PersonID
+		v.Auto = f.Tagged != c.PersonID // filed automatically, not seen
+		_, st := s.faceStrength(f)
+		v.Strength = st.String()
 		if p := s.people[c.PersonID]; p != nil {
 			v.Person = p.Name
+			v.PersonPicture = p.Picture
 		}
 	}
 	return v
+}
+
+// notSomeone reports whether a face doesn't count as a person in its
+// photo: a picture of someone, or a painting or statue.
+func (s *Store) notSomeone(f *faceRec) bool {
+	if f.Picture {
+		return true
+	}
+	c := s.clusters[f.ClusterID]
+	return c != nil && c.PersonID != 0 && s.people[c.PersonID] != nil && s.people[c.PersonID].Picture
 }
 
 // groupFaces returns a group's faces, best-looking (large, confident) first.
@@ -717,6 +812,9 @@ func (s *Store) groupFaces(gid int64) []*faceRec {
 
 func (s *Store) groupView(c *cluster, faces []*faceRec, sample int) GroupView {
 	g := GroupView{ID: c.id, Size: c.n, PersonID: c.PersonID, Auto: c.Auto}
+	if p := s.people[c.PersonID]; p != nil {
+		g.PersonName = p.Name
+	}
 	if b, _, ok := c.birth(); ok {
 		g.EstBirth = b
 	}
@@ -759,14 +857,50 @@ func (s *Store) facesByGroup() map[int64][]*faceRec {
 	return m
 }
 
+// facesOfGroups is facesByGroup for a few groups only.
+func facesOfGroups[T any](s *Store, items []T, id func(T) int64) map[int64][]*faceRec {
+	want := map[int64]bool{}
+	for _, it := range items {
+		want[id(it)] = true
+	}
+	m := map[int64][]*faceRec{}
+	for _, f := range s.faces {
+		if want[f.ClusterID] {
+			m[f.ClusterID] = append(m[f.ClusterID], f)
+		}
+	}
+	for _, fs := range m {
+		slices.SortFunc(fs, func(a, b *faceRec) int {
+			return cmp.Or(cmp.Compare((b.Box[2]-b.Box[0])*b.Score, (a.Box[2]-a.Box[0])*a.Score), cmp.Compare(a.ID, b.ID))
+		})
+	}
+	return m
+}
+
 // personBirth is the known birth year, or the face-weighted mean of the
 // person's groups' implied birth years.
 func (s *Store) personBirth(p *personRec) (birth, age float32, ok bool) {
 	if p.BirthYear != 0 {
 		return float32(p.BirthYear) + 0.5, 0, true
 	}
+	// From the faces the user confirmed, once there are enough: faces
+	// filed by themselves mustn't move it (see ageModels).
 	var sum, ages float64
 	var n int
+	for _, f := range s.faces {
+		if f.Tagged != p.ID {
+			continue
+		}
+		if by, ok := s.impliedBirth(f); ok {
+			sum += float64(by)
+			ages += float64(f.Age)
+			n++
+		}
+	}
+	if n >= ageConfirmed {
+		return float32(sum / float64(n)), float32(ages / float64(n)), true
+	}
+	sum, ages, n = 0, 0, 0
 	for _, c := range s.clusters {
 		if c.PersonID == p.ID && c.birthN > 0 {
 			sum += c.birthSum
@@ -785,11 +919,23 @@ func (s *Store) People(ctx context.Context) []Person {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	byGroup := s.facesByGroup()
+	fam, in, est := s.family(), s.entered(), s.genderEstimates()
+	gender := func(pid int64) string {
+		if q := s.people[pid]; q != nil {
+			g, _ := genderOf(q, est[pid])
+			return g
+		}
+		return ""
+	}
 	out := make([]Person, 0, len(s.people))
 	for _, p := range s.people {
-		v := Person{ID: p.ID, Name: p.Name, BirthYear: p.BirthYear}
-		if b, _, ok := s.personBirth(p); ok {
+		v := Person{ID: p.ID, Name: p.Name, BirthYear: p.BirthYear, Picture: p.Picture, Family: s.relativesView(fam[p.ID], in[p.ID], gender),
+			Gender: p.Gender, EstGender: est[p.ID]}
+		if b, _, ok := s.personBirth(p); ok && !p.Picture {
 			v.EstBirth = b
+		}
+		if p.BirthYear != 0 && !p.Picture {
+			v.LooksAt, v.LooksAge = s.looksNow(p)
 		}
 		photos := map[int64]bool{}
 		var cover *faceRec
@@ -852,6 +998,19 @@ func (s *Store) UnknownGroups(ctx context.Context, minSize, limit, sample int) [
 	return out
 }
 
+// clusterUnit is a group's centroid scaled to length 1, so similarities
+// to many others are plain dot products.
+func clusterUnit(c *cluster) []float32 {
+	n := float32(c.nrm)
+	u := make([]float32, len(c.sum))
+	if n > 0 {
+		for i, x := range c.sum {
+			u[i] = x / n
+		}
+	}
+	return u
+}
+
 // groupSim is the cosine similarity of two group centroids.
 func groupSim(a, b *cluster) float32 {
 	n := norm(a.sum) * norm(b.sum)
@@ -870,12 +1029,12 @@ func groupSim(a, b *cluster) float32 {
 type personIndex map[int64]*personInfo
 
 type personInfo struct {
-	p          *personRec
-	groups     []*cluster
-	imgs       map[int64]bool // photos with a face in their groups
-	strict     bool           // any shared photo clashes (for automatic filing)
-	birth, age float32
-	birthOK    bool
+	p      *personRec
+	groups []*cluster
+	imgs   map[int64]bool // photos with a face in their groups
+	strict bool           // any shared photo clashes (for automatic filing)
+	ages   ageModel
+	gender string // as entered, else estimated from their faces; "" unknown
 }
 
 func (s *Store) personIndex() personIndex { return s.indexPeople(false) }
@@ -893,8 +1052,13 @@ func (s *Store) indexPeople(confirmedOnly bool) personIndex {
 			pi.groups = append(pi.groups, c)
 		}
 	}
+	s.ageModels(idx)
 	for _, pi := range idx {
-		pi.birth, pi.age, pi.birthOK = s.personBirth(pi.p)
+		if pi.p.Picture {
+			pi.ages = ageModel{} // a painting never ages: any age fits
+		}
+	}
+	for _, pi := range idx {
 		pi.strict = confirmedOnly // used for automatic filing
 		pi.imgs = map[int64]bool{}
 		for _, g := range pi.groups {
@@ -932,13 +1096,12 @@ func (idx personIndex) score(c *cluster, pid int64) (float32, bool) {
 	if pi == nil || slices.Contains(c.Rejected, pid) || pi.clashes(c) {
 		return 0, false
 	}
-	cb, ca, cok := c.birth()
-	if !birthCompatible(cb, ca, cok, pi.birth, pi.age, pi.birthOK) {
-		return 0, false
-	}
 	best := float32(-1)
 	for _, o := range pi.groups {
 		best = max(best, groupSim(c, o))
+	}
+	if cb, ca, cok := c.birth(); !pi.ages.fitsLike(cb, ca, cok, best) {
+		return 0, false
 	}
 	return best, best > -1
 }
@@ -963,22 +1126,67 @@ func (s *Store) Candidates(ctx context.Context, personID int64, limit, sample in
 		c     *cluster
 		score float32
 	}
-	var cands []cand
 	idx := s.personIndex()
+	pi := idx[personID]
+	if pi == nil {
+		return nil
+	}
+	refs := make([][]float32, len(pi.groups))
+	for i, g := range pi.groups {
+		refs[i] = clusterUnit(g)
+	}
+	var cs []*cluster
 	for _, c := range s.clusters {
-		if c.PersonID != 0 || c.Hidden || c.n == 0 {
-			continue
+		if c.PersonID == 0 && !c.Hidden && c.n > 0 {
+			cs = append(cs, c)
 		}
-		score, ok := idx.score(c, personID)
-		if !ok || score < candidateMin || (c.n == 1 && score < singleCandidate) {
-			continue
+	}
+	// The same rules as idx.score, with the person's centroids prepared
+	// once and the groups scored in parallel.
+	scores := make([]float32, len(cs))
+	var wg sync.WaitGroup
+	next := make(chan int, 256)
+	for range runtime.GOMAXPROCS(0) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range next {
+				c := cs[i]
+				scores[i] = -1
+				if slices.Contains(c.Rejected, personID) || pi.clashes(c) {
+					continue
+				}
+				u := clusterUnit(c)
+				best := float32(-1)
+				for _, r := range refs {
+					var d float32
+					for k, x := range u {
+						d += x * r[k]
+					}
+					best = max(best, d)
+				}
+				if cb, ca, cok := c.birth(); pi.ages.fitsLike(cb, ca, cok, best) {
+					scores[i] = best
+				}
+			}
+		}()
+	}
+	for i := range cs {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
+	var cands []cand
+	for i, c := range cs {
+		if score := scores[i]; score >= candidateMin && (c.n > 1 || score >= singleCandidate) {
+			cands = append(cands, cand{c, score})
 		}
-		cands = append(cands, cand{c, score})
 	}
 	slices.SortFunc(cands, func(a, b cand) int { return cmp.Or(cmp.Compare(b.score, a.score), cmp.Compare(a.c.id, b.c.id)) })
-	byGroup := s.facesByGroup()
-	out := make([]GroupView, 0, min(limit, len(cands)))
-	for _, cd := range cands[:min(limit, len(cands))] {
+	cands = cands[:min(limit, len(cands))]
+	byGroup := facesOfGroups(s, cands, func(cd cand) int64 { return cd.c.id })
+	out := make([]GroupView, 0, len(cands))
+	for _, cd := range cands {
 		g := s.groupView(cd.c, byGroup[cd.c.id], sample)
 		g.Score = cd.score
 		out = append(out, g)
@@ -991,10 +1199,20 @@ func (s *Store) PersonGroups(ctx context.Context, personID int64, sample int) []
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	byGroup := s.facesByGroup()
+	gender := ""
+	if p := s.people[personID]; p != nil {
+		gender, _ = genderOf(p, s.genderEstimates()[personID])
+	}
 	var out []GroupView
 	for _, c := range s.clusters {
 		if c.PersonID == personID && c.n > 0 {
-			out = append(out, s.groupView(c, byGroup[c.id], sample))
+			g := s.groupView(c, byGroup[c.id], sample)
+			// A group that clearly reads as the other gender was likely
+			// filed under the wrong person.
+			if genderMismatch(gender, byGroup[c.id]...) {
+				g.Off = offWord(gender)
+			}
+			out = append(out, g)
 		}
 	}
 	slices.SortFunc(out, func(a, b GroupView) int { return cmp.Or(cmp.Compare(b.Size, a.Size), cmp.Compare(a.ID, b.ID)) })
@@ -1027,7 +1245,7 @@ func (s *Store) ImageFaces(ctx context.Context, imageID int64) []FaceView {
 	var out []FaceView
 	var fs []*faceRec
 	for _, fid := range s.facesByImage[imageID] {
-		if f := s.faces[fid]; !f.NotFace && !(f.ClusterID == 0 && s.isJunk(f)) {
+		if f := s.faces[fid]; s.shown(f) {
 			out = append(out, s.faceView(f))
 			fs = append(fs, f)
 		}
@@ -1048,8 +1266,8 @@ func (s *Store) ImageFaces(ctx context.Context, imageID int64) []FaceView {
 	}
 	best := map[int64]int{}
 	for i, v := range out {
-		if v.PersonID == 0 {
-			continue
+		if v.PersonID == 0 || fs[i].Picture {
+			continue // a picture of someone may hang behind them
 		}
 		j, seen := best[v.PersonID]
 		if !seen {
@@ -1062,6 +1280,12 @@ func (s *Store) ImageFaces(ctx context.Context, imageID int64) []FaceView {
 		if ri > rj || (ri == rj && wi > wj) {
 			best[v.PersonID], loser = i, j
 		}
+		if s.outOfTime(fs[loser], v.PersonID) && !s.outOfTime(fs[best[v.PersonID]], v.PersonID) {
+			out[loser].MaybePicture = v.PersonID
+		}
+		// Shown as the other face's, not quietly as unknown: its group is
+		// filed under them, and one of the two is wrong.
+		out[loser].Twice, out[loser].TwiceName = out[loser].PersonID, out[loser].Person
 		out[loser].PersonID, out[loser].Person = 0, ""
 	}
 	slices.SortFunc(out, func(a, b FaceView) int { return cmp.Compare(a.Box[0], b.Box[0]) })
@@ -1075,10 +1299,30 @@ func (s *Store) PersonImageIDs(personID int64) []int64 {
 	seen := map[int64]bool{}
 	var out []int64
 	for _, f := range s.faces {
-		if c := s.clusters[f.ClusterID]; c != nil && c.PersonID == personID && !seen[f.ImageID] {
+		if c := s.clusters[f.ClusterID]; c != nil && c.PersonID == personID && !seen[f.ImageID] && !f.Picture {
 			seen[f.ImageID] = true
 			out = append(out, f.ImageID)
 		}
+	}
+	return out
+}
+
+// PictureImageIDs returns photos with a picture of person pid in them (on
+// a wall, in a frame); of anyone, with pid 0.
+func (s *Store) PictureImageIDs(pid int64) []int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	seen := map[int64]bool{}
+	var out []int64
+	for _, f := range s.faces {
+		if !f.Picture || f.NotFace || seen[f.ImageID] {
+			continue
+		}
+		if c := s.clusters[f.ClusterID]; pid != 0 && (c == nil || c.PersonID != pid) && f.Tagged != pid {
+			continue
+		}
+		seen[f.ImageID] = true
+		out = append(out, f.ImageID)
 	}
 	return out
 }
@@ -1102,7 +1346,7 @@ func (s *Store) AloneImageIDs() []int64 {
 		n := 0
 		for _, id := range ids {
 			f := s.faces[id]
-			if f == nil || f.NotFace || (f.ClusterID == 0 && s.isJunk(f)) || s.passerBy(f) {
+			if f == nil || f.NotFace || (f.ClusterID == 0 && s.isJunk(f)) || s.passerBy(f) || s.notSomeone(f) {
 				continue
 			}
 			if n++; n > 1 {
@@ -1114,41 +1358,6 @@ func (s *Store) AloneImageIDs() []int64 {
 		}
 	}
 	return out
-}
-
-// FaceImageIDs returns photos with at least one face of a named person
-// (known) or at least one face nobody has named yet (!known). Faces in
-// hidden groups (strangers, pets) and non-faces count as neither.
-func (s *Store) FaceImageIDs(known bool) []int64 {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.faceImageIDs(known)
-}
-
-func (s *Store) faceImageIDs(known bool) []int64 {
-	seen := map[int64]bool{}
-	var out []int64
-	for _, f := range s.faces {
-		if f.NotFace || seen[f.ImageID] || (f.ClusterID == 0 && s.isJunk(f)) {
-			continue
-		}
-		c := s.clusters[f.ClusterID]
-		if c != nil && c.Hidden {
-			continue
-		}
-		if (c != nil && c.PersonID != 0) == known && (known || !f.bg) {
-			seen[f.ImageID] = true
-			out = append(out, f.ImageID)
-		}
-	}
-	return out
-}
-
-// FacePhotoCounts is how many photos have a known and an unknown face.
-func (s *Store) FacePhotoCounts() (known, unknown int) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.faceImageIDs(true)), len(s.faceImageIDs(false))
 }
 
 // ---------- user actions ----------
@@ -1164,211 +1373,60 @@ func putGroup(tx *bolt.Tx, c *cluster) error {
 	return tx.Bucket(bucketGroups).Put(key(c.id), data)
 }
 
-// NameGroup says group gid is a person: an existing one (personID) or a
-// new or existing one by name. It returns the person id.
+// NameGroup says every face in group gid is a person: an existing one
+// (personID) or a new or existing one by name, as if each was confirmed
+// (for views that show a whole group). It returns the person id.
 func (s *Store) NameGroup(ctx context.Context, gid, personID int64, name string) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
 	c := s.clusters[gid]
+	var ids []int64
+	if c != nil {
+		for _, f := range s.groupFaces(gid) {
+			ids = append(ids, f.ID)
+		}
+	}
+	s.mu.RUnlock()
 	if c == nil {
 		return 0, ErrNotFound
 	}
-	name = strings.TrimSpace(name)
-	var p *personRec
-	switch {
-	case personID != 0:
-		if p = s.people[personID]; p == nil {
-			return 0, ErrNotFound
-		}
-	case name != "":
-		for _, q := range s.people {
-			if strings.EqualFold(q.Name, name) {
-				p = q
-				break
-			}
-		}
-	default:
+	if personID == 0 && strings.TrimSpace(name) == "" {
 		return 0, ErrNameRequired
 	}
-	newPerson := p == nil
-	if newPerson {
-		p = &personRec{Name: name, CreatedAt: time.Now().Unix()}
-	}
-	upd := *c
-	from := c.PersonID // moving a group from one person to another
-	upd.PersonID = p.ID
-	upd.Auto = false
-	upd.Hidden = false
-	upd.Rejected = slices.DeleteFunc(slices.Clone(c.Rejected), func(id int64) bool { return id == p.ID })
-	err := s.db.Update(func(tx *bolt.Tx) error {
-		if newPerson {
-			id, err := nextID(tx, bucketPeople)
-			if err != nil {
-				return err
-			}
-			p.ID = id
-			upd.PersonID = id
-			if err := put(tx, bucketPeople, p.ID, p); err != nil {
-				return err
-			}
-		}
-		// Faces tagged as the person the group is moved from move along,
-		// or a regroup would pull them back.
-		if from != 0 && from != upd.PersonID {
-			for _, f := range s.faces {
-				if f.ClusterID == c.id && f.Tagged == from {
-					r := *f
-					r.Tagged = upd.PersonID
-					if err := put(tx, bucketFaces, r.ID, &r); err != nil {
-						return err
-					}
-				}
-			}
-		}
-		return putGroup(tx, &upd)
-	})
-	if err != nil {
-		return 0, err
-	}
-	if newPerson {
-		s.people[p.ID] = p
-	}
-	if from != 0 && from != upd.PersonID {
-		for _, f := range s.faces {
-			if f.ClusterID == c.id && f.Tagged == from {
-				f.Tagged = upd.PersonID
-			}
-		}
-	}
-	c.PersonID, c.Auto, c.Hidden, c.Rejected = upd.PersonID, false, upd.Hidden, upd.Rejected
-	// A new confirmed group can make others confident matches.
-	if changed := s.autoAssignPerson(p.ID); len(changed) > 0 {
-		if err := s.db.Update(func(tx *bolt.Tx) error {
-			for _, c := range changed {
-				if err := putGroup(tx, c); err != nil {
-					return err
-				}
-			}
-			return nil
-		}); err != nil {
-			return p.ID, err
-		}
-	}
-	return p.ID, nil
+	return s.ConfirmFaces(ctx, personID, name, ids, nil)
 }
 
 // TagFace says this one face is a person (new or existing by name), as
-// when tagging someone in a photo. Its group is not named: if the group
-// holds other faces too, the face moves to a group of its own, and the
-// rest of its old group becomes an "Is this also …?" candidate.
+// when tagging someone in a photo: it joins the person's group it fits.
 func (s *Store) TagFace(ctx context.Context, faceID, personID int64, name string) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	f, ok := s.faces[faceID]
+	s.mu.RLock()
+	_, ok := s.faces[faceID]
+	s.mu.RUnlock()
 	if !ok {
 		return 0, ErrNotFound
 	}
-	p, newPerson, err := s.resolvePerson(personID, name)
+	pid, err := s.ConfirmFaces(ctx, personID, name, []int64{faceID}, nil)
 	if err != nil {
 		return 0, err
 	}
-	old := s.clusters[f.ClusterID]
-	alone := old != nil && old.n == 1
-	same := old != nil && !newPerson && old.PersonID == p.ID
-	var nc *cluster
-	if !alone && !same {
-		s.nextCluster++
-		nc = &cluster{id: s.nextCluster}
-	}
-	rec := *f
-	var target groupRec
-	err = s.db.Update(func(tx *bolt.Tx) error {
-		if newPerson {
-			id, err := nextID(tx, bucketPeople)
-			if err != nil {
-				return err
-			}
-			p.ID = id
-			if err := put(tx, bucketPeople, p.ID, p); err != nil {
-				return err
-			}
-		}
-		rec.Tagged = p.ID
-		switch {
-		case nc != nil:
-			rec.ClusterID = nc.id
-			target = groupRec{ID: nc.id, PersonID: p.ID}
-		case alone:
-			target = old.rec()
-			target.PersonID, target.Auto, target.Hidden = p.ID, false, false
-			target.Rejected = slices.DeleteFunc(slices.Clone(old.Rejected), func(id int64) bool { return id == p.ID })
-		default: // already in a group of this person
-			target = old.rec()
-		}
-		if err := put(tx, bucketFaces, rec.ID, &rec); err != nil {
-			return err
-		}
-		data, err := json.Marshal(target)
-		if err != nil {
-			return err
-		}
-		return tx.Bucket(bucketGroups).Put(key(target.ID), data)
-	})
-	if err != nil {
-		return 0, err
-	}
-	if newPerson {
-		s.people[p.ID] = p
-	}
-	f.Tagged = p.ID
-	if nc != nil {
-		s.clusterRemove(old, f)
-		f.ClusterID = nc.id
-		s.clusters[nc.id] = nc
-		s.clusterAdd(nc, f)
-		nc.PersonID = p.ID
-	} else if alone {
-		old.PersonID, old.Auto, old.Hidden, old.Rejected = target.PersonID, false, false, target.Rejected
-	}
-	return p.ID, nil
-}
-
-// MarkSeen records that the user saw these faces when deciding their
-// group is pid: they become tagged faces, the strongest evidence, which
-// regrouping keeps. The rest of the group stays a group-level decision.
-func (s *Store) MarkSeen(ctx context.Context, pid int64, faceIDs []int64) error {
+	// Looked at on its own: not doubted again.
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var recs []faceRec
-	for _, id := range faceIDs {
-		f := s.faces[id]
-		if f == nil || f.Tagged == pid {
-			continue
-		}
-		if c := s.clusters[f.ClusterID]; c == nil || c.PersonID != pid {
-			continue // moved or decided differently since
-		}
-		r := *f
-		r.Tagged = pid
-		recs = append(recs, r)
+	f := s.faces[faceID]
+	if f == nil || f.Checked {
+		return pid, nil
 	}
-	if len(recs) == 0 {
-		return nil
-	}
-	if err := s.db.Update(func(tx *bolt.Tx) error {
-		for i := range recs {
-			if err := put(tx, bucketFaces, recs[i].ID, &recs[i]); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	for _, r := range recs {
-		s.faces[r.ID].Tagged = pid
-	}
-	return nil
+	f.Checked = true
+	ch := s.newChanges()
+	ch.face(f)
+	return pid, ch.save()
+}
+
+// KnownPerson reports whether a person by that id or name exists already.
+func (s *Store) KnownPerson(personID int64, name string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, isNew, err := s.resolvePerson(personID, name)
+	return err == nil && !isNew
 }
 
 // resolvePerson finds a person by id, or by name (any case), or makes a
@@ -1657,7 +1715,19 @@ func (s *Store) pickedCover(p *personRec) *faceRec {
 
 // UpdatePerson renames a person, sets their birth year, or picks the face
 // shown as their picture.
-func (s *Store) UpdatePerson(ctx context.Context, id int64, name *string, birthYear *int, coverFace *int64) error {
+// PersonEdit is a change to a person; nil fields stay as they are.
+type PersonEdit struct {
+	Name      *string `json:"name"`
+	BirthYear *int    `json:"birth_year"`
+	// BirthUnknown: asked the birth year, the user doesn't know it.
+	BirthUnknown *bool   `json:"birth_unknown"`
+	CoverFace    *int64  `json:"cover_face"`
+	Picture      *bool   `json:"picture"`
+	Gender       *string `json:"gender"` // "female", "male", or "" to leave it to the faces
+}
+
+func (s *Store) UpdatePerson(ctx context.Context, id int64, e PersonEdit) error {
+	name, birthYear, coverFace := e.Name, e.BirthYear, e.CoverFace
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, ok := s.people[id]
@@ -1671,8 +1741,20 @@ func (s *Store) UpdatePerson(ctx context.Context, id int64, name *string, birthY
 	if birthYear != nil {
 		c.BirthYear = *birthYear
 	}
+	if e.BirthUnknown != nil {
+		c.BirthUnknown = *e.BirthUnknown
+	}
 	if coverFace != nil {
 		c.CoverFace = *coverFace
+	}
+	if e.Picture != nil {
+		c.Picture = *e.Picture
+	}
+	if e.Gender != nil {
+		if g := *e.Gender; g != "" && g != Female && g != Male {
+			return ErrBadRelation
+		}
+		c.Gender = *e.Gender
 	}
 	if err := s.db.Update(func(tx *bolt.Tx) error { return put(tx, bucketPeople, id, &c) }); err != nil {
 		return err
@@ -1710,9 +1792,15 @@ func (s *Store) MergePeople(ctx context.Context, from, into int64) error {
 		}
 		changed, upds = append(changed, c), append(upds, u)
 	}
+	rels := s.mergeRelations(from, into)
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		for i := range upds {
 			if err := putGroup(tx, &upds[i]); err != nil {
+				return err
+			}
+		}
+		for i := range rels {
+			if err := put(tx, bucketPeople, rels[i].ID, &rels[i]); err != nil {
 				return err
 			}
 		}
@@ -1723,6 +1811,9 @@ func (s *Store) MergePeople(ctx context.Context, from, into int64) error {
 	}
 	for i, c := range changed {
 		c.PersonID, c.Rejected = upds[i].PersonID, upds[i].Rejected
+	}
+	for _, u := range rels {
+		*s.people[u.ID] = u
 	}
 	if s.people[into].BirthYear == 0 && s.people[from].BirthYear != 0 {
 		s.people[into].BirthYear = s.people[from].BirthYear
@@ -1735,16 +1826,84 @@ func (s *Store) MergePeople(ctx context.Context, from, into int64) error {
 
 // Suggestion is a person a group may be, with how alike they look.
 type Suggestion struct {
-	ID    int64   `json:"id"`
-	Name  string  `json:"name"`
-	Cover string  `json:"cover"`
-	Score float32 `json:"score"`
+	ID     int64   `json:"id"`
+	Name   string  `json:"name"`
+	Cover  string  `json:"cover"`
+	Score  float32 `json:"score"`            // likeness
+	Looked float32 `json:"looked,omitempty"` // how old they looked when the group's photos were taken
+	Why    string  `json:"why,omitempty"`    // a relative of theirs in its photos: "with Bob (partner) in 3 of 5 photos"
+	Kin    string  `json:"kin,omitempty"`    // related to another suggestion: "Carol's mother"
+	Off    string  `json:"off,omitempty"`    // the face reads as the other gender: "reads as a man"
+	rank   float32
+}
+
+// offWord says a face reads as the other gender than a person's.
+func offWord(gender string) string {
+	if gender == Female {
+		return "reads as a man"
+	}
+	return "reads as a woman"
+}
+
+// suggest lists who group c (with faces) may be, likeliest first: by
+// likeness, helped by relatives of theirs in its photos. Each says how
+// old the person looked then, and relatives suggested together say how
+// they are related, so a parent and child who look alike can be told
+// apart. Call with s.mu held.
+func (s *Store) suggest(c *cluster, faces []*faceRec, covers map[int64]string, idx personIndex, fam map[int64]map[int64]string) []Suggestion {
+	out := []Suggestion{}
+	cb, ca, cok := c.birth()
+	for pid, p := range s.people {
+		score, ok := idx.score(c, pid)
+		if !ok {
+			continue
+		}
+		share, why := s.kinGroup(faces, fam[pid])
+		if score < candidateMin && (share < kinGroupShare || score < kinSim) {
+			continue
+		}
+		sg := Suggestion{ID: pid, Name: p.Name, Cover: covers[pid], Score: score, Why: why, rank: score + kinGroupBonus*share}
+		if pi := idx[pid]; pi != nil && genderMismatch(pi.gender, faces...) {
+			sg.Off, sg.rank = offWord(pi.gender), sg.rank-genderMiss
+		}
+		if pi := idx[pid]; pi != nil && cok && !p.Picture {
+			if l, ok := pi.ages.looksAt(cb + ca); ok {
+				sg.Looked = l
+			}
+		}
+		out = append(out, sg)
+	}
+	slices.SortFunc(out, func(a, b Suggestion) int { return cmp.Or(cmp.Compare(b.rank, a.rank), cmp.Compare(a.ID, b.ID)) })
+	out = out[:min(3, len(out))]
+	labelKin(out, fam, idx.genderOf)
+	return out
+}
+
+// genderOf is a person's gender in the index ("" unknown).
+func (idx personIndex) genderOf(pid int64) string {
+	if pi := idx[pid]; pi != nil {
+		return pi.gender
+	}
+	return ""
+}
+
+// labelKin says how suggestions that are relatives are related:
+// "Carol’s mother".
+func labelKin(out []Suggestion, fam map[int64]map[int64]string, gender func(int64) string) {
+	for i := range out {
+		for j := range out {
+			if kind := fam[out[j].ID][out[i].ID]; i != j && kind != "" && out[i].Kin == "" {
+				out[i].Kin = out[j].Name + "’s " + kinWord(kind, gender(out[i].ID)) // what i is to j
+			}
+		}
+	}
 }
 
 // ReviewItem is an unknown group in the review inbox.
 type ReviewItem struct {
 	GroupView
 	Suggestions []Suggestion `json:"suggestions"`
+	Company     *Company     `json:"company,omitempty"` // who they're photographed with
 }
 
 // inReview reports whether an unknown group belongs in the inbox.
@@ -1792,9 +1951,18 @@ func (s *Store) Review(ctx context.Context, minSize, offset, limit, sample int, 
 		}
 	}
 	idx := s.personIndex()
+	company := s.company()
 	bySize := func(a, b *cluster) int { return cmp.Or(cmp.Compare(b.n, a.n), cmp.Compare(a.id, b.id)) }
 	when := func(c *cluster) float32 { t, _ := c.when(); return t }
 	switch order {
+	case ReviewKnown:
+		score := func(c *cluster) float32 {
+			if k := company[c.id]; k != nil {
+				return k.Score
+			}
+			return 0
+		}
+		slices.SortFunc(cs, func(a, b *cluster) int { return cmp.Or(cmp.Compare(score(b), score(a)), bySize(a, b)) })
 	case ReviewByMatch:
 		// Automatically filed groups first (already confident matches),
 		// then by how alike they are to someone.
@@ -1816,7 +1984,9 @@ func (s *Store) Review(ctx context.Context, minSize, offset, limit, sample int, 
 	covers := s.personCovers(byGroup)
 	out := make([]ReviewItem, 0, len(cs))
 	for _, c := range cs {
-		out = append(out, s.reviewItem(c, byGroup[c.id], covers, idx, sample))
+		it := s.reviewItem(c, byGroup[c.id], covers, idx, sample)
+		it.Company = company[c.id]
+		out = append(out, it)
 	}
 	return out, total
 }
@@ -1827,22 +1997,14 @@ const (
 	ReviewByMatch = "match"  // most like someone named first
 	ReviewNewest  = "newest" // most recent photos first
 	ReviewOldest  = "oldest"
+	ReviewKnown   = "known" // seen most with people named: probably someone you know
 )
 
 // bestScores is each group's similarity to the person it looks most like,
 // by the same rules as its suggestions (score), so the top of "likely
 // match" always has a suggestion; computed in parallel with unit centroids.
 func (s *Store) bestScores(cs []*cluster, idx personIndex) map[*cluster]float32 {
-	unit := func(c *cluster) []float32 {
-		n := float32(norm(c.sum))
-		u := make([]float32, len(c.sum))
-		if n > 0 {
-			for i, x := range c.sum {
-				u[i] = x / n
-			}
-		}
-		return u
-	}
+	unit := clusterUnit
 	type ref struct {
 		pid int64
 		pi  *personInfo
@@ -1867,10 +2029,11 @@ func (s *Store) bestScores(cs []*cluster, idx personIndex) map[*cluster]float32 
 				cb, ca, cok := c.birth()
 				best := float32(-1)
 				ruledOut := map[int64]bool{} // the same rules as the suggestions (score)
+				byPerson := map[int64]float32{}
 				for _, r := range refs {
 					out, seen := ruledOut[r.pid]
 					if !seen {
-						out = slices.Contains(c.Rejected, r.pid) || r.pi.clashes(c) || !birthCompatible(cb, ca, cok, r.pi.birth, r.pi.age, r.pi.birthOK)
+						out = slices.Contains(c.Rejected, r.pid) || r.pi.clashes(c)
 						ruledOut[r.pid] = out
 					}
 					if out {
@@ -1880,7 +2043,14 @@ func (s *Store) bestScores(cs []*cluster, idx personIndex) map[*cluster]float32 
 					for k, x := range u {
 						d += x * r.u[k]
 					}
-					best = max(best, d)
+					if p, ok := byPerson[r.pid]; !ok || d > p {
+						byPerson[r.pid] = d
+					}
+				}
+				for pid, d := range byPerson {
+					if idx[pid].ages.fitsLike(cb, ca, cok, d) {
+						best = max(best, d)
+					}
 				}
 				scores[i] = best
 			}
@@ -1899,14 +2069,8 @@ func (s *Store) bestScores(cs []*cluster, idx personIndex) map[*cluster]float32 
 }
 
 func (s *Store) reviewItem(c *cluster, faces []*faceRec, covers map[int64]string, idx personIndex, sample int) ReviewItem {
-	it := ReviewItem{GroupView: s.groupView(c, faces, sample), Suggestions: []Suggestion{}}
-	for pid, p := range s.people {
-		if score, ok := idx.score(c, pid); ok && score >= candidateMin {
-			it.Suggestions = append(it.Suggestions, Suggestion{ID: pid, Name: p.Name, Cover: covers[pid], Score: score})
-		}
-	}
-	slices.SortFunc(it.Suggestions, func(a, b Suggestion) int { return cmp.Compare(b.Score, a.Score) })
-	it.Suggestions = it.Suggestions[:min(3, len(it.Suggestions))]
+	it := ReviewItem{GroupView: s.groupView(c, faces, sample)}
+	it.Suggestions = s.suggest(c, faces, covers, idx, s.family())
 	return it
 }
 
@@ -1959,15 +2123,8 @@ func (s *Store) GroupSuggestions(ctx context.Context, gid int64) []Suggestion {
 	if c == nil {
 		return out
 	}
-	covers := s.personCovers(s.facesByGroup())
-	idx := s.personIndex()
-	for pid, p := range s.people {
-		if score, ok := idx.score(c, pid); ok && score >= candidateMin {
-			out = append(out, Suggestion{ID: pid, Name: p.Name, Cover: covers[pid], Score: score})
-		}
-	}
-	slices.SortFunc(out, func(a, b Suggestion) int { return cmp.Compare(b.Score, a.Score) })
-	return out[:min(3, len(out))]
+	byGroup := s.facesByGroup()
+	return s.suggest(c, byGroup[gid], s.personCovers(byGroup), s.personIndex(), s.family())
 }
 
 // unnamedClusters lists groups without a person.

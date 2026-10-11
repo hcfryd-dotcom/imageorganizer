@@ -120,7 +120,7 @@ func (im *Importer) importFile(ctx context.Context, j store.FileJob) error {
 		FileSize: int64(len(data)), Format: r.Info.Format, TakenAt: r.Info.TakenAt,
 		Lat: r.Info.Lat, Lon: r.Info.Lon, CameraMake: r.Info.CameraMake, CameraModel: r.Info.CameraModel,
 		Lens: r.Info.Lens, ISO: r.Info.ISO, FNumber: r.Info.FNumber, Exposure: r.Info.Exposure,
-		Focal: r.Info.Focal,
+		Focal: r.Info.Focal, Rotated: rot,
 	}
 	if d.TakenAt == nil {
 		// No EXIF date: fall back to the file's modification time.
@@ -161,6 +161,7 @@ func (im *Importer) importFile(ctx context.Context, j store.FileJob) error {
 			return err
 		}
 		d.HasThumb = true
+		d.ThumbRot = (rot + d.AutoRotate) % 360 // as drawn
 	}
 	if im.Faces != nil && r.Work != nil {
 		for i, f := range found {
@@ -171,7 +172,7 @@ func (im *Importer) importFile(ctx context.Context, j store.FileJob) error {
 			}
 			fd := store.FaceData{Box: f.Box, Landmarks: f.Landmarks, Score: f.Score, Embedding: f.Embedding, CropBox: f.CropBox}
 			if f.AgeDone {
-				fd.Age, fd.AgeVersion = f.Age, analysis.AgeFull
+				fd.Age, fd.AgeVersion, fd.Female = f.Age, analysis.AgeFull, f.Female
 			}
 			d.Faces = append(d.Faces, fd)
 		}

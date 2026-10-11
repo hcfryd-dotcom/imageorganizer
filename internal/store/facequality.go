@@ -13,6 +13,7 @@ import (
 type faceQuality struct {
 	sharp float32 // Laplacian variance over intensity variance: higher is sharper
 	eyes  float32 // contrast around the eyes relative to the face: open eyes (iris on white) score higher
+	sd    float32 // the face's luminance spread (0-255 scale): a dark or washed-out smudge is low
 	ok    bool
 }
 
@@ -80,7 +81,7 @@ func (s *Store) measure(f *faceRec) faceQuality {
 	}
 	lvar := lsq/float64(n) - (lsum/float64(n))*(lsum/float64(n))
 	ivar := isq/float64(n) - (isum/float64(n))*(isum/float64(n))
-	q := faceQuality{ok: true}
+	q := faceQuality{ok: true, sd: float32(math.Sqrt(max(ivar, 0)))}
 	if ivar > 1 {
 		q.sharp = float32(lvar / ivar)
 	}
