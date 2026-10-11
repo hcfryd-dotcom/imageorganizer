@@ -79,6 +79,9 @@ func Parse(loc string) (Spec, error) {
 	if strings.HasPrefix(loc, "/") {
 		return Spec{Scheme: "file", Path: cleanPath(loc)}, nil
 	}
+	if p, ok := parseWindowsPath(loc); ok {
+		return Spec{Scheme: "file", Path: p}, nil
+	}
 	u, err := url.Parse(loc)
 	if err != nil {
 		return Spec{}, err
@@ -109,6 +112,9 @@ func cleanPath(p string) string { return path.Clean("/" + strings.Trim(p, "/")) 
 // It identifies a folder in the database and in the UI.
 func (s Spec) Location() string {
 	if s.Scheme == "file" {
+		if isDrivePath(s.Path) {
+			return nativePath(s.Path)
+		}
 		return s.Path
 	}
 	u := url.URL{Scheme: s.Scheme, Host: s.Host, Path: s.Path}
@@ -145,6 +151,9 @@ func Within(a, b Spec) bool {
 func Display(location, rel string) string {
 	if rel == "" || rel == "." {
 		return location
+	}
+	if strings.Contains(location, `\`) {
+		return strings.TrimSuffix(location, `\`) + `\` + strings.ReplaceAll(rel, "/", `\`)
 	}
 	return strings.TrimSuffix(location, "/") + "/" + rel
 }
@@ -192,11 +201,15 @@ func Browse(ctx context.Context, s Spec) (Listing, error) {
 		return l, err
 	}
 	var names []string
+	roots := false
 	if rl, ok := a.(RootLister); ok && s.Path == "/" {
-		if names, err = rl.ListRoots(ctx, s); err != nil {
+		names, err = rl.ListRoots(ctx, s)
+		if err != nil && !errors.Is(err, errNoRoots) {
 			return l, err
 		}
-	} else {
+		roots = err == nil
+	}
+	if !roots {
 		c, err := a.Open(ctx, s)
 		if err != nil {
 			return l, err
