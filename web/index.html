@@ -871,6 +871,32 @@
       </select>
     </div>
     <p class="muted small review-intro">Each card is one person at one age, found in your photos. Pick who it is, type a new name, or skip. Photos that clearly match someone you’ve named are filed automatically and never show up here.</p>
+    <!-- File every group whose best suggestion is sure enough at once -->
+    <div class="bulk-bar" x-show="peopleData.people.length">
+      <form class="bulk-row" @submit.prevent="bulkAccept()">
+        <span>File every group that is at least</span>
+        <input class="input small-input" type="number" min="50" max="100" step="1" x-model="bulk.min" @input="onBulkMin()" aria-label="Minimum likeness in percent">
+        <span>% like someone you’ve named</span>
+        <button class="btn primary bulk-go" :disabled="bulk.busy || bulk.loading || !bulk.preview || !bulk.preview.groups"
+                x-text="bulk.busy ? 'Filing…' : (bulk.preview && bulk.preview.groups ? 'GO: file ' + fmtCount(bulk.preview.groups) + (bulk.preview.groups === 1 ? ' group' : ' groups') + ' (' + fmtCount(bulk.preview.faces) + ' faces)' : 'GO')"></button>
+      </form>
+      <div class="small muted" x-show="bulk.preview">
+        <span x-show="bulk.preview && !bulk.preview.groups">No group is that alike to anyone yet. Name a few more, or lower the percentage.</span>
+        <template x-if="bulk.preview && bulk.preview.groups">
+          <span>
+            <a href="#" @click.prevent="bulk.showPeople = !bulk.showPeople" x-text="(bulk.showPeople ? 'Hide' : 'Show') + ' who they’d be filed as'"></a>
+            <span x-show="bulk.preview.ambiguous" x-text="' · ' + fmtCount(bulk.preview.ambiguous) + ' left for you: as alike to two people'"></span>
+            <span> · Cards marked <b class="sure-tag">✓ sure</b> below are among them.</span>
+          </span>
+        </template>
+      </div>
+      <div class="bulk-people small" x-show="bulk.showPeople && bulk.preview && bulk.preview.groups">
+        <template x-for="p in (bulk.preview && bulk.preview.people) || []" :key="p.id">
+          <span class="kin-chip"><b x-text="p.name"></b> <span class="muted" x-text="fmtCount(p.faces) + ' faces in ' + fmtCount(p.groups) + (p.groups === 1 ? ' group' : ' groups')"></span></span>
+        </template>
+      </div>
+      <p class="small muted">Lower percentages file more, with more mistakes. Filed groups can be checked on each person’s page and moved if wrong.</p>
+    </div>
     <div class="group-grid">
       <template x-for="it in reviewCards()" :key="it.id">
         <div class="group-card" :class="reviewFocus && reviewFocus.id === it.id && 'focused'">
@@ -901,8 +927,8 @@
           </template>
           <div class="suggestions" x-show="!it.auto && it.suggestions.length">
             <template x-for="p in it.suggestions" :key="p.id">
-              <button class="suggestion" :disabled="isBusy(it)" @click="reviewAct(it, 'person', p.id)" :title="'Similarity ' + Math.round(p.score * 100) + '%' + (sgNote(p) ? ' · ' + sgNote(p) : '')">
-                <img :src="faceURL(p.cover)" alt="" x-show="p.cover"><span x-text="p.name"></span><small class="match-pct" x-text="Math.round(p.score * 100) + '%'"></small>
+              <button class="suggestion" :class="{sure: sureSuggestion(it) && sureSuggestion(it).id === p.id}" :disabled="isBusy(it)" @click="reviewAct(it, 'person', p.id)" :title="'Similarity ' + Math.round(p.score * 100) + '%' + (sgNote(p) ? ' · ' + sgNote(p) : '') + (sureSuggestion(it) && sureSuggestion(it).id === p.id ? ' · GO files it as them' : '')">
+                <img :src="faceURL(p.cover)" alt="" x-show="p.cover"><span x-text="p.name"></span><small class="match-pct" x-text="Math.round(p.score * 100) + '%'"></small><small class="sure-tag" x-show="sureSuggestion(it) && sureSuggestion(it).id === p.id">✓ sure</small>
                 <small class="sg-note" x-show="sgNote(p)" x-text="sgNote(p)"></small>
               </button>
             </template>

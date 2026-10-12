@@ -136,6 +136,8 @@ document.addEventListener('alpine:init', () => {
     reviewTotal: 0,
     reviewFaces: 0,     // faces in the review groups
     reviewOrder: 'size',
+    // Filing every Review group whose best suggestion is at least min% alike.
+    bulk: {min: 75, preview: null, busy: false, loading: false, showPeople: false},
     peopleOrder: 'name',
     reviewLoading: false,
     names: {},          // group id -> typed name (drafts persist across reloads)
@@ -189,6 +191,7 @@ document.addEventListener('alpine:init', () => {
       try { this.lightbox.strip = localStorage.getItem('showStrip') === '1'; } catch (e) {}
       try { this.reviewOrder = localStorage.getItem('reviewOrder') || 'size'; } catch (e) {}
       try { this.peopleOrder = localStorage.getItem('peopleOrder') || 'name'; } catch (e) {}
+      try { this.bulk.min = +localStorage.getItem('bulkMin') || 75; } catch (e) {}
       try { Object.assign(this.matchFilter, JSON.parse(localStorage.getItem('matchFilter') || '{}')); } catch (e) {}
       this.$watch('rowHeight', v => { try { localStorage.setItem('rowHeight', v); } catch (e) {} });
       window.addEventListener('hashchange', () => this.onHashChange());
@@ -2551,9 +2554,47 @@ document.addEventListener('alpine:init', () => {
     },
 
     // ---------- review (inbox) ----------
+    // ---------- file all sure matches at once ----------
+    bulkMin() { return Math.min(100, Math.max(50, Math.round(+this.bulk.min || 75))) / 100; },
+    async loadBulk() {
+      const b = this.bulk, min = this.bulkMin();
+      try { localStorage.setItem('bulkMin', String(Math.round(min * 100))); } catch (e) {}
+      b.loading = true;
+      const res = await api(`/api/review/confident?min=${min}`).catch(() => null);
+      if (this.bulkMin() === min) b.preview = res;
+      b.loading = false;
+    },
+    onBulkMin() { clearTimeout(this._bulkTimer); this._bulkTimer = setTimeout(() => this.loadBulk(), 300); },
+    async bulkAccept() {
+      const b = this.bulk;
+      if (b.busy || !b.preview || !b.preview.groups) return;
+      b.busy = true;
+      try {
+        const res = await api('/api/review/confident', {method: 'POST', body: JSON.stringify({min: this.bulkMin()})});
+        const f = res.filed;
+        this.notify(`Filed ${fmtCount(f.groups)} ${f.groups === 1 ? 'group' : 'groups'} (${fmtCount(f.faces)} faces): ` + f.people.slice(0, 5).map(p => p.name).join(', ') + (f.people.length > 5 ? '…' : ''), 8000);
+        touched.all = true;
+        this.loadPeople();
+        this.peopleChanged();
+        await this.loadReview(true);
+      } catch (e) {
+        this.notify(`Couldn’t file them: ${e.message}`, 7000);
+      } finally {
+        b.busy = false;
+        this.loadBulk();
+      }
+    },
+    // sureSuggestion is a card's suggestion at least bulk.min alike, when
+    // only one is: what GO would file it as.
+    sureSuggestion(it) {
+      if (!it || it.auto || !it.suggestions) return null;
+      const min = this.bulkMin(), sure = it.suggestions.filter(p => p.score >= min && !p.off);
+      return sure.length === 1 && it.suggestions.filter(p => p.score >= min).length === 1 ? sure[0] : null;
+    },
     async loadReview(reset) {
       if (this.reviewLoading) return;
       this.reviewLoading = true;
+      if (reset) this.onBulkMin(); // the counts change as groups are named
       try {
         const offset = reset ? 0 : this.reviewItems.length;
         if (reset && this.reviewGroup) {

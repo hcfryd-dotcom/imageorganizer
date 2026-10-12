@@ -868,3 +868,11 @@ body:has(.finder-drop.drag)::after { content: 'Drop the picture to find its face
 .export-dir { flex: 1 1 320px; min-width: 0; }
 .export-status { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .export-status progress { width: 200px; }
+
+/* File all sure matches at once (Review) */
+.bulk-bar { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
+.bulk-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bulk-row .small-input { width: 70px; }
+.bulk-people { display: flex; flex-wrap: wrap; gap: 6px; }
+.suggestion.sure { outline: 2px solid #2e9e5b; outline-offset: 1px; }
+.sure-tag { color: #2e9e5b; font-weight: 600; margin-left: 4px; }
