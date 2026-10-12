@@ -860,3 +860,11 @@ body:has(.finder-drop.drag)::after { content: 'Drop the picture to find its face
 .dq-tab small { color: var(--muted); margin-left: 2px; font-variant-numeric: tabular-nums; }
 .dq-tab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .dq-tab.on small { color: rgba(255,255,255,.8); }
+
+/* Copy a person's photos to a folder */
+.person-actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.export-form { margin: 12px 0 20px; padding: 14px 16px; border: 1px solid var(--line, #ddd); border-radius: 10px; display: flex; flex-direction: column; gap: 8px; }
+.export-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.export-dir { flex: 1 1 320px; min-width: 0; }
+.export-status { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.export-status progress { width: 200px; }

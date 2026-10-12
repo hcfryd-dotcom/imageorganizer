@@ -232,8 +232,36 @@
               </form>
             </div>
           </div>
-          <button class="btn primary" @click="showPersonPhotos(openedPerson())">Show photos</button>
+          <div class="person-actions">
+            <button class="btn primary" @click="showPersonPhotos(openedPerson())">Show photos</button>
+            <button class="btn ghost" @click="exportForm.open ? (exportForm.open = false) : openExport()" title="Copy their photos into a folder, one subfolder per year">Copy to folder…</button>
+          </div>
         </div>
+
+        <!-- Copy their photos out: <folder>/<year>/photo.jpg; the library is only read -->
+        <form class="export-form" x-show="exportForm.open" x-cloak @submit.prevent="startExport()">
+          <div class="export-row">
+            <label class="export-label" for="export-dir">Copy <b x-text="openedPerson().name"></b>’s photos to</label>
+            <input id="export-dir" class="input export-dir" x-model="exportForm.dir" spellcheck="false"
+                   placeholder="The whole path of a folder, e.g. C:\Users\you\Pictures\Anna">
+            <button class="btn primary" :disabled="!exportForm.dir.trim() || exportForm.busy || exportForm.status?.running">Copy</button>
+            <button type="button" class="btn ghost" @click="exportForm.open = false">Close</button>
+          </div>
+          <label class="small muted"><input type="checkbox" x-model="exportForm.confirmedOnly"> Only photos you confirmed (leave out ones filed automatically)</label>
+          <p class="small muted">Each year gets its own folder (2015, 2016 …; photos without a date go in “Unknown year”). The photos are copied; your library isn’t changed. Copying again only adds what’s new.</p>
+          <template x-if="exportForm.status && (exportForm.status.running || exportForm.status.finished_at)">
+            <div class="export-status">
+              <progress :max="exportForm.status.total" :value="exportForm.status.done"></progress>
+              <span class="small" x-text="(exportForm.status.running ? 'Copying ' : 'Done: ') + exportForm.status.person + ' · ' + fmtCount(exportForm.status.done) + ' of ' + fmtCount(exportForm.status.total)
+                + (exportForm.status.copied ? ' · ' + fmtCount(exportForm.status.copied) + ' copied' : '')
+                + (exportForm.status.skipped ? ' · ' + fmtCount(exportForm.status.skipped) + ' already there' : '')
+                + (exportForm.status.failed ? ' · ' + fmtCount(exportForm.status.failed) + ' failed' : '')"></span>
+              <span class="small muted" x-show="!exportForm.status.running" x-text="'in ' + exportForm.status.dir"></span>
+              <button type="button" class="btn ghost" x-show="exportForm.status.running" @click="cancelExport()">Stop</button>
+              <span class="small finder-error" x-show="exportForm.status.failed && exportForm.status.last_error" x-text="exportForm.status.last_error"></span>
+            </div>
+          </template>
+        </form>
 
         <!-- Pictures of them (on a wall): the same face at an age long passed -->
         <template x-for="set in pictures[openPersonId] || []" :key="'pic' + set.faces[0].id">

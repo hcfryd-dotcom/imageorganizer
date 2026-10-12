@@ -152,6 +152,8 @@ document.addEventListener('alpine:init', () => {
     // more: [earlier, later]} — more says whether the library goes on.
     around: {id: 0, by: '', items: [], more: [false, false]},
     assign: {face: null, group: null, name: '', busy: false},
+    // Copying a person's photos out into a folder, one subfolder per year.
+    exportForm: {open: false, dir: '', confirmedOnly: false, busy: false, status: null},
     also: newAlso(),
     groupView: {g: null, faces: [], loading: false},  // one group opened from a person
     groupSel: {},       // person page: selected group ids
@@ -2362,6 +2364,47 @@ document.addEventListener('alpine:init', () => {
       if (this.openPersonId === pid) this.loadPerson(); // groups, and the next faces
     },
     closePerson() { this.openPersonId = 0; this.writeHash(); this.loadPeople(); },
+    // ---------- copy a person's photos out ----------
+    async openExport() {
+      const ef = this.exportForm;
+      let base = '';
+      try { base = localStorage.getItem('exportBase') || ''; } catch (e) {}
+      const name = this.openedPerson()?.name || '';
+      // Suggest the last folder's parent with this person's name.
+      if (base) ef.dir = base.replace(/[\\/]+$/, '') + (base.includes('\\') ? '\\' : '/') + name;
+      ef.open = true;
+      ef.status = await api('/api/export').catch(() => null);
+      if (ef.status && ef.status.running) this.pollExport();
+    },
+    async startExport() {
+      const ef = this.exportForm, pid = this.openPersonId;
+      if (ef.busy || !ef.dir.trim()) return;
+      ef.busy = true;
+      try {
+        ef.status = await api(`/api/people/${pid}/export`, {method: 'POST', body: JSON.stringify({dir: ef.dir, confirmed_only: ef.confirmedOnly})});
+        try {
+          const d = ef.status.dir, cut = Math.max(d.lastIndexOf('\\'), d.lastIndexOf('/'));
+          localStorage.setItem('exportBase', cut > 0 ? d.slice(0, cut) : d);
+        } catch (e) {}
+        this.pollExport();
+      } catch (e) {
+        this.notify(`Couldn’t copy: ${e.message}`, 7000);
+      } finally {
+        ef.busy = false;
+      }
+    },
+    async pollExport() {
+      const ef = this.exportForm;
+      clearTimeout(this._exportTimer);
+      ef.status = await api('/api/export').catch(() => ef.status);
+      if (ef.status && ef.status.running) {
+        this._exportTimer = setTimeout(() => this.pollExport(), 1000);
+      } else if (ef.status && ef.status.finished_at) {
+        const st = ef.status;
+        this.notify(`Copied ${fmtCount(st.copied)} photos of ${st.person}` + (st.skipped ? `, ${fmtCount(st.skipped)} were already there` : '') + (st.failed ? `, ${fmtCount(st.failed)} failed` : ''), 8000);
+      }
+    },
+    cancelExport() { api('/api/export/cancel', {method: 'POST'}).catch(() => {}); },
     openedPerson() { return this.peopleData.people.find(p => p.id === this.openPersonId) || null; },
     showPersonPhotos(p) {
       this.person = p.id;

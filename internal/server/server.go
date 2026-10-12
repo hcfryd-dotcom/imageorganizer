@@ -62,6 +62,7 @@ type Server struct {
 	events  *broker
 	scanCtx context.Context
 	disc    discoverQueue
+	export  exporter // copying a person's photos out, one at a time
 }
 
 func New(ctx context.Context, c Config) *Server {
@@ -95,6 +96,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/scan", s.startScan)
 	mux.HandleFunc("POST /api/jobs/{stage}/{action}", s.controlJob)
 	s.peopleRoutes(mux)
+	s.exportRoutes(mux)
 	s.settingsRoutes(mux)
 	mux.HandleFunc("POST /api/browse", s.browse)
 	mux.HandleFunc("GET /api/images", s.listImages)
