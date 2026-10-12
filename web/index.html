@@ -1353,10 +1353,21 @@
       <button class="icon-btn" :class="{active: lightbox.faces}" @click="toggleFaces()" x-html="icons.people" title="Show who is in the photo (F)"></button>
       <button class="icon-btn" :class="{on: current()?.fav}" @click="toggleFav(current())" x-html="current()?.fav ? icons.heartFill : icons.heart" title="Favorite (H)"></button>
       <a class="icon-btn" :href="current() && '/original/' + current().id + '?download'" x-html="icons.download" title="Download original"></a>
+      <button class="icon-btn" @click="askDelete()" x-html="icons.trash" title="Delete: move to the deleted-photos folder (Del)"></button>
       <button class="icon-btn" :class="{active: lightbox.strip}" @click="toggleStrip()" x-html="icons.strip" title="Photos taken around the same time (T)"></button>
       <button class="icon-btn" :class="{on: lightbox.info}" @click="lightbox.info = !lightbox.info" x-html="icons.info" title="Info (I)"></button>
     </div>
   </div>
+  <!-- Delete: the photo's files move to a deleted-photos folder, never erased -->
+  <form class="delete-ask" x-show="deleteAsk.open" x-cloak @submit.prevent="confirmDelete()" @keydown.escape.stop="deleteAsk.open = false">
+    <div class="delete-title">Delete this photo?</div>
+    <p class="small muted">It is moved, not erased, to this folder (into a subfolder named like its library folder), so you can get it back. The library keeps its names and ratings, should you move it back.</p>
+    <input class="input" x-model="deleteAsk.trash" spellcheck="false" aria-label="Deleted-photos folder">
+    <div class="delete-actions">
+      <button class="btn danger" x-ref="deleteGo" :disabled="deleteAsk.busy || !deleteAsk.trash.trim()" x-text="deleteAsk.busy ? 'Moving…' : 'Delete'"></button>
+      <button type="button" class="btn ghost" @click="deleteAsk.open = false">Cancel</button>
+    </div>
+  </form>
   <aside class="lb-info" x-show="lightbox.info" x-transition.opacity>
     <template x-if="detail">
       <div>

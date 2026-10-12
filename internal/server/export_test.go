@@ -53,7 +53,7 @@ func TestPlaceFolders(t *testing.T) {
 		{ImageID: 1, Lat: f(57.7209), Lon: f(10.5839)}, // Skagen
 		{ImageID: 2, Lat: f(55.6761), Lon: f(12.5683)}, // Copenhagen
 		{ImageID: 3, Lat: f(41.4036), Lon: f(2.1744)},  // Barcelona
-		{ImageID: 4},                                   // no position
+		{ImageID: 4}, // no position
 	}
 	if got := placeFolders(items, ""); len(got) != 0 {
 		t.Fatalf("years only, yet places: %v", got)

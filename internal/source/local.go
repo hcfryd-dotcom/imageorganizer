@@ -85,3 +85,12 @@ func parseWindowsPath(loc string) (string, bool) {
 	}
 	return drive, true
 }
+
+// LocalPath is the path on this computer of rel inside a local folder, or
+// ok false for folders of other kinds (a network share reached over SMB).
+func LocalPath(s Spec, rel string) (p string, ok bool) {
+	if s.Scheme != "file" {
+		return "", false
+	}
+	return filepath.Join(nativePath(s.Path), filepath.FromSlash(rel)), true
+}

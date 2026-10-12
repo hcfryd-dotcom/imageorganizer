@@ -19,6 +19,7 @@ const icons = {
   right: '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
   info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>',
   download: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
   camera: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   image: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M21 15l-5-5L5 21"/></svg>',
@@ -157,6 +158,8 @@ document.addEventListener('alpine:init', () => {
     assign: {face: null, group: null, name: '', busy: false},
     // Copying a person's photos out into a folder, one subfolder per year.
     exportForm: {open: false, dir: '', confirmedOnly: false, byPlace: '', busy: false, status: null},
+    // Deleting the open photo: its files move to a deleted-photos folder.
+    deleteAsk: {open: false, trash: '', busy: false},
     also: newAlso(),
     groupView: {g: null, faces: [], loading: false},  // one group opened from a person
     groupSel: {},       // person page: selected group ids
@@ -1676,6 +1679,52 @@ document.addEventListener('alpine:init', () => {
       const next = this.lightboxItems()[n + d];
       if (next) new Image().src = this.previewURL(next);
     },
+    // ---------- delete (move to the deleted-photos folder) ----------
+    async askDelete() {
+      if (!this.current()) return;
+      const d = this.deleteAsk;
+      let t = '';
+      try { t = localStorage.getItem('trashDir') || ''; } catch (e) {}
+      if (!t) t = (await api('/api/trash').catch(() => ({}))).default || '';
+      d.trash = t;
+      d.open = true;
+      this.$nextTick(() => this.$refs.deleteGo && this.$refs.deleteGo.focus());
+    },
+    async confirmDelete() {
+      const d = this.deleteAsk, im = this.current();
+      if (!im || d.busy || !d.trash.trim()) return;
+      d.busy = true;
+      try {
+        const res = await api('/api/images/delete', {method: 'POST', body: JSON.stringify({ids: [im.id], trash: d.trash})});
+        try { localStorage.setItem('trashDir', res.trash); } catch (e) {}
+        if (res.deleted) {
+          d.open = false;
+          this.dropFromViewer(im.id);
+          this.notify(`Moved to ${res.trash}`, 6000);
+        } else {
+          this.notify(`Couldn’t delete: ${(res.errors || []).join('; ')}`, 9000);
+        }
+      } catch (e) {
+        this.notify(`Couldn’t delete: ${e.message}`, 8000);
+      } finally {
+        d.busy = false;
+      }
+    },
+    // dropFromViewer takes a deleted photo out of what is shown and opens
+    // the next one.
+    dropFromViewer(id) {
+      const lists = [this.items, this.lightbox.list].filter(Boolean);
+      for (const l of new Set(lists)) {
+        const i = l.findIndex(x => x.id === id);
+        if (i >= 0) l.splice(i, 1);
+      }
+      if (typeof this.total === 'number' && this.total > 0) this.total--;
+      const n = this.lightboxItems().length;
+      if (!n) { this.closeLightbox(); return; }
+      this.lightbox.idx = Math.min(this.lightbox.idx, n - 1);
+      this.loadDetail();
+      if (typeof this.layout === 'function') this.layout();
+    },
     async loadDetail() {
       this.closeAssign();
       this.resetZoom();
@@ -2106,6 +2155,7 @@ document.addEventListener('alpine:init', () => {
         else if (e.key === 'R') this.rotateCurrent(-90);
         else if (e.key === 'h') this.toggleFav(this.current());
         else if (e.key === 'i') this.lightbox.info = !this.lightbox.info;
+        else if (e.key === 'Delete') this.askDelete();
         else if (e.key === 't') this.toggleStrip();
         else if (e.key >= '0' && e.key <= '5') this.saveEdit({rating: +e.key});
         else return;

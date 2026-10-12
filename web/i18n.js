@@ -247,6 +247,12 @@
     'a folder per area, from the photo’s GPS position (municipality, e.g. “Frederikshavn”)': 'en mappe pr. område ud fra billedets GPS-position (kommune, fx “Frederikshavn”)',
     'a folder per town, from the photo’s GPS position (nearest town, e.g. “Skagen”)': 'en mappe pr. by ud fra billedets GPS-position (nærmeste by, fx “Skagen”)',
     'Each year gets its own folder (2015, 2016 …; photos without a date go in “Unknown year”). With places, photos without a GPS position stay in the year’s folder, and places abroad get their country (“Barcelona, Spanien”). The photos are copied; your library isn’t changed. Copying again only adds what’s new.': 'Hvert år får sin egen mappe (2015, 2016 …; billeder uden dato kommer i “Unknown year”). Med steder bliver billeder uden GPS-position liggende i årets mappe, og steder i udlandet får landet med (“Barcelona, Spanien”). Billederne kopieres; dit bibliotek ændres ikke. Kopierer du igen, tilføjes kun det nye.',
+    'Delete: move to the deleted-photos folder (Del)': 'Slet: flyt til mappen med slettede billeder (Del)',
+    'Delete this photo?': 'Slet dette billede?',
+    'It is moved, not erased, to this folder (into a subfolder named like its library folder), so you can get it back. The library keeps its names and ratings, should you move it back.': 'Det flyttes, ikke slettes helt, til denne mappe (i en undermappe med samme navn som biblioteksmappen), så du kan hente det tilbage. Biblioteket husker navne og bedømmelser, hvis du flytter det tilbage.',
+    'Deleted-photos folder': 'Mappe til slettede billeder',
+    'Moving…': 'Flytter…',
+    'Delete': 'Slet',
     // Relations
     'aunt or uncle': 'tante eller onkel',
     'aunt': 'tante',
@@ -354,6 +360,8 @@
     [/^Filed (\d[\d.,\u00a0]*) (groups?) \((\d[\d.,\u00a0]*) faces\): (.*)$/, (m, a, g, b, rest) => 'Arkiverede ' + a.trim() + ' ' + n1(a, 'gruppe', 'grupper') + ' (' + b.trim() + ' ansigter): ' + rest],
     [/^Couldn’t (save|copy|move|rename|remove|undo|look|file them|load Discover|set picture|put it back|turn it): (.*)$/, (m, what, e) => ({save: 'Kunne ikke gemme', copy: 'Kunne ikke kopiere', move: 'Kunne ikke flytte', rename: 'Kunne ikke omdøbe', remove: 'Kunne ikke fjerne', undo: 'Kunne ikke fortryde', look: 'Kunne ikke se', 'file them': 'Kunne ikke arkivere dem', 'load Discover': 'Kunne ikke indlæse Opdag', 'set picture': 'Kunne ikke sætte billede', 'put it back': 'Kunne ikke lægge det tilbage', 'turn it': 'Kunne ikke dreje det'})[what] + ': ' + trServer(e)],
     [/^Couldn’t save the answer(?: for (.*))?: (.*)$/, (m, who, e) => 'Kunne ikke gemme svaret' + (who ? ' for ' + who : '') + ': ' + trServer(e)],
+    [/^Moved to (.:\\.*|\/.*)$/, (m, p) => 'Flyttet til ' + p],
+    [/^Couldn’t delete: (.*)$/, (m, e) => 'Kunne ikke slette: ' + trServer(e)],
     [/^Saved: (.*)$/, (m, x) => 'Gemt: ' + x.replace(/^(\d+) (faces?) as (.*)$/, (q, n, f, nm) => n + ' ' + n1(n, 'ansigt', 'ansigter') + ' som ' + nm).replace(/^(\d+) faces? of (.*)$/, (q, n, nm) => n + ' ' + n1(n, 'ansigt', 'ansigter') + ' af ' + nm).replace(/^(.*) is (.*)’s (.*)$/, '$1 er $2s $3')],
     [/^Confirmed: (.*)$/, (m, x) => 'Bekræftet: ' + x],
     [/^Confirmed (\d+) faces? of (.*)$/, (m, n, nm) => 'Bekræftede ' + n + ' ' + n1(n, 'ansigt', 'ansigter') + ' af ' + nm],
@@ -431,6 +439,8 @@
     [/^face analysis isn’t available \(no face models\)$/, () => 'ansigtsanalyse er ikke tilgængelig (ingen ansigtsmodeller)'],
     [/^can’t read that picture$/, () => 'kan ikke læse det billede'],
     [/^not found$/, () => 'ikke fundet'],
+    [/^(.*): photos on a network share can’t be deleted from here$/, (m, f) => f + ': billeder på et netværksdrev kan ikke slettes herfra'],
+    [/^no photos chosen$/, () => 'ingen billeder valgt'],
   ];
   function trServer(s) {
     for (const [re, f] of SERVER) { const m = s.match(re); if (m) return f(...m); }
