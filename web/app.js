@@ -60,6 +60,7 @@ document.addEventListener('alpine:init', () => {
       {id: 'favorites', label: 'Favorites', icon: 'heart', view: 'photos', fav: true},
       {id: 'discover', label: 'Discover', icon: 'discover', badge: true},
       {id: 'people', label: 'People', icon: 'people'},
+      {id: 'review', label: 'Review', icon: 'check', badge: true},
       {id: 'family', label: 'Family', icon: 'tree'},
       {id: 'find', label: 'Find face', icon: 'findFace'},
       {id: 'map', label: 'Map', icon: 'map'},
