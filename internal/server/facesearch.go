@@ -70,7 +70,7 @@ func (s *Server) faceSearch(w http.ResponseWriter, r *http.Request) {
 		out = append(out, foundFace{
 			Box: f.Box, Age: age, Score: f.Score,
 			Crop:    "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(f.Crop),
-			Matches: s.Store.SimilarFaces(r.Context(), f.Embedding, age, 12),
+			Matches: nonNil(s.Store.SimilarFaces(r.Context(), f.Embedding, age, 12)),
 		})
 	}
 	writeJSON(w, map[string]any{"faces": out})

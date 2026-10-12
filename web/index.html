@@ -736,7 +736,7 @@
     <p class="finder-error" x-show="finder.error" x-text="finder.error"></p>
     <p class="muted" x-show="finder.faces.length && !finderMatches().length && !finder.busy">No one alike in your photos.</p>
     <div class="group-grid finder-results">
-      <template x-for="g in finderMatches()" :key="g.group">
+      <template x-for="g in finderMatches().filter(g => g && g.group)" :key="g.group">
         <div class="group-card">
           <div class="finder-who">
             <b x-text="g.name || (g.hidden ? 'A stranger (hidden)' : 'Not named yet')"></b>

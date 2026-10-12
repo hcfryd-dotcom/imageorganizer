@@ -998,7 +998,7 @@ document.addEventListener('alpine:init', () => {
         if (fd.file === file) fd.busy = false;
       }
     },
-    finderMatches() { const f = this.finder.faces[this.finder.pick]; return f ? f.matches : []; },
+    finderMatches() { const f = this.finder.faces[this.finder.pick]; return (f && f.matches) || []; },
     finderSelected() { return Object.keys(this.finder.sel).filter(k => this.finder.sel[k]).map(Number); },
     finderToggle(f) { this.finder.sel[f.id] = !this.finder.sel[f.id]; },
     finderSelectGroup(g) {
