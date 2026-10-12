@@ -9,8 +9,8 @@ where gcc >nul 2>nul || (echo gcc ^(MinGW^) blev ikke fundet. Koer: winget insta
 set CGO_ENABLED=1
 set GOOS=windows
 set GOARCH=amd64
-if exist dist\ImageOrganizer rmdir /s /q dist\ImageOrganizer
-mkdir dist\ImageOrganizer
+rem Keep dist\ImageOrganizer (it may hold llama\ with llama-server and models).
+if not exist dist\ImageOrganizer mkdir dist\ImageOrganizer
 echo Bygger... (foerste gang henter Go de noedvendige pakker)
 go build -trimpath -ldflags="-s -w" -o dist\ImageOrganizer\imageorganizer.exe . || goto :fail
 copy /y "packaging\windows\Start ImageOrganizer.bat" dist\ImageOrganizer\ >nul
