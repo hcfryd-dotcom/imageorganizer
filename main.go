@@ -215,7 +215,8 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 	} else {
 		log.Info("face analysis ready", "device", faceEngine.Device(), "gender", faceEngine.HasGender())
 		defer faceEngine.Close()
-		st.Gender = faceEngine.HasGender() // faces without a gender estimate get one from the age stage
+		st.Gender = faceEngine.HasGender()   // faces without a gender estimate get one from the age stage
+		st.NoAgeModel = !faceEngine.HasAge() // then faces are grouped without waiting for an age
 	}
 	// Images whose original-dependent analysis is out of date (a version in
 	// package analysis was bumped) are read once more by import.
@@ -260,7 +261,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 
 	var ageRunner *pipeline.Runner[store.AgeJob]
 	var peopleRunner *pipeline.Runner[int64]
-	if faceEngine != nil && faceEngine.HasAge() {
+	if faceEngine != nil {
 		// People matching and clustering run one face at a time so clusters
 		// grow consistently; it is cheap in-memory work.
 		peopleRunner = pipeline.New(pipeline.Stage[int64]{
@@ -271,11 +272,16 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 			Log:  log,
 		})
 		bg.Go(func() { peopleRunner.Run(ctx) })
-		ageStage := faces.AgeStage(faceEngine, st, faceCrops.Path, 8, log)
-		ageStage.Progress = peopleRunner.Wake
-		ageRunner = pipeline.New(ageStage)
-		importer.OnImage = chain(importer.OnImage, func(int64) { ageRunner.Wake() })
-		bg.Go(func() { ageRunner.Run(ctx) })
+		if faceEngine.HasAge() {
+			ageStage := faces.AgeStage(faceEngine, st, faceCrops.Path, 8, log)
+			ageStage.Progress = peopleRunner.Wake
+			ageRunner = pipeline.New(ageStage)
+			importer.OnImage = chain(importer.OnImage, func(int64) { ageRunner.Wake() })
+			bg.Go(func() { ageRunner.Run(ctx) })
+		} else {
+			// Without an age model faces are grouped as soon as they are found.
+			importer.OnImage = chain(importer.OnImage, func(int64) { peopleRunner.Wake() })
+		}
 	}
 	// Looking at thumbnails: sharpness, and NSFW with the classifier.
 	st.NsfwModel = faceEngine.HasNSFW()
@@ -424,6 +430,8 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 			if ageRunner != nil {
 				j["age"] = ageRunner.Status()
 				j["aged"], j["ageable"] = st.AgeStats()
+			}
+			if peopleRunner != nil {
 				j["people"] = peopleRunner.Status()
 			}
 			if embedRunner != nil {

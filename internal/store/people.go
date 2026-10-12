@@ -286,13 +286,14 @@ func (s *Store) loadGroups(tx *bolt.Tx) error {
 
 // ---------- the people stage ----------
 
-// NeedPeople returns aged faces that have no match group yet.
+// NeedPeople returns aged faces (any faces, without an age model) that
+// have no match group yet.
 func (s *Store) NeedPeople(ctx context.Context, n int, skip map[int64]bool) []int64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	var out []int64
 	for id, f := range s.faces {
-		if f.ClusterID == 0 && f.AgeVersion > 0 && !f.NotFace && !skip[id] && !s.isJunk(f) {
+		if f.ClusterID == 0 && (f.AgeVersion > 0 || s.NoAgeModel) && !f.NotFace && !skip[id] && !s.isJunk(f) {
 			out = append(out, id)
 		}
 	}
@@ -606,7 +607,7 @@ func (s *Store) regroup(tx *bolt.Tx) error {
 	for _, f := range s.faces {
 		f.ClusterID = 0
 		switch {
-		case f.AgeVersion == 0 || f.NotFace || s.isJunk(f):
+		case f.AgeVersion == 0 && !s.NoAgeModel || f.NotFace || s.isJunk(f):
 		case f.Tagged != 0 && s.people[f.Tagged] != nil:
 			tagged = append(tagged, f)
 		default:

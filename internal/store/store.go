@@ -175,7 +175,11 @@ type Store struct {
 	Gender bool
 	// NsfwModel: an NSFW classifier is loaded, so photos without a score
 	// wait for the look stage. Set before the stages start.
-	NsfwModel   bool
+	NsfwModel bool
+	// NoAgeModel: no age model is loaded, so faces are grouped without an
+	// age instead of waiting for an age stage that never runs. Set before
+	// the stages start.
+	NoAgeModel  bool
 	qmu         sync.Mutex
 	qcache      map[int64]faceQuality
 	shotMu      sync.Mutex // see shots.go
