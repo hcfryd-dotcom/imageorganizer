@@ -1,0 +1,36 @@
+ImageOrganizer til Windows
+==========================
+
+Installation
+------------
+1. Pak hele mappen "ImageOrganizer" ud et fast sted, fx i din brugermappe.
+   (Koer det ikke direkte inde fra zip-filen.)
+2. Dobbeltklik paa "Start ImageOrganizer.bat".
+   Browseren aabner http://127.0.0.1:8420 - tryk F5, hvis siden ikke er klar endnu.
+3. Tilfoej en mappe med billeder (lokal mappe eller netvaerksdrev/NAS).
+
+Foerste gang kan Windows SmartScreen advare, fordi programmet ikke er signeret:
+vaelg "Flere oplysninger" -> "Koer alligevel".
+
+Programmet koerer, saa laenge det sorte vindue er aabent. Luk vinduet for at stoppe.
+Genvej: hoejreklik paa "Start ImageOrganizer.bat" -> Send til -> Skrivebord.
+
+Ansigtsgenkendelse ("Personer")
+-------------------------------
+Kraever to ting:
+- onnxruntime.dll i samme mappe som imageorganizer.exe
+  (fra https://github.com/microsoft/onnxruntime/releases , filen
+  onnxruntime-win-x64-<version>.zip, mappen lib).
+- Modelfilerne i mappen
+  C:\Users\<dit navn>\.local\share\imageorganizer\models
+    scrfd_10g.onnx, arcface_w600k_r50.onnx, mivolo_v2_age.onnx
+Genstart programmet bagefter. Paa siden Indstillinger kan du se, om
+ansigtsgenkendelsen koerer, og hvis ikke, hvorfor.
+
+Hvor ligger dine data?
+----------------------
+C:\Users\<dit navn>\.local\share\imageorganizer
+Dine billedmapper bliver kun laest, aldrig aendret.
+
+Kommandolinje-indstillinger: aabn en kommandoprompt i mappen og skriv
+  imageorganizer.exe -h

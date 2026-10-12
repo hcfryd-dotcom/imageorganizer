@@ -123,7 +123,7 @@ func main() {
 	flag.IntVar(&c.conns, "conns", 4, "connections per remote folder (SMB etc.)")
 	flag.IntVar(&c.embedWorkers, "embed-workers", 8, "parallel embedding requests (match llama-server --parallel)")
 	flag.StringVar(&c.faceModels, "face-models", "", "directory with scrfd_10g.onnx, arcface_w600k_r50.onnx, mivolo_v2_age.onnx (default <data>/models; empty files disable faces)")
-	flag.StringVar(&c.ortLib, "onnxruntime", "/usr/lib/libonnxruntime.so", "ONNX Runtime shared library (a GPU build enables -face-device cuda)")
+	flag.StringVar(&c.ortLib, "onnxruntime", defaultORTLib(), "ONNX Runtime shared library (a GPU build enables -face-device cuda)")
 	flag.StringVar(&c.faceDev, "face-device", "auto", "where face models run: auto, cuda or cpu")
 	flag.Int64Var(&c.faceGPUMem, "face-gpu-mem", 1<<30, "GPU memory arena cap per face model in bytes")
 	flag.StringVar(&c.paused, "paused", "", "comma-separated stages to start paused (e.g. import)")
@@ -488,4 +488,16 @@ func chain(a, b func(int64)) func(int64) {
 		return b
 	}
 	return func(id int64) { a(id); b(id) }
+}
+
+// defaultORTLib is where ONNX Runtime is looked for unless configured: the
+// system library on Linux, onnxruntime.dll next to the program on Windows.
+func defaultORTLib() string {
+	if runtime.GOOS == "windows" {
+		if exe, err := os.Executable(); err == nil {
+			return filepath.Join(filepath.Dir(exe), "onnxruntime.dll")
+		}
+		return "onnxruntime.dll"
+	}
+	return "/usr/lib/libonnxruntime.so"
 }
