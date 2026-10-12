@@ -10,6 +10,7 @@
 <script>window.ASSET_HASH = "__ASSET_HASH__"; window.CSS_HASH = "__CSS_HASH__";</script>
 <script defer src="/static/vendor/leaflet.js"></script>
 <script defer src="/static/vendor/leaflet.markercluster.js"></script>
+<script src="/static/i18n.js?v=__ASSET_HASH__"></script>
 <script defer src="/static/app.js?v=__ASSET_HASH__"></script>
 <script defer src="/static/vendor/alpine.min.js"></script>
 </head>
@@ -956,7 +957,15 @@
 
   <!-- Settings -->
   <section class="settings" x-show="view === 'settings'" x-cloak>
-    <div class="people-head"><h2>Settings</h2></div>
+    <div class="people-head"><h2>Settings</h2>
+      <label class="lang-pick" data-no-i18n>
+        <span x-text="window.i18n && i18n.lang() === 'da' ? 'Sprog' : 'Language'"></span>
+        <select class="select" onchange="window.i18n && i18n.setLang(this.value)" x-init="$el.value = window.i18n ? i18n.lang() : 'en'">
+          <option value="da">Dansk</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+    </div>
     <template x-if="settings">
       <div class="settings-body">
         <div class="issues" x-show="settings.issues.length">

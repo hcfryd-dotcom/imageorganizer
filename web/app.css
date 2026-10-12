@@ -876,3 +876,5 @@ body:has(.finder-drop.drag)::after { content: 'Drop the picture to find its face
 .bulk-people { display: flex; flex-wrap: wrap; gap: 6px; }
 .suggestion.sure { outline: 2px solid #2e9e5b; outline-offset: 1px; }
 .sure-tag { color: #2e9e5b; font-weight: 600; margin-left: 4px; }
+
+.lang-pick { margin-left: auto; display: flex; gap: 8px; align-items: center; }
