@@ -242,6 +242,11 @@
     'A painting, statue or poster: hidden everywhere. To keep it by name, type the name of the painting instead.': 'Et maleri, en statue eller en plakat: skjult overalt. For at beholde det med navn, skriv i stedet maleriets navn.',
     'A painting, statue or poster: hidden everywhere (the very same face for years: likely). To keep it by name, type the name of the painting instead.': 'Et maleri, en statue eller en plakat: skjult overalt (præcis samme ansigt i årevis: sandsynligt). For at beholde det med navn, skriv i stedet maleriets navn.',
     'Marked NSFW by you': 'Markeret som NSFW af dig',
+    'Within each year': 'I hvert år',
+    'no subfolders': 'ingen undermapper',
+    'a folder per area, from the photo’s GPS position (municipality, e.g. “Frederikshavn”)': 'en mappe pr. område ud fra billedets GPS-position (kommune, fx “Frederikshavn”)',
+    'a folder per town, from the photo’s GPS position (nearest town, e.g. “Skagen”)': 'en mappe pr. by ud fra billedets GPS-position (nærmeste by, fx “Skagen”)',
+    'Each year gets its own folder (2015, 2016 …; photos without a date go in “Unknown year”). With places, photos without a GPS position stay in the year’s folder, and places abroad get their country (“Barcelona, Spanien”). The photos are copied; your library isn’t changed. Copying again only adds what’s new.': 'Hvert år får sin egen mappe (2015, 2016 …; billeder uden dato kommer i “Unknown year”). Med steder bliver billeder uden GPS-position liggende i årets mappe, og steder i udlandet får landet med (“Barcelona, Spanien”). Billederne kopieres; dit bibliotek ændres ikke. Kopierer du igen, tilføjes kun det nye.',
     // Relations
     'aunt or uncle': 'tante eller onkel',
     'aunt': 'tante',

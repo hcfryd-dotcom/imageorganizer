@@ -878,3 +878,6 @@ body:has(.finder-drop.drag)::after { content: 'Drop the picture to find its face
 .sure-tag { color: #2e9e5b; font-weight: 600; margin-left: 4px; }
 
 .lang-pick { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.export-place { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.export-place .select { max-width: 100%; }

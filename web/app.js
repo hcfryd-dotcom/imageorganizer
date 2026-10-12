@@ -156,7 +156,7 @@ document.addEventListener('alpine:init', () => {
     around: {id: 0, by: '', items: [], more: [false, false]},
     assign: {face: null, group: null, name: '', busy: false},
     // Copying a person's photos out into a folder, one subfolder per year.
-    exportForm: {open: false, dir: '', confirmedOnly: false, busy: false, status: null},
+    exportForm: {open: false, dir: '', confirmedOnly: false, byPlace: '', busy: false, status: null},
     also: newAlso(),
     groupView: {g: null, faces: [], loading: false},  // one group opened from a person
     groupSel: {},       // person page: selected group ids
@@ -2372,7 +2372,7 @@ document.addEventListener('alpine:init', () => {
     async openExport() {
       const ef = this.exportForm;
       let base = '';
-      try { base = localStorage.getItem('exportBase') || ''; } catch (e) {}
+      try { base = localStorage.getItem('exportBase') || ''; ef.byPlace = localStorage.getItem('exportByPlace') || ''; } catch (e) {}
       const name = this.openedPerson()?.name || '';
       // Suggest the last folder's parent with this person's name.
       if (base) ef.dir = base.replace(/[\\/]+$/, '') + (base.includes('\\') ? '\\' : '/') + name;
@@ -2385,7 +2385,8 @@ document.addEventListener('alpine:init', () => {
       if (ef.busy || !ef.dir.trim()) return;
       ef.busy = true;
       try {
-        ef.status = await api(`/api/people/${pid}/export`, {method: 'POST', body: JSON.stringify({dir: ef.dir, confirmed_only: ef.confirmedOnly})});
+        ef.status = await api(`/api/people/${pid}/export`, {method: 'POST', body: JSON.stringify({dir: ef.dir, confirmed_only: ef.confirmedOnly, by_place: ef.byPlace})});
+        try { localStorage.setItem('exportByPlace', ef.byPlace); } catch (e) {}
         try {
           const d = ef.status.dir, cut = Math.max(d.lastIndexOf('\\'), d.lastIndexOf('/'));
           localStorage.setItem('exportBase', cut > 0 ? d.slice(0, cut) : d);

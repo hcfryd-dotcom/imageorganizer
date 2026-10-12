@@ -248,8 +248,15 @@
             <button class="btn primary" :disabled="!exportForm.dir.trim() || exportForm.busy || exportForm.status?.running">Copy</button>
             <button type="button" class="btn ghost" @click="exportForm.open = false">Close</button>
           </div>
+          <label class="small export-place">Within each year
+            <select class="select" x-model="exportForm.byPlace">
+              <option value="">no subfolders</option>
+              <option value="area">a folder per area, from the photo’s GPS position (municipality, e.g. “Frederikshavn”)</option>
+              <option value="town">a folder per town, from the photo’s GPS position (nearest town, e.g. “Skagen”)</option>
+            </select>
+          </label>
           <label class="small muted"><input type="checkbox" x-model="exportForm.confirmedOnly"> Only photos you confirmed (leave out ones filed automatically)</label>
-          <p class="small muted">Each year gets its own folder (2015, 2016 …; photos without a date go in “Unknown year”). The photos are copied; your library isn’t changed. Copying again only adds what’s new.</p>
+          <p class="small muted">Each year gets its own folder (2015, 2016 …; photos without a date go in “Unknown year”). With places, photos without a GPS position stay in the year’s folder, and places abroad get their country (“Barcelona, Spanien”). The photos are copied; your library isn’t changed. Copying again only adds what’s new.</p>
           <template x-if="exportForm.status && (exportForm.status.running || exportForm.status.finished_at)">
             <div class="export-status">
               <progress :max="exportForm.status.total" :value="exportForm.status.done"></progress>

@@ -81,3 +81,7 @@ go test ./...
 
 MIT; see [LICENSE](LICENSE). Bundled third-party libraries are listed in
 [web/vendor/THIRD_PARTY_LICENSES.md](web/vendor/THIRD_PARTY_LICENSES.md).
+Place names (for copying photos into folders by place) come from
+[GeoNames](https://www.geonames.org) via
+[cities.json](https://github.com/lutangar/cities.json), CC BY 4.0; see
+[internal/places](internal/places/LICENSE-GeoNames-CC-BY-4.0.txt).

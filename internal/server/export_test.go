@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/lkarlslund/imageorganizer/internal/store"
 )
 
 func TestExportTarget(t *testing.T) {
@@ -42,5 +44,31 @@ func TestExportDir(t *testing.T) {
 		if _, err := exportDir(bad); err == nil {
 			t.Fatalf("%q accepted", bad)
 		}
+	}
+}
+
+func TestPlaceFolders(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+	items := []store.ExportItem{
+		{ImageID: 1, Lat: f(57.7209), Lon: f(10.5839)}, // Skagen
+		{ImageID: 2, Lat: f(55.6761), Lon: f(12.5683)}, // Copenhagen
+		{ImageID: 3, Lat: f(41.4036), Lon: f(2.1744)},  // Barcelona
+		{ImageID: 4},                                   // no position
+	}
+	if got := placeFolders(items, ""); len(got) != 0 {
+		t.Fatalf("years only, yet places: %v", got)
+	}
+	area := placeFolders(items, "area")
+	want := map[int64]string{1: "Frederikshavn", 2: "København", 3: "Barcelona, Spanien"}
+	for id, w := range want {
+		if area[id] != w {
+			t.Errorf("area: photo %d in %q, want %q", id, area[id], w)
+		}
+	}
+	if _, ok := area[4]; ok {
+		t.Error("a photo without a position got a place")
+	}
+	if town := placeFolders(items, "town"); town[1] != "Skagen" {
+		t.Errorf("town: Skagen photo in %q", town[1])
 	}
 }

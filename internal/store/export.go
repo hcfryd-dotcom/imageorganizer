@@ -10,8 +10,9 @@ import (
 type ExportItem struct {
 	ImageID  int64
 	FolderID int64
-	Path     string // relative to the folder
-	Taken    *int64 // capture time (Unix seconds), nil when unknown
+	Path     string   // relative to the folder
+	Taken    *int64   // capture time (Unix seconds), nil when unknown
+	Lat, Lon *float64 // GPS position, nil when unknown
 }
 
 // PersonExport lists the photos of person pid, oldest first: those whose
@@ -45,7 +46,7 @@ func (s *Store) PersonExport(ctx context.Context, pid int64, confirmedOnly bool)
 			continue
 		}
 		seen[f.ImageID] = true
-		out = append(out, ExportItem{ImageID: im.ID, FolderID: file.FolderID, Path: file.Path, Taken: im.TakenAt})
+		out = append(out, ExportItem{ImageID: im.ID, FolderID: file.FolderID, Path: file.Path, Taken: im.TakenAt, Lat: im.Lat, Lon: im.Lon})
 	}
 	slices.SortFunc(out, func(a, b ExportItem) int {
 		switch {

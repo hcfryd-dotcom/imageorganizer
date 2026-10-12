@@ -16,13 +16,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lkarlslund/imageorganizer/internal/places"
 	"github.com/lkarlslund/imageorganizer/internal/scanner"
 	"github.com/lkarlslund/imageorganizer/internal/store"
 )
 
 // Copying a person's photos out of the library, into a folder of the
-// user's choosing, one subfolder per year: <dir>/2015/IMG_1234.jpg. The
-// library's own folders are only read.
+// user's choosing, one subfolder per year: <dir>/2015/IMG_1234.jpg, and
+// optionally per place within the year, from the photo's GPS position:
+// <dir>/2015/Skagen/IMG_1234.jpg (photos without one stay in the year's
+// folder). The library's own folders are only read.
 
 // noYearFolder holds photos without a capture date.
 const noYearFolder = "Unknown year"
@@ -31,6 +34,7 @@ type exportStatus struct {
 	Running    bool   `json:"running"`
 	Person     string `json:"person,omitempty"`
 	Dir        string `json:"dir,omitempty"`
+	ByPlace    string `json:"by_place,omitempty"` // "", "area" or "town"
 	Total      int    `json:"total"`
 	Done       int    `json:"done"`
 	Copied     int    `json:"copied"`
@@ -78,6 +82,7 @@ func (s *Server) startExport(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Dir           string `json:"dir"`
 		ConfirmedOnly bool   `json:"confirmed_only"`
+		ByPlace       string `json:"by_place"` // "": years only; "area": kommune or the like; "town": nearest town
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpError(w, 400, err)
@@ -86,6 +91,10 @@ func (s *Server) startExport(w http.ResponseWriter, r *http.Request) {
 	dir, err := exportDir(req.Dir)
 	if err != nil {
 		httpError(w, 400, err)
+		return
+	}
+	if req.ByPlace != "" && req.ByPlace != "area" && req.ByPlace != "town" {
+		httpError(w, 400, fmt.Errorf("by_place is area, town or empty"))
 		return
 	}
 	name, items, err := s.Store.PersonExport(r.Context(), pid, req.ConfirmedOnly)
@@ -109,10 +118,10 @@ func (s *Server) startExport(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithCancel(s.scanCtx)
 	s.export.cancel = cancel
-	s.export.st = exportStatus{Running: true, Person: name, Dir: dir, Total: len(items), StartedAt: time.Now().Unix()}
+	s.export.st = exportStatus{Running: true, Person: name, Dir: dir, ByPlace: req.ByPlace, Total: len(items), StartedAt: time.Now().Unix()}
 	st := s.export.st
 	s.export.mu.Unlock()
-	go s.runExport(ctx, cancel, dir, items)
+	go s.runExport(ctx, cancel, dir, items, req.ByPlace)
 	writeJSON(w, st)
 }
 
@@ -136,8 +145,9 @@ func examplePath() string {
 	return "/home/you/Pictures/Anna"
 }
 
-func (s *Server) runExport(ctx context.Context, cancel context.CancelFunc, dir string, items []store.ExportItem) {
+func (s *Server) runExport(ctx context.Context, cancel context.CancelFunc, dir string, items []store.ExportItem, byPlace string) {
 	defer cancel()
+	placeOf := placeFolders(items, byPlace)
 	step := func(f func(st *exportStatus)) {
 		s.export.mu.Lock()
 		f(&s.export.st)
@@ -148,7 +158,7 @@ func (s *Server) runExport(ctx context.Context, cancel context.CancelFunc, dir s
 			step(func(st *exportStatus) { st.LastError = "stopped" })
 			break
 		}
-		copied, err := s.exportOne(ctx, dir, it)
+		copied, err := s.exportOne(ctx, dir, it, placeOf[it.ImageID])
 		step(func(st *exportStatus) {
 			st.Done++
 			switch {
@@ -172,10 +182,47 @@ func (s *Server) runExport(ctx context.Context, cancel context.CancelFunc, dir s
 	s.Log.Info("copied photos out", "person", st.Person, "dir", st.Dir, "copied", st.Copied, "skipped", st.Skipped, "failed", st.Failed)
 }
 
-// exportOne copies one photo into its year's folder. A file of the same
-// name and size already there is taken to be this photo (copying again
-// skips it); another file of the same name gets " (2)" and so on.
-func (s *Server) exportOne(ctx context.Context, dir string, it store.ExportItem) (bool, error) {
+// placeFolders names the place folder of each photo with a GPS position
+// (byPlace "area" or "town"; none for ""). Places in the country most of
+// the photos are from are named alone ("Skagen"), others with their
+// country ("Barcelona, Spanien").
+func placeFolders(items []store.ExportItem, byPlace string) map[int64]string {
+	out := map[int64]string{}
+	if byPlace == "" {
+		return out
+	}
+	level := places.ByArea
+	if byPlace == "town" {
+		level = places.ByTown
+	}
+	found := map[int64]places.Place{}
+	countries := map[string]int{}
+	for _, it := range items {
+		if it.Lat == nil || it.Lon == nil {
+			continue
+		}
+		if p, ok := places.Nearest(*it.Lat, *it.Lon); ok {
+			found[it.ImageID] = p
+			countries[p.Country]++
+		}
+	}
+	home, most := "", 0
+	for cc, n := range countries {
+		if n > most || n == most && cc < home {
+			home, most = cc, n
+		}
+	}
+	for id, p := range found {
+		out[id] = p.Label(level, home)
+	}
+	return out
+}
+
+// exportOne copies one photo into its year's folder, and its place's
+// within it when place is set. A file of the same name and size already
+// there is taken to be this photo (copying again skips it); another file
+// of the same name gets " (2)" and so on.
+func (s *Server) exportOne(ctx context.Context, dir string, it store.ExportItem, place string) (bool, error) {
 	year := noYearFolder
 	var mtime time.Time
 	if it.Taken != nil {
@@ -183,6 +230,9 @@ func (s *Server) exportOne(ctx context.Context, dir string, it store.ExportItem)
 		year, mtime = strconv.Itoa(t.Year()), t
 	}
 	yearDir := filepath.Join(dir, year)
+	if place != "" {
+		yearDir = filepath.Join(yearDir, place)
+	}
 	if err := os.MkdirAll(yearDir, 0o755); err != nil {
 		return false, err
 	}
