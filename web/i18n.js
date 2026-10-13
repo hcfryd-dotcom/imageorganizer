@@ -288,6 +288,26 @@
     'grandparent': 'bedsteforælder',
     'partners': 'partnere',
     'cousin': 'fætter eller kusine',
+    // Places: selecting photos, setting and borrowing their place
+    'Select': 'Vælg', 'Done': 'Færdig', 'Select photos, e.g. to set their place': 'Vælg billeder, fx for at sætte deres sted',
+    'Select all': 'Vælg alle', 'Deselect': 'Fravælg', 'Click photos to select them': 'Klik på billeder for at vælge dem',
+    'Place borrowed from a photo taken around the same time': 'Stedet er lånt fra et billede taget omkring samme tid',
+    'Place set by you': 'Stedet er sat af dig', 'Place from the camera': 'Stedet er fra kameraet',
+    'Set place…': 'Sæt sted…', 'Remove place': 'Fjern sted', 'Clear selection': 'Ryd valg',
+    'Shift-click selects a run of photos': 'Skift-klik vælger alle billeder imellem',
+    'More places…': 'Flere steder…', 'Find places for more photos': 'Find steder til flere billeder',
+    'A photo without a place can borrow one from a photo taken shortly before or after it, on your phone say. When the photos either side were taken far apart, it gets one only if one of them is clearly nearer in time. Only the library is changed, not your files.':
+      'Et billede uden sted kan låne stedet fra et billede taget kort før eller efter, fx med din telefon. Er billederne før og efter taget langt fra hinanden, får det kun et sted, hvis det ene er tydeligt tættere på i tid. Kun biblioteket ændres, ikke dine filer.',
+    'Taken within': 'Taget inden for', '1 hour': '1 time', '3 hours': '3 timer', '12 hours': '12 timer', '24 hours': '24 timer',
+    'Counting…': 'Tæller…', 'No more photos can borrow a place': 'Der er ikke flere billeder, der kan låne et sted',
+    'Give them a place': 'Giv dem et sted', 'Remove them all': 'Fjern dem alle', 'Yes, remove all borrowed places': 'Ja, fjern alle lånte steder',
+    'To set the place of many photos yourself: in Photos, click Select.': 'Vil du selv sætte stedet på mange billeder: klik på Vælg under Billeder.',
+    'Borrowed from a photo taken around the same time': 'Lånt fra et billede taget omkring samme tid', 'Set by you': 'Sat af dig',
+    'Change': 'Ret', 'No place': 'Intet sted', 'Set the place': 'Sæt stedet', 'Search for a town…': 'Søg efter en by…',
+    'Search for a town, or click on the map': 'Søg efter en by, eller klik på kortet',
+    'Photos whose camera saved a place keep it. Only the library is changed, not your files.':
+      'Billeder, hvor kameraet har gemt et sted, beholder det. Kun biblioteket ændres, ikke dine filer.',
+    'Place set for 1 photo': 'Sted sat på 1 billede', 'Place removed from 1 photo': 'Sted fjernet fra 1 billede', '1 photo got a place': '1 billede fik et sted',
   };
 
   const MONTHS = {January: 'januar', February: 'februar', March: 'marts', April: 'april', May: 'maj', June: 'juni', July: 'juli', August: 'august', September: 'september', October: 'oktober', November: 'november', December: 'december'};
@@ -330,6 +350,14 @@
     [/^✓ (\d+) filed by themselves$/, (m, n) => '✓ ' + n + ' arkiveret automatisk'],
     [/^(\d[\d.,\u00a0]*) photos left out$/, (m, n) => n + ' billeder udeladt'],
     [/^(\d[\d.,\u00a0]*) geotagged photos( matching)?$/, (m, n, x) => n + ' billeder med geotag' + (x ? ' der matcher' : '')],
+    [/^(\d[\d.,\u00a0]*) photos? selected$/, (m, n) => n + (n === '1' ? ' billede valgt' : ' billeder valgt')],
+    [/^(\d[\d.,\u00a0]*) without a place$/, (m, n) => n + ' uden sted'],
+    [/^(\d[\d.,\u00a0]*) photos? can borrow a place$/, (m, n) => n + (n === '1' ? ' billede' : ' billeder') + ' kan l\u00e5ne et sted'],
+    [/^(\d[\d.,\u00a0]*) places borrowed so far$/, (m, n) => n + ' steder l\u00e5nt indtil nu'],
+    [/^Set the place of (\d[\d.,\u00a0]*) photos$/, (m, n) => 'S\u00e6t stedet for ' + n + ' billeder'],
+    [/^Place set for (\d[\d.,\u00a0]*) photos?( \u00b7 (\d[\d.,\u00a0]*) kept the camera\u2019s)?$/, (m, n, x, k) => 'Sted sat p\u00e5 ' + n + (n === '1' ? ' billede' : ' billeder') + (x ? ' \u00b7 ' + k + ' beholdt kameraets' : '')],
+    [/^Place removed from (\d[\d.,\u00a0]*) photos$/, (m, n) => 'Sted fjernet fra ' + n + ' billeder'],
+    [/^(\d[\d.,\u00a0]*) photos got a place$/, (m, n) => n + ' billeder fik et sted'],
     [/^(\d[\d.,\u00a0]*) photos · (scanned (.*)|not scanned yet)$/, (m, n, x, ago) => n + ' billeder · ' + (ago ? 'gennemsøgt ' + (tr(ago) || ago) : 'ikke gennemsøgt endnu')],
     [/^Hide (\d[\d.,\u00a0]*) faces as strangers$/, (m, n) => 'Skjul ' + n + ' ansigter som fremmede'],
     [/^The (\d[\d.,\u00a0]*) photos$/, (m, n) => 'De ' + n + ' billeder'],

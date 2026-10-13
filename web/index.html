@@ -103,6 +103,7 @@
       </ul>
     </div>
     <div class="topbar-tools" x-show="view === 'photos' || view === 'table'">
+      <button class="btn" x-show="view === 'photos'" :class="sel.on && 'primary'" @click="sel.on ? endSelect() : startSelect()" x-text="sel.on ? 'Done' : 'Select'" title="Select photos, e.g. to set their place"></button>
       <select x-model="sort" @change="reload()" class="select" :title="q.trim() && sort !== 'relevance' ? 'The 300 best matches, in this order' : ''">
         <option value="relevance" x-show="q.trim()">Most relevant first</option>
         <option value="taken_desc">Newest first</option>
@@ -147,13 +148,16 @@
     </div>
     <template x-for="sec in sections" :key="sec.key">
       <div class="section">
-        <h3 class="section-head" x-show="sec.title" x-text="sec.title"></h3>
+        <h3 class="section-head" x-show="sec.title"><span x-text="sec.title"></span><button class="sec-select" x-show="sel.on" @click="selectSection(sec)" x-text="sectionSelected(sec) ? 'Deselect' : 'Select all'"></button></h3>
         <template x-for="row in sec.rows" :key="row.key">
           <div class="row" :style="`height:${row.h}px`">
             <template x-for="it in row.items" :key="it.im.id">
-              <figure class="tile" :data-id="it.im.id" :style="`width:${it.w}px`" @click="openLightbox(it.idx)">
+              <figure class="tile" :class="{picking: sel.on, picked: sel.ids[it.im.id]}" :data-id="it.im.id" :style="`width:${it.w}px`" @click="sel.on ? toggleSel(it, $event) : openLightbox(it.idx)">
                 <img :src="thumbURL(it.im)" loading="lazy" decoding="async" alt="" @load="$el.classList.add('in')">
                 <span class="fav-badge" x-show="it.im.fav" x-html="icons.heartFill"></span>
+                <span class="sel-mark" x-show="sel.on" x-html="icons.check"></span>
+                <span class="geo-badge" x-show="sel.on && it.im.lat != null" :class="it.im.geo_src" x-html="icons.pin"
+                      :title="it.im.geo_src === 'near' ? 'Place borrowed from a photo taken around the same time' : it.im.geo_src === 'user' ? 'Place set by you' : 'Place from the camera'"></span>
                 <figcaption><span x-text="fmtDateShort(it.im.taken)"></span></figcaption>
               </figure>
             </template>
@@ -165,6 +169,16 @@
     <div class="loading" x-show="loading"><span class="spinner"></span></div>
     <div class="end-note" x-show="!loading && !semantic && items.length > 0 && items.length >= total" x-text="'That’s everything · ' + fmtCount(total) + ' photos'"></div>
   </section>
+
+  <!-- Photos selected (Select): set or remove their place -->
+  <div class="sel-bar" x-show="view === 'photos' && sel.on" x-cloak>
+    <span class="sel-count" x-text="selCount() ? fmtCount(selCount()) + (selCount() === 1 ? ' photo selected' : ' photos selected') : 'Click photos to select them'"></span>
+    <span class="muted small" x-show="selCount()" x-text="fmtCount(selItems().filter(im => im.lat == null).length) + ' without a place'"></span>
+    <button class="btn primary" :disabled="!selCount()" @click="openPlacePick(selIDs())">Set place…</button>
+    <button class="btn" x-show="selItems().some(im => im.geo_src)" @click="clearPlaces(selIDs())">Remove place</button>
+    <button class="btn ghost" x-show="selCount()" @click="sel.ids = {}">Clear selection</button>
+    <span class="muted small sel-hint">Shift-click selects a run of photos</span>
+  </div>
 
   <!-- Year scrubber -->
   <nav class="scrubber" x-show="view === 'photos' && years.length > 1 && sort.startsWith('taken')" x-cloak>
@@ -1092,6 +1106,25 @@
     <div class="map-bar">
       <button class="btn map-back" x-show="mapReturn" @click="backFromMap()">← Back to photo</button>
       <div class="map-badge" x-text="fmtCount(geoCount) + ' geotagged photos' + (tokens.length ? ' matching' : '')"></div>
+      <button class="btn map-back" @click="openBorrow()">More places…</button>
+    </div>
+    <!-- Photos without a place borrow one from a photo taken close in time -->
+    <div class="borrow-panel" x-show="borrow.open" x-cloak @keydown.escape.stop="borrow.open = false">
+      <div class="borrow-head"><h3>Find places for more photos</h3><button class="icon-btn" title="Close" @click="borrow.open = false" x-html="icons.close"></button></div>
+      <p class="muted small">A photo without a place can borrow one from a photo taken shortly before or after it, on your phone say. When the photos either side were taken far apart, it gets one only if one of them is clearly nearer in time. Only the library is changed, not your files.</p>
+      <label class="borrow-row"><span>Taken within</span>
+        <select class="select" x-model.number="borrow.hours" @change="countBorrow()">
+          <option value="1">1 hour</option><option value="3">3 hours</option><option value="12">12 hours</option><option value="24">24 hours</option>
+        </select>
+      </label>
+      <div class="borrow-count" x-text="borrow.count == null ? 'Counting…' : borrow.count === 0 ? 'No more photos can borrow a place' : fmtCount(borrow.count) + (borrow.count === 1 ? ' photo can borrow a place' : ' photos can borrow a place')"></div>
+      <button class="btn primary" :disabled="!borrow.count || borrow.busy" @click="applyBorrow()">Give them a place</button>
+      <div class="borrow-foot muted small" x-show="stats.library.geo_near">
+        <span x-text="fmtCount(stats.library.geo_near) + ' places borrowed so far'"></span> ·
+        <a href="#" x-show="!borrow.sure" @click.prevent="borrow.sure = true">Remove them all</a>
+        <a href="#" class="danger-link" x-show="borrow.sure" @click.prevent="clearBorrowed()">Yes, remove all borrowed places</a>
+      </div>
+      <div class="borrow-foot muted small">To set the place of many photos yourself: in Photos, click Select.</div>
     </div>
   </section>
 
@@ -1400,7 +1433,10 @@
         <dl>
           <template x-if="detail.model"><div><dt x-html="icons.camera"></dt><dd><b x-text="[detail.make, detail.model].filter(Boolean).join(' ')"></b><small x-text="[detail.lens, exposureLine(detail)].filter(Boolean).join(' · ')"></small></dd></div></template>
           <div><dt x-html="icons.image"></dt><dd><b x-text="baseName(detail.path)"></b><small x-text="`${detail.w} × ${detail.h} · ${(detail.w*detail.h/1e6).toFixed(1)} MP · ${fmtBytes(detail.size)} · ${detail.format.toUpperCase()}`"></small></dd></div>
-          <template x-if="detail.lat != null"><div><dt x-html="icons.pin"></dt><dd><b x-text="detail.lat.toFixed(5) + ', ' + detail.lon.toFixed(5)"></b><small><a href="#" @click.prevent="showOnMap(detail)">Show on map</a></small></dd></div></template>
+          <template x-if="detail && detail.lat != null"><div><dt x-html="icons.pin"></dt><dd><b x-text="detail.lat.toFixed(5) + ', ' + detail.lon.toFixed(5)"></b>
+            <small x-show="detail.geo_src" x-text="detail.geo_src === 'near' ? 'Borrowed from a photo taken around the same time' : 'Set by you'"></small>
+            <small class="place-links"><a href="#" @click.prevent="showOnMap(detail)">Show on map</a><template x-if="detail.geo_src"><span> · <a href="#" @click.prevent="openPlacePick([detail.id])">Change</a> · <a href="#" @click.prevent="clearPlaces([detail.id])">Remove</a></span></template></small></dd></div></template>
+          <template x-if="detail && detail.lat == null"><div><dt x-html="icons.pin"></dt><dd><b class="muted">No place</b><small><a href="#" @click.prevent="openPlacePick([detail.id])">Set place…</a></small></dd></div></template>
         </dl>
         <div class="lb-faces" x-show="detail.faces && detail.faces.length">
           <template x-for="f in (detail.faces || []).filter(f => f.person || !f.bg)" :key="f.id">
@@ -1427,6 +1463,32 @@
       </div>
     </template>
   </aside>
+</div>
+<!-- Set the place of photos: a town found by name, or a click on the map -->
+<div class="modal-back" x-show="pick.open" x-cloak @click.self="closePlacePick()">
+  <div class="modal place-modal">
+    <div class="modal-head">
+      <b x-text="pick.ids.length === 1 ? 'Set the place' : 'Set the place of ' + fmtCount(pick.ids.length) + ' photos'"></b>
+      <span class="spacer"></span>
+      <button class="icon-btn" title="Close (Esc)" @click="closePlacePick()" x-html="icons.close"></button>
+    </div>
+    <div class="place-search">
+      <input class="input" x-ref="pickSearch" placeholder="Search for a town…" x-model="pick.q" @input.debounce.250ms="searchPlaces()"
+             @keydown.enter.prevent="pick.results[0] && pickResult(pick.results[0])" autocomplete="off">
+      <ul class="place-results" x-show="pick.results.length">
+        <template x-for="p in pick.results" :key="p.name + p.lat + p.lon">
+          <li @click="pickResult(p)"><b x-text="p.name"></b> <small class="muted" x-text="[p.area, p.region, p.country].filter(Boolean).join(', ')"></small></li>
+        </template>
+      </ul>
+    </div>
+    <div class="place-map" x-ref="pickMap"></div>
+    <div class="modal-foot">
+      <span class="muted small place-chosen" x-text="pick.lat == null ? 'Search for a town, or click on the map' : (pick.label || pick.lat.toFixed(4) + ', ' + pick.lon.toFixed(4))"></span>
+      <button class="btn ghost" @click="closePlacePick()">Cancel</button>
+      <button class="btn primary" :disabled="pick.lat == null || pick.busy" @click="savePlace()">Save</button>
+    </div>
+    <div class="place-note muted small">Photos whose camera saved a place keep it. Only the library is changed, not your files.</div>
+  </div>
 </div>
 <!-- A bigger look at a small face crop, on hover -->
 <div class="face-peek" x-show="peek" x-cloak :style="peek ? {left: peek.x + 'px', top: peek.y + 'px'} : {}">

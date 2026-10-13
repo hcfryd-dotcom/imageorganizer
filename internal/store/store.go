@@ -118,7 +118,18 @@ type imageRec struct {
 	// DateOK: the user said the date is right, though the faces in the
 	// photo seemed to disagree.
 	DateOK bool `json:"dok,omitempty"`
+	// GeoSrc says where Lat/Lon came from when the file has no position:
+	// GeoUser (set by the user) or GeoNear (borrowed from a photo taken
+	// close in time). Empty: from the file, or none. A position the file
+	// gets later replaces either.
+	GeoSrc string `json:"geosrc,omitempty"`
 }
+
+// Where a position not in the file came from (imageRec.GeoSrc).
+const (
+	GeoUser = "user"
+	GeoNear = "near"
+)
 
 // fileTaken is the capture date the file itself gives (for matching a
 // moved file to its image), whatever date the user set.
@@ -712,7 +723,9 @@ func (d ImageData) apply(im *imageRec) {
 	if im.UserTaken != nil { // the user's date stays
 		im.CameraTaken, im.TakenAt = im.TakenAt, im.UserTaken
 	}
-	im.Lat, im.Lon = d.Lat, d.Lon
+	if d.Lat != nil || im.GeoSrc == "" { // a place set or borrowed stays until the file has one
+		im.Lat, im.Lon, im.GeoSrc = d.Lat, d.Lon, ""
+	}
 	im.CameraMake, im.CameraModel, im.Lens = d.CameraMake, d.CameraModel, d.Lens
 	im.ISO, im.FNumber, im.Exposure, im.Focal = d.ISO, d.FNumber, d.Exposure, d.Focal
 	im.HasThumb = d.HasThumb
@@ -946,7 +959,10 @@ func (s *Store) merge(srcID, dstID int64) error {
 	src, dst := s.images[srcID], s.images[dstID]
 	nd := *dst
 	nd.Hash, nd.PHash, nd.Width, nd.Height = src.Hash, src.PHash, src.Width, src.Height
-	nd.FileSize, nd.Format, nd.TakenAt, nd.Lat, nd.Lon = src.FileSize, src.Format, src.TakenAt, src.Lat, src.Lon
+	nd.FileSize, nd.Format, nd.TakenAt = src.FileSize, src.Format, src.TakenAt
+	if src.Lat != nil && src.GeoSrc == "" || dst.GeoSrc == "" { // a place dst was given stays unless the file has one
+		nd.Lat, nd.Lon, nd.GeoSrc = src.Lat, src.Lon, src.GeoSrc
+	}
 	nd.CameraMake, nd.CameraModel, nd.Lens = src.CameraMake, src.CameraModel, src.Lens
 	nd.ISO, nd.FNumber, nd.Exposure, nd.Focal, nd.HasThumb = src.ISO, src.FNumber, src.Exposure, src.Focal, src.HasThumb
 	nd.Analysis = maps.Clone(src.Analysis)

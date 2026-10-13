@@ -22,6 +22,7 @@ type Image struct {
 	CameraTaken *int64   `json:"camera_taken,omitempty"` // the file's date, when the user set another
 	Lat         *float64 `json:"lat,omitempty"`
 	Lon         *float64 `json:"lon,omitempty"`
+	GeoSrc      string   `json:"geo_src,omitempty"` // the position isn't the file's: "user" or "near"
 	CameraMake  string   `json:"make,omitempty"`
 	CameraModel string   `json:"model,omitempty"`
 	Lens        string   `json:"lens,omitempty"`
@@ -49,7 +50,7 @@ type Image struct {
 func (s *Store) view(im *imageRec) Image {
 	v := Image{
 		ID: im.ID, Hash: im.Hash, Width: im.Width, Height: im.Height, FileSize: im.FileSize, Format: im.Format,
-		TakenAt: im.TakenAt, Lat: im.Lat, Lon: im.Lon, CameraMake: im.CameraMake, CameraModel: im.CameraModel,
+		TakenAt: im.TakenAt, Lat: im.Lat, Lon: im.Lon, GeoSrc: im.GeoSrc, CameraMake: im.CameraMake, CameraModel: im.CameraModel,
 		Lens: im.Lens, ISO: im.ISO, FNumber: im.FNumber, Exposure: im.Exposure, Focal: im.Focal,
 		HasThumb: im.HasThumb, Favorite: im.Favorite, Rating: im.Rating, Title: im.Title, Notes: im.Notes,
 		Caption: im.Caption, Rot: im.Rotate,
@@ -411,6 +412,8 @@ type Stats struct {
 	Files   int   `json:"files"`
 	Missing int   `json:"missing"`
 	Geo     int   `json:"geo"`
+	GeoNear int   `json:"geo_near"` // of Geo: borrowed from photos taken close in time
+	GeoUser int   `json:"geo_user"` // of Geo: set by the user
 	Fav     int   `json:"favorites"`
 	Bytes   int64 `json:"bytes"`
 	Lost    int   `json:"lost"` // images with no present file (metadata kept)
@@ -433,6 +436,12 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 			st.Images++
 			if im.Lat != nil {
 				st.Geo++
+				switch im.GeoSrc {
+				case GeoNear:
+					st.GeoNear++
+				case GeoUser:
+					st.GeoUser++
+				}
 			}
 			if im.Favorite {
 				st.Fav++

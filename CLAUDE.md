@@ -54,6 +54,12 @@ the rest of the repo.
 - Delete: the viewer's trash button / Del key moves a photo's files to a
   deleted-photos folder (default `Pictures\ImageOrganizer - Deleted`), never
   erases them; the library keeps the photo's data.
+- Places for photos without GPS, kept only in the library (`GeoSrc` on
+  the image; `internal/store/geo.go`, `/api/geo/*`): Map → "More places…"
+  lends a photo the position of one taken within N hours (`near`);
+  Photos → Select → "Set place…" sets one by town search or map click
+  (`user`). A position the file gets later wins. Files are never written.
+- macOS-style look: one block at the end of `web/app.css`.
 - Danish UI: `web/i18n.js` translates the page as it is drawn (exact strings
   plus patterns); English stays the source text. Add a Danish entry there
   for every new user-facing string. Language is chosen in Settings.

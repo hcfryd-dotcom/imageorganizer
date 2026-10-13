@@ -184,6 +184,13 @@ document.addEventListener('alpine:init', () => {
     mapFocus: null,     // the photo "Show on map" came from: {id, lat, lon, hash}
     mapFocusMarker: null,
     mapReturn: null,    // where "Back to photo" goes: {view, id}
+    // Select in Photos: the photos picked (id -> true), and the last one
+    // clicked, for shift-click runs.
+    sel: {on: false, ids: {}, last: null},
+    // Setting the place of photos: the town search and the spot picked.
+    pick: {open: false, ids: [], q: '', results: [], lat: null, lon: null, label: '', busy: false},
+    // Map: photos without a place borrowing one from photos taken close in time.
+    borrow: {open: false, hours: 3, count: null, busy: false, sure: false},
     toast: {show: false, text: '', timer: null, action: null},
     conn: {online: false, everConnected: false, dev: false, buildID: null, es: null, lastMsg: 0, retry: 500, timer: null},
 
@@ -342,6 +349,8 @@ document.addEventListener('alpine:init', () => {
       if ((n.view || n.id) === 'photos' || n.id === 'table') this.reload();
     },
     setView(v) {
+      if (v !== 'photos') this.endSelect();
+      if (v !== 'map') this.borrow.open = false;
       this.view = v;
       this.writeHash();
       this.enterView();
@@ -556,7 +565,7 @@ document.addEventListener('alpine:init', () => {
       let y = null;
       for (const h of heads) {
         if (h.offsetTop - el.scrollTop > 120) break;
-        y = h.textContent.slice(-4);
+        y = h.firstElementChild.textContent.slice(-4);
       }
       this.currentYear = y || (this.years[0] && this.years[0].year);
     },
@@ -574,7 +583,7 @@ document.addEventListener('alpine:init', () => {
         await this.loadMoreNow();
       }
       this.$nextTick(() => {
-        const head = [...this.$refs.photos.querySelectorAll('.section-head')].find(h => h.textContent.endsWith(String(year)));
+        const head = [...this.$refs.photos.querySelectorAll('.section-head')].find(h => h.firstElementChild.textContent.endsWith(String(year)));
         if (head) this.$refs.photos.scrollTo({top: head.offsetTop - 12, behavior: 'smooth'});
       });
     },
@@ -607,11 +616,7 @@ document.addEventListener('alpine:init', () => {
         }
         // OpenStreetMap's own tiles need no key (CARTO's now do); dark mode
         // darkens them with a CSS filter.
-        const tiles = (this.settings && this.settings.saved.map_tiles) || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-        L.tileLayer(tiles, {
-          maxZoom: 19,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }).addTo(this.map);
+        this.tiles().addTo(this.map);
         this.loadGeo(true);
       } else {
         this.map.invalidateSize();
@@ -676,6 +681,182 @@ document.addEventListener('alpine:init', () => {
       this.setView('map');
       // A new map focuses once its points load; an existing one now.
       if (this.map) this.$nextTick(() => this.focusMap());
+    },
+    tiles() {
+      const url = (this.settings && this.settings.saved.map_tiles) || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      return L.tileLayer(url, {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      });
+    },
+
+    // ---------- places: photos the camera gave none ----------
+    startSelect() { this.sel = {on: true, ids: {}, last: null}; },
+    endSelect() { if (this.sel.on) this.sel = {on: false, ids: {}, last: null}; },
+    selIDs() { return Object.keys(this.sel.ids).map(Number); },
+    selCount() { return Object.keys(this.sel.ids).length; },
+    selItems() { return this.items.filter(im => this.sel.ids[im.id]); },
+    setSel(id, on) { if (on) this.sel.ids[id] = true; else delete this.sel.ids[id]; },
+    // toggleSel picks or unpicks a photo; with Shift, every photo from the
+    // last one clicked to this one.
+    toggleSel(it, e) {
+      const on = !this.sel.ids[it.im.id];
+      if (e.shiftKey && this.sel.last != null) {
+        for (let i = Math.min(this.sel.last, it.idx); i <= Math.max(this.sel.last, it.idx); i++) {
+          if (this.items[i]) this.setSel(this.items[i].id, on);
+        }
+      } else {
+        this.setSel(it.im.id, on);
+      }
+      this.sel.last = it.idx;
+    },
+    secIDs(sec) { return sec.rows.flatMap(r => r.items.map(it => it.im.id)); },
+    sectionSelected(sec) { const ids = this.secIDs(sec); return ids.length > 0 && ids.every(id => this.sel.ids[id]); },
+    async selectSection(sec) {
+      const on = !this.sectionSelected(sec);
+      // The last month shown may go on past what is loaded: load it all.
+      while (on && this.items.length < this.total && monthKey(this.items[this.items.length - 1].taken) === sec.key) {
+        await this.loadMoreNow();
+      }
+      const cur = this.sections.find(s => s.key === sec.key) || sec;
+      for (const id of this.secIDs(cur)) this.setSel(id, on);
+    },
+    // placeChanged updates the photos shown after their place was set (lat)
+    // or taken away (null); a place from the camera stays.
+    placeChanged(ids, lat, lon) {
+      const want = new Set(ids);
+      const upd = im => {
+        if (!im || !want.has(im.id) || (im.lat != null && !im.geo_src)) return;
+        if (lat == null) { delete im.lat; delete im.lon; delete im.geo_src; } else { im.lat = lat; im.lon = lon; im.geo_src = 'user'; }
+      };
+      this.items.forEach(upd);
+      (this.lightbox.list || []).forEach(upd);
+      if (this.detail) {
+        upd(this.detail);
+        this.detail = {...this.detail};
+      }
+    },
+    async openPlacePick(ids) {
+      this.pick = {open: true, ids, q: '', results: [], lat: null, lon: null, label: '', busy: false};
+      await this.$nextTick();
+      if (typeof L === 'undefined') return;
+      const m = L.map(this.$refs.pickMap, {worldCopyJump: true});
+      this._pickMap = m;
+      this.tiles().addTo(m);
+      m.on('click', e => this.setPick(e.latlng.lat, e.latlng.lng, ''));
+      // Start at the photo's own place, else where a place was set last,
+      // else over the photos that have one.
+      const d = this.detail;
+      let last = null;
+      try { last = JSON.parse(localStorage.getItem('lastPlace')); } catch (e) {}
+      if (ids.length === 1 && d && d.id === ids[0] && d.lat != null) {
+        this.setPick(d.lat, d.lon, '');
+        m.setView([d.lat, d.lon], 13);
+      } else if (last && last.lat != null) {
+        m.setView([last.lat, last.lon], last.z || 11);
+      } else {
+        const pts = await api('/api/geo').catch(() => []);
+        if (pts.length) m.fitBounds(pts.map(p => [p.a, p.o]), {padding: [20, 20], maxZoom: 10});
+        else m.setView([30, 10], 2);
+      }
+      setTimeout(() => { m.invalidateSize(); this.$refs.pickSearch && this.$refs.pickSearch.focus(); }, 60);
+    },
+    closePlacePick() {
+      this.pick.open = false;
+      if (this._pickMap) this._pickMap.remove();
+      this._pickMap = this._pickMarker = null;
+    },
+    setPick(lat, lon, label) {
+      this.pick.lat = lat;
+      this.pick.lon = lon;
+      this.pick.label = label;
+      const m = this._pickMap;
+      if (!m) return;
+      if (!this._pickMarker) {
+        this._pickMarker = L.marker([lat, lon], {draggable: true, icon: L.divIcon({html: '<div class="pick-pin"></div>', className: '', iconSize: [22, 22]})}).addTo(m);
+        this._pickMarker.on('dragend', e => { const p = e.target.getLatLng(); this.setPick(p.lat, p.lng, ''); });
+      } else {
+        this._pickMarker.setLatLng([lat, lon]);
+      }
+    },
+    async searchPlaces() {
+      const q = this.pick.q.trim();
+      if (q.length < 2) { this.pick.results = []; return; }
+      const res = await api('/api/places?q=' + encodeURIComponent(q)).catch(() => []);
+      if (this.pick.q.trim() === q) this.pick.results = res;
+    },
+    pickResult(p) {
+      this.setPick(p.lat, p.lon, [p.name, p.area || p.region, p.country].filter(Boolean).join(', '));
+      if (this._pickMap) this._pickMap.setView([p.lat, p.lon], 12);
+      this.pick.q = p.name;
+      this.pick.results = [];
+    },
+    async savePlace() {
+      const {ids, lat, lon} = this.pick;
+      this.pick.busy = true;
+      try {
+        const r = await api('/api/geo/set', {method: 'POST', body: JSON.stringify({ids, lat, lon})});
+        try { localStorage.setItem('lastPlace', JSON.stringify({lat, lon, z: this._pickMap ? this._pickMap.getZoom() : 11})); } catch (e) {}
+        this.closePlacePick();
+        this.placeChanged(ids, lat, lon);
+        this.notify((r.set === 1 ? 'Place set for 1 photo' : `Place set for ${fmtCount(r.set)} photos`) +
+          (r.skipped ? ` · ${fmtCount(r.skipped)} kept the camera’s` : ''), 5000);
+        this.refreshStats().catch(() => {});
+        if (this.map) this.loadGeo();
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      } finally {
+        this.pick.busy = false;
+      }
+    },
+    async clearPlaces(ids) {
+      try {
+        const r = await api('/api/geo/clear', {method: 'POST', body: JSON.stringify({ids})});
+        this.placeChanged(ids, null, null);
+        this.notify(r.cleared === 1 ? 'Place removed from 1 photo' : `Place removed from ${fmtCount(r.cleared)} photos`, 4000);
+        this.refreshStats().catch(() => {});
+        if (this.map) this.loadGeo();
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      }
+    },
+    openBorrow() {
+      this.borrow.open = !this.borrow.open;
+      this.borrow.sure = false;
+      if (this.borrow.open) this.countBorrow();
+    },
+    async countBorrow() {
+      this.borrow.count = null;
+      const r = await api('/api/geo/borrow', {method: 'POST', body: JSON.stringify({hours: this.borrow.hours, apply: false})}).catch(() => ({count: 0}));
+      this.borrow.count = r.count;
+    },
+    async applyBorrow() {
+      this.borrow.busy = true;
+      try {
+        const r = await api('/api/geo/borrow', {method: 'POST', body: JSON.stringify({hours: this.borrow.hours, apply: true})});
+        this.notify(r.count === 1 ? '1 photo got a place' : `${fmtCount(r.count)} photos got a place`, 5000);
+        await this.refreshStats().catch(() => {});
+        this.loadGeo();
+        this.softRefresh();
+        this.countBorrow();
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      } finally {
+        this.borrow.busy = false;
+      }
+    },
+    async clearBorrowed() {
+      this.borrow.sure = false;
+      try {
+        const r = await api('/api/geo/clear', {method: 'POST', body: JSON.stringify({all: 'near'})});
+        this.notify(r.cleared === 1 ? 'Place removed from 1 photo' : `Place removed from ${fmtCount(r.cleared)} photos`, 5000);
+        await this.refreshStats().catch(() => {});
+        this.loadGeo();
+        this.softRefresh();
+        this.countBorrow();
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      }
     },
 
     // ---------- lightbox ----------
@@ -2116,6 +2297,14 @@ document.addEventListener('alpine:init', () => {
           e.target.blur();
           if (this.assign.face) this.closeAssign();
         }
+        return;
+      }
+      if (this.pick.open) {
+        if (e.key === 'Escape') this.closePlacePick();
+        return;
+      }
+      if (this.sel.on && !this.lightbox.open && e.key === 'Escape') {
+        this.endSelect();
         return;
       }
       // Match tab: Y, N, S answer the first card.

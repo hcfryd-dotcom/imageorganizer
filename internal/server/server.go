@@ -99,6 +99,7 @@ func (s *Server) Handler() http.Handler {
 	s.exportRoutes(mux)
 	s.confidentRoutes(mux)
 	s.deleteRoutes(mux)
+	s.geoRoutes(mux)
 	s.settingsRoutes(mux)
 	mux.HandleFunc("POST /api/browse", s.browse)
 	mux.HandleFunc("GET /api/images", s.listImages)

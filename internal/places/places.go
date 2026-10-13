@@ -7,9 +7,11 @@ package places
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"compress/gzip"
 	_ "embed"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -130,6 +132,41 @@ func Nearest(lat, lon float64) (Place, bool) {
 	}
 	return best, true
 }
+
+// Search finds up to limit towns whose name starts with q (any case):
+// exact names first, then shorter names, then by country and name.
+func Search(q string, limit int) []Place {
+	once.Do(load)
+	q = strings.ToLower(strings.TrimSpace(q))
+	if q == "" || limit <= 0 {
+		return nil
+	}
+	var out []Place
+	for _, ps := range grid {
+		for _, p := range ps {
+			if strings.HasPrefix(strings.ToLower(p.Name), q) {
+				out = append(out, p)
+			}
+		}
+	}
+	exact := func(p Place) int {
+		if strings.ToLower(p.Name) == q {
+			return 0
+		}
+		return 1
+	}
+	slices.SortFunc(out, func(a, b Place) int {
+		return cmp.Or(cmp.Compare(exact(a), exact(b)), cmp.Compare(len(a.Name), len(b.Name)),
+			cmp.Compare(a.Country, b.Country), cmp.Compare(a.Name, b.Name), cmp.Compare(a.Area, b.Area))
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
+// Distance in kilometres between two positions.
+func Distance(lat1, lon1, lat2, lon2 float64) float64 { return distance(lat1, lon1, lat2, lon2) }
 
 func abs(x int) int {
 	if x < 0 {
