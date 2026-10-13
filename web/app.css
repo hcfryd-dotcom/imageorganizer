@@ -888,3 +888,168 @@ body:has(.finder-drop.drag)::after { content: 'Drop the picture to find its face
 .delete-title { font-weight: 600; }
 .delete-actions { display: flex; gap: 8px; }
 .btn.danger { background: #d64545; color: #fff; border-color: #d64545; }
+
+/* ==========================================================================
+   macOS look: system colours and font, a quiet grey sidebar, hairline
+   separators, flat blue accents, frosted popovers. Everything above stays
+   the layout; this block only restyles it.
+   ========================================================================== */
+:root {
+  --bg: #1e1e1e;
+  --bg-2: #252527;
+  --panel: #2c2c2e;
+  --panel-2: #3a3a3c;
+  --line: rgba(255, 255, 255, .1);
+  --text: #f5f5f7;
+  --muted: #98989d;
+  --accent: #0a84ff;
+  --accent-2: #0a84ff;
+  --accent-soft: rgba(10, 132, 255, .18);
+  --danger: #ff453a;
+  --ok: #30d158;
+  --warn: #ff9f0a;
+  --radius: 12px;
+  --shadow: 0 0 0 .5px rgba(0, 0, 0, .5), 0 12px 40px rgba(0, 0, 0, .5);
+  --sidebar-bg: #2a2a2c;
+  --select: rgba(255, 255, 255, .1);
+  --fill: rgba(118, 118, 128, .24);
+  --btn: rgba(255, 255, 255, .14);
+  --btn-edge: 0 0 0 .5px rgba(0, 0, 0, .4), 0 .5px 0 rgba(255, 255, 255, .08) inset;
+  --glass: rgba(40, 40, 42, .78);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --bg-2: #f5f5f7;
+    --panel: #ffffff;
+    --panel-2: #f2f2f7;
+    --line: rgba(0, 0, 0, .1);
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --accent: #007aff;
+    --accent-2: #007aff;
+    --accent-soft: rgba(0, 122, 255, .12);
+    --danger: #ff3b30;
+    --ok: #34c759;
+    --warn: #ff9500;
+    --shadow: 0 0 0 .5px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .14);
+    --sidebar-bg: #ececee;
+    --select: rgba(0, 0, 0, .08);
+    --fill: rgba(118, 118, 128, .12);
+    --btn: #ffffff;
+    --btn-edge: 0 0 0 .5px rgba(0, 0, 0, .16), 0 1px 1.5px rgba(0, 0, 0, .1);
+    --glass: rgba(246, 246, 248, .8);
+  }
+}
+
+body {
+  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
+  letter-spacing: -.005em;
+}
+h2, .people-head h2, .section-head, .name-input, .brand-name {
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
+}
+::selection { background: var(--accent-soft); }
+
+/* Thin overlay-style scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgba(128, 128, 128, .45) transparent; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, .4); border-radius: 6px; border: 3px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(128, 128, 128, .65); }
+
+/* Sidebar: plain grey, items in text colour with blue icons */
+.sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--line); padding: 16px 10px; }
+.brand { padding: 2px 8px 18px; }
+.brand-mark rect { fill: var(--accent); }
+.brand-name { font-weight: 600; }
+nav { gap: 1px; }
+.nav-item { padding: 6px 10px; border-radius: 7px; color: var(--text); font-weight: 400; }
+.nav-item:hover { background: color-mix(in srgb, var(--select) 55%, transparent); }
+.nav-item.active { background: var(--select); font-weight: 500; }
+.nav-icon { color: var(--accent); }
+.nav-badge { background: var(--fill); color: var(--muted); font-weight: 500; }
+.nav-item.active .nav-badge { color: var(--text); }
+.scan-card { background: var(--select); border: 0; border-radius: 10px; }
+.bar { background: var(--fill); }
+.bar > div { background: var(--accent); }
+
+/* Toolbar: frosted, one hairline below */
+.topbar { padding: 10px 20px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 80%, transparent); backdrop-filter: saturate(1.8) blur(20px); }
+.search-box { height: 34px; border-radius: 9px; border: 0; background: var(--fill); }
+.search-box:focus-within { border: 0; box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--accent) 45%, transparent); }
+.search kbd { top: 8px; border-color: transparent; background: var(--select); }
+ul.suggest, .modal, .conn-banner { background: var(--glass); backdrop-filter: saturate(1.8) blur(30px); border: 0; box-shadow: var(--shadow); }
+ul.suggest { top: 40px; border-radius: 10px; }
+.suggest li { border-radius: 6px; }
+.suggest li.on { background: var(--accent); color: #fff; }
+.suggest li.on small { color: rgba(255, 255, 255, .8); }
+
+/* Controls: macOS push buttons, filled fields, blue focus ring */
+.select, .input { height: 30px; border-radius: 7px; border: 0; background: var(--btn); box-shadow: var(--btn-edge); padding: 0 10px; }
+textarea.input { height: auto; }
+.input:focus, .select:focus { border: 0; box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--accent) 45%, transparent); }
+.btn { height: 30px; padding: 0 13px; border-radius: 7px; border: 0; background: var(--btn); box-shadow: var(--btn-edge); font-weight: 500; }
+.btn:hover { border: 0; filter: brightness(.97); }
+.btn:active { transform: none; filter: brightness(.9); }
+.btn.primary { background: var(--accent); color: #fff; box-shadow: 0 .5px 1px rgba(0, 0, 0, .2); }
+.btn.ghost { background: transparent; box-shadow: none; }
+.btn.ghost:hover { background: var(--select); filter: none; }
+.btn.suggest { background: var(--accent-soft); box-shadow: none; }
+.btn.danger { background: var(--danger); color: #fff; box-shadow: none; }
+.btn.ghost.danger { background: transparent; color: var(--danger); }
+.icon-btn { border-radius: 7px; }
+.icon-btn:hover { background: var(--select); }
+.icon-btn.active { background: var(--accent-soft); }
+.seg { background: var(--fill); border-radius: 8px; padding: 2px; }
+.seg button { border-radius: 6px; padding: 5px 12px; font-weight: 500; }
+.seg button.on { background: var(--btn); box-shadow: var(--btn-edge); }
+.dq-tab { border: 0; background: var(--fill); }
+.dq-tab.on { background: var(--accent); }
+.chip, .kin-chip { border: 0; background: var(--fill); }
+.suggestion { border: 0; background: var(--accent-soft); }
+.zoom input, .toggle input, .dq-global input[type=range], .dq-first input { accent-color: var(--accent); }
+
+/* Photo grid: square-ish tiles, big bold dates like Photos */
+.tile { border-radius: 3px; }
+.tile:hover img { transform: none; }
+.section-head { font-size: 22px; font-weight: 700; letter-spacing: -.02em; padding: 20px 0 10px; }
+.scrubber button { border-radius: 6px; font-weight: 500; }
+.scrubber button.active { background: var(--accent); }
+
+/* Cards and panels: no outlines, soft fills */
+.panel, .set-group, .group-card, .match-card, .issue, .empty-people, .bulk-bar, .export-form, .move-bar, .tree-wrap {
+  border: 0; box-shadow: 0 0 0 .5px var(--line), 0 1px 3px rgba(0, 0, 0, .06);
+}
+.panel, .set-group, .group-card, .match-card { background: var(--bg-2); }
+.group-card.focused, .group-card.selected, .match-card.answered { box-shadow: 0 0 0 2px var(--accent); }
+.issue.error { box-shadow: 0 0 0 1px var(--danger); }
+.issue.warning { box-shadow: 0 0 0 1px var(--warn); }
+.folder-row, .stat { background: var(--panel-2); }
+.person-card:hover { background: var(--select); }
+.avatar { box-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
+.modal { border-radius: 12px; }
+.modal-back { background: rgba(0, 0, 0, .3); backdrop-filter: none; }
+.group-view { background: rgba(0, 0, 0, .35); }
+.group-view-panel { border: 0; border-radius: 12px; box-shadow: var(--shadow); }
+.toast { border-radius: 12px; background: var(--glass); color: var(--text); backdrop-filter: saturate(1.8) blur(30px); }
+.badge { background: var(--accent); }
+.pin.cluster span { background: var(--accent); }
+
+/* Viewer: black stage, dark frosted info panel and popovers */
+.lightbox { background: #000; }
+.lb-img { border-radius: 0; box-shadow: none; }
+.lb-info { background: #1c1c1e; border-left: 1px solid rgba(255, 255, 255, .08); }
+.lb-info .input, .assign-pop .input { background: rgba(118, 118, 128, .24); box-shadow: none; color: #f5f5f7; }
+.lb-face { background: rgba(118, 118, 128, .24); border: 0; }
+.lb-face.unknown { box-shadow: 0 0 0 1px var(--warn); }
+.lb-nav { background: rgba(255, 255, 255, .12); backdrop-filter: blur(20px); }
+.lightbox .btn:not(.primary):not(.danger) { background: rgba(255, 255, 255, .14); color: #f5f5f7; box-shadow: none; }
+.lightbox .btn.ghost:not(:hover) { background: transparent; }
+.assign-pop, .also-pop, .face-peek {
+  background: rgba(30, 30, 32, .82); backdrop-filter: saturate(1.8) blur(30px);
+  border: 0; box-shadow: 0 0 0 .5px rgba(255, 255, 255, .12), 0 16px 50px rgba(0, 0, 0, .6);
+}
+.also-row { border-top-color: rgba(255, 255, 255, .08); }
+.strip-thumb { border-radius: 4px; }
+.delete-ask { background: var(--glass); backdrop-filter: saturate(1.8) blur(30px); border: 0; border-radius: 12px; box-shadow: var(--shadow); }
