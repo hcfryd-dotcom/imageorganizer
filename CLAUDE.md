@@ -9,9 +9,11 @@ the rest of the repo.
 
 ## The owner's setup (Windows 11)
 
-- Source: `C:\Users\heinz\Downloads\imageorganizer`, a git checkout of the
-  `windows-build-without-cgo` branch (pull request #1; `main` once that is
-  merged), remote `origin` = GitHub. Git for Windows is in
+- Source: `C:\Users\heinz\Downloads\imageorganizer`, a git checkout of
+  `main` (pull request #1 is merged), remote `origin` = GitHub; he has
+  asked to push his work there. His GitHub login is stored by Git Credential
+  Manager (a push from Claude's shell works; if it asks for a login, run it
+  in the Terminal panel so the browser sign-in can open). Git for Windows is in
   `C:\Program Files\Git\cmd`; a shell opened before it was installed may
   need that added to PATH. `modeldele\` (the face model split in parts, with
   `saml-model.bat` to join it) and `ONNXRUNTIME-LICENSE.txt` are his local
@@ -24,6 +26,10 @@ the rest of the repo.
 - Run: `dist\ImageOrganizer\Start ImageOrganizer.bat` opens
   http://127.0.0.1:8420. The server runs while its console window is open.
   To rebuild, close that window first (the .exe is locked while running).
+  Started from Claude's shell (Start-Process), the .bat exits at once
+  without the program; start `dist\ImageOrganizer\imageorganizer.exe`
+  directly instead (Start-Process with that working directory), which
+  opens its own console window.
 - Library data: `C:\Users\heinz\.local\share\imageorganizer` (library.bolt,
   thumbnails, face crops, `models\`). **Never delete or reset it**: it holds
   his naming of ~23,000 faces.
@@ -37,7 +43,7 @@ the rest of the repo.
   `mmproj-Q8_0.gguf` from unsloth/embeddinggemma-2-GGUF on Hugging Face) have
   not been put in `llama\models\` yet. Untested on Windows.
 
-## What this fork adds (branch windows-build-without-cgo, PR #1)
+## What this fork adds (on main; PR #1 and after)
 
 - Builds without cgo (`internal/faces/engine_nocgo.go`: no faces), and on
   Windows looks for `onnxruntime.dll` next to the program.
