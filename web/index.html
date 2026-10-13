@@ -167,7 +167,7 @@
     </template>
     <div class="sentinel" x-ref="sentinel"></div>
     <div class="loading" x-show="loading"><span class="spinner"></span></div>
-    <div class="end-note" x-show="!loading && !semantic && items.length > 0 && items.length >= total" x-text="'That’s everything · ' + fmtCount(total) + ' photos'"></div>
+    <div class="end-note" x-show="!loading && !semantic && items.length > 0 && !moreLater()" x-text="'That’s everything · ' + fmtCount(total) + ' photos'"></div>
   </section>
 
   <!-- Photos selected (Select): set or remove their place -->

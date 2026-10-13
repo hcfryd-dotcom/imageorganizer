@@ -76,6 +76,7 @@ document.addEventListener('alpine:init', () => {
     rowHeight: 220,
     items: [],
     total: 0,
+    base: 0,            // where items start in the whole list: a jump to a far year starts the grid there
     semantic: false,
     hadQ: false,        // the last search had text (see reload: relevance order)
     dateRange: '',
@@ -292,7 +293,7 @@ document.addEventListener('alpine:init', () => {
         const el = this.scroller();
         return !el || el.scrollHeight - el.clientHeight >= at.y;
       };
-      for (let i = 0; i < 20 && this.items.length < this.total; i++) {
+      for (let i = 0; i < 20 && this.moreLater(); i++) {
         await Promise.resolve(); // after Alpine's redraw, queued before this
         if (far()) break;
         await this.loadMoreNow();
@@ -398,6 +399,7 @@ document.addEventListener('alpine:init', () => {
           api('/api/timeline?' + this.query()),
         ]);
         if (seq !== this.reqSeq) return;
+        this.base = 0;
         this.items = res.items;
         this.total = res.total;
         this.semantic = !!res.semantic;
@@ -417,25 +419,26 @@ document.addEventListener('alpine:init', () => {
       if (this.loading) return;
       const seq = ++this.reqSeq;
       const n = Math.max(this.items.length, PAGE);
-      const res = await api('/api/images?' + this.query({offset: 0, limit: Math.min(n, 2000)}));
+      const res = await api('/api/images?' + this.query({offset: this.base, limit: Math.min(n, 2000)}));
       if (seq !== this.reqSeq) return;
       this.items = res.items;
       this.total = res.total;
       this.layout();
     },
     async loadMore() {
-      if (this.loading || this.items.length >= this.total || !this.ready) return;
+      if (this.loading || !this.moreLater() || !this.ready) return;
       if (this.view !== 'photos' && this.view !== 'table') return;
       const seq = this.reqSeq;
       this.loading = true;
       try {
-        const res = await api('/api/images?' + this.query({offset: this.items.length, limit: PAGE}));
+        const res = await api('/api/images?' + this.query({offset: this.base + this.items.length, limit: PAGE}));
         if (seq !== this.reqSeq) return;
         this.items = this.items.concat(res.items);
         this.total = res.total;
         this.layout();
       } finally {
         this.loading = false;
+        setTimeout(() => this.checkEarlier());
       }
     },
     // peopleChanged re-reads the counts (the Review badge) after any
@@ -531,7 +534,7 @@ document.addEventListener('alpine:init', () => {
         }
         sec.list.push({im, idx, ar: aspect(im)});
       });
-      const done = this.items.length >= this.total;
+      const done = !this.moreLater();
       this.sections = sections.map((s, si) => {
         const rows = [];
         let row = [], sum = 0;
@@ -560,35 +563,89 @@ document.addEventListener('alpine:init', () => {
       const at = {y: el.scrollTop, id: tile ? +tile.dataset.id : 0, off: tile ? tile.getBoundingClientRect().top - top : 0};
       try { sessionStorage.setItem('scroll:' + location.hash, JSON.stringify(at)); } catch (e) {}
       if (this.view !== 'photos') return;
-      // Highlight the year currently at the top of the viewport.
-      const heads = el.querySelectorAll('.section-head');
+      // Highlight the year currently at the top of the viewport. Months
+      // are measured by their whole section: a heading in a month not drawn
+      // yet (content-visibility) has no position of its own.
+      const elTop = el.getBoundingClientRect().top;
       let y = null;
-      for (const h of heads) {
-        if (h.offsetTop - el.scrollTop > 120) break;
-        y = h.firstElementChild.textContent.slice(-4);
+      for (const s of el.querySelectorAll('.section')) {
+        if (s.getBoundingClientRect().top - elTop > 120) break;
+        y = +s.querySelector('.section-head span').textContent.slice(-4) || y;
       }
       this.currentYear = y || (this.years[0] && this.years[0].year);
+      this.checkEarlier();
     },
+    // checkEarlier loads the photos before the grid's start when the top is
+    // near; also after other loading, which may have held it up.
+    checkEarlier() {
+      const el = this.$refs.photos;
+      if (this.view === 'photos' && this.base > 0 && el && el.scrollTop < 600) this.loadEarlier();
+    },
+    moreLater() { return this.base + this.items.length < this.total; },
+    // jumpToYear shows a year's photos. One not loaded yet starts the grid
+    // at the year (its place in the list, from the timeline's counts):
+    // loading and drawing every photo before it took a minute for a year
+    // far back. Newer photos come back on scrolling up (loadEarlier).
     async jumpToYear(year) {
-      // Load until the year's first photo is present, then scroll to it.
-      const asc = this.sort === 'taken_asc';
-      const reached = () => this.items.some(im => im.taken && new Date(im.taken * 1000).getFullYear() === +year);
-      const past = () => {
-        const last = this.items[this.items.length - 1];
-        if (!last || !last.taken) return false;
-        const ly = new Date(last.taken * 1000).getFullYear();
-        return asc ? ly > year : ly < year;
-      };
-      while (!reached() && !past() && this.items.length < this.total) {
-        await this.loadMoreNow();
+      const el = this.$refs.photos;
+      const yearOf = im => im.taken && new Date(im.taken * 1000).getFullYear();
+      if (!this.items.some(im => yearOf(im) === +year)) {
+        const asc = this.sort === 'taken_asc';
+        let off = 0;
+        for (const y of this.years) if (asc ? y.year < year : y.year > year) off += y.n;
+        const seq = ++this.reqSeq;
+        this.loading = true;
+        try {
+          const res = await api('/api/images?' + this.query({offset: off, limit: PAGE}));
+          if (seq !== this.reqSeq) return;
+          this.base = off;
+          this.items = res.items;
+          this.total = res.total;
+          this.sel.last = null;
+          this.layout();
+        } finally {
+          if (seq === this.reqSeq) this.loading = false;
+        }
+        await this.$nextTick();
+        el.scrollTop = 0;
       }
       this.$nextTick(() => {
-        const head = [...this.$refs.photos.querySelectorAll('.section-head')].find(h => h.firstElementChild.textContent.endsWith(String(year)));
-        if (head) this.$refs.photos.scrollTo({top: head.offsetTop - 12, behavior: 'smooth'});
+        const sec = [...el.querySelectorAll('.section')].find(s => s.querySelector('.section-head span').textContent.endsWith(String(year)));
+        if (!sec) return;
+        // Measured by the month's section (see onScroll), and once more after
+        // the months around it are drawn and have their real heights.
+        const go = () => el.scrollTo({top: sec.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop});
+        go();
+        setTimeout(go, 150);
       });
     },
-    async loadMoreNow() {
-      const res = await api('/api/images?' + this.query({offset: this.items.length, limit: 1000}));
+    // loadEarlier puts back the page of photos before the grid's start
+    // (after a jump to a year), keeping what is on screen in place.
+    async loadEarlier() {
+      if (this.loading || this.base <= 0 || this.lightbox.open) return;
+      const seq = this.reqSeq;
+      this.loading = true;
+      try {
+        const from = Math.max(0, this.base - PAGE);
+        const res = await api('/api/images?' + this.query({offset: from, limit: this.base - from}));
+        if (seq !== this.reqSeq) return;
+        const el = this.$refs.photos, h0 = el.scrollHeight, y0 = el.scrollTop;
+        this.base = from;
+        this.items = res.items.concat(this.items);
+        this.total = res.total;
+        if (this.sel.last != null) this.sel.last += res.items.length;
+        this.layout();
+        await this.$nextTick();
+        el.scrollTop = y0 + el.scrollHeight - h0;
+        setTimeout(() => this.checkEarlier()); // still near the top: the page before
+      } finally {
+        this.loading = false;
+      }
+    },    async loadMoreNow() {
+      const seq = this.reqSeq, at = this.base + this.items.length;
+      const res = await api('/api/images?' + this.query({offset: at, limit: 1000}));
+      // A new search or a jump to a year meanwhile: these don't follow on.
+      if (seq !== this.reqSeq || at !== this.base + this.items.length) return;
       this.items = this.items.concat(res.items);
       this.total = res.total;
       this.layout();
@@ -715,7 +772,7 @@ document.addEventListener('alpine:init', () => {
     async selectSection(sec) {
       const on = !this.sectionSelected(sec);
       // The last month shown may go on past what is loaded: load it all.
-      while (on && this.items.length < this.total && monthKey(this.items[this.items.length - 1].taken) === sec.key) {
+      while (on && this.moreLater() && monthKey(this.items[this.items.length - 1].taken) === sec.key) {
         await this.loadMoreNow();
       }
       const cur = this.sections.find(s => s.key === sec.key) || sec;
@@ -1852,7 +1909,7 @@ document.addEventListener('alpine:init', () => {
     async step(d) {
       const n = this.lightbox.idx + d;
       if (n < 0) return;
-      if (!this.lightbox.list && n >= this.items.length && this.items.length < this.total) await this.loadMoreNow();
+      if (!this.lightbox.list && n >= this.items.length && this.moreLater()) await this.loadMoreNow();
       if (n >= this.lightboxItems().length) return;
       this.lightbox.idx = n;
       this.loadDetail();
