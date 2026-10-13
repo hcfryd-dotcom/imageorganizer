@@ -9,10 +9,13 @@ the rest of the repo.
 
 ## The owner's setup (Windows 11)
 
-- Source: a copy of this repo in `C:\Users\heinz\Downloads\imageorganizer`
-  (copied over file by file, not a git clone yet). If you work in a fresh
-  clone, use the `windows-build-without-cgo` branch (pull request #1), or
-  `main` once that is merged.
+- Source: `C:\Users\heinz\Downloads\imageorganizer`, a git checkout of the
+  `windows-build-without-cgo` branch (pull request #1; `main` once that is
+  merged), remote `origin` = GitHub. Git for Windows is in
+  `C:\Program Files\Git\cmd`; a shell opened before it was installed may
+  need that added to PATH. `modeldele\` (the face model split in parts, with
+  `saml-model.bat` to join it) and `ONNXRUNTIME-LICENSE.txt` are his local
+  files, kept out of git via `.git\info\exclude`.
 - Build: `build-windows.bat` (Go 1.27 + MinGW gcc via WinLibs, cgo on), which
   writes `dist\ImageOrganizer\imageorganizer.exe` and
   `dist\ImageOrganizer-windows-x64.zip`. It keeps `dist\ImageOrganizer`, which
