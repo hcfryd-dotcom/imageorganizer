@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/lkarlslund/imageorganizer/internal/source"
@@ -144,16 +143,12 @@ func (s *Server) libraryFolderAround(ctx context.Context, dir string) string {
 	if err != nil {
 		return ""
 	}
-	in := func(a, b string) bool { // a is b or inside it
-		a, b = strings.ToLower(filepath.Clean(a)), strings.ToLower(filepath.Clean(b))
-		return a == b || strings.HasPrefix(a, strings.TrimSuffix(b, string(filepath.Separator))+string(filepath.Separator))
-	}
 	for _, f := range folders {
 		sp, err := source.Parse(f.Location)
 		if err != nil || sp.Scheme != "file" {
 			continue
 		}
-		if in(dir, f.Location) || in(f.Location, dir) {
+		if within(dir, f.Location) || within(f.Location, dir) {
 			return f.Location
 		}
 	}

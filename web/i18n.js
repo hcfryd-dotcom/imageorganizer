@@ -313,6 +313,9 @@
       'Kopierer alle billeder fra mapperne ovenfor til én mappe, sorteret efter år, måned og hvad der tog dem (iPhone, Canon, Skærmbilleder …). Hvert billede kommer kun med én gang: kopier af det samme billede springes over. Dine mapper ændres ikke, og kopierer du igen, tilføjes kun det nye.',
     'Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.':
       'Næste skridt: kig den nye mappe igennem. Når du er tilfreds, tilføjer du den ovenfor og fjerner de gamle mapper: billederne bliver genkendt, så navne og steder bliver. De gamle mapper lader programmet være, så du selv kan slette eller gemme dem.',
+    'Fetch new photos': 'Hent nye billeder', 'Fetched 1 new photo': 'Hentede 1 nyt billede',
+    'Copies the photos you don’t have yet from another folder (your phone’s OneDrive camera folder, say) into the tidy folder above, sorted the same way, and takes them into the library. That folder is only read. The first time it reads every file there; after that only new ones.':
+      'Kopierer de billeder, du ikke har endnu, fra en anden mappe (fx din telefons OneDrive-mappe) ind i den ryddede mappe ovenfor, sorteret på samme måde, og tager dem ind i biblioteket. Den anden mappe bliver kun læst. Første gang læses alle filer dér; derefter kun de nye.',
     'Place set for 1 photo': 'Sted sat på 1 billede', 'Place removed from 1 photo': 'Sted fjernet fra 1 billede', '1 photo got a place': '1 billede fik et sted',
   };
 
@@ -422,6 +425,9 @@
     [/^Copied (\d[\d., ]*) photos(, (\d[\d., ]*) were already there)?(, (\d[\d., ]*) failed)?$/, (m, n, a, s, b, f) => 'Kopierede ' + n.trim() + ' billeder' + (s ? ', ' + s.trim() + ' lå der i forvejen' : '') + (f ? ', ' + f.trim() + ' mislykkedes' : '')],
     [/^(\d[\d., ]*) photos · ([^·]+?)( · (\d[\d., ]*) copies left out)?$/, (m, n, size, x, c) => n.trim() + ' billeder · ' + size + (c ? ' · ' + c.trim() + ' kopier springes over' : '')],
     [/^For example: (.*)$/, (m, p) => 'Fx: ' + p],
+    [/^Fetch from, e\.g\. (.*)$/, (m, p) => 'Hent fra, fx ' + p],
+    [/^Fetched (\d[\d., ]*) new photos(, (\d[\d., ]*) failed)?$/, (m, n, x, f) => 'Hentede ' + n.trim() + ' nye billeder' + (f ? ', ' + f.trim() + ' mislykkedes' : '')],
+    [/^Couldn’t fetch: (.*)$/, (m, e) => 'Kunne ikke hente: ' + trServer(e)],
     [/^The whole path of a new folder, e\.g\. (.*)$/, (m, p) => 'Hele stien til en ny mappe, fx ' + p],
     [/^Show (\d+) more$/, (m, n) => 'Vis ' + n + ' mere'],
     [/^(\d+)% alike$/, (m, p) => p + ' % ens'],
@@ -472,6 +478,9 @@
     [/^can’t create the folder: (.*)$/, (m, e) => 'kan ikke oprette mappen: ' + e],
     [/^already copying (.*)’s photos$/, (m, nm) => 'kopierer allerede ' + nm + 's billeder'],
     [/^already copying the library into a tidy folder$/, () => 'kopierer allerede biblioteket til en ryddet mappe'],
+    [/^can’t find the folder (.*)$/, (m, f) => 'kan ikke finde mappen ' + f],
+    [/^the folder to fetch from and the tidy folder can’t be inside each other$/, () => 'mappen der hentes fra og den ryddede mappe må ikke ligge inden i hinanden'],
+    [/^no data folder to remember fetched files in$/, () => 'ingen datamappe at huske hentede filer i'],
     [/^the library has no photos to copy$/, () => 'biblioteket har ingen billeder at kopiere'],
     [/^choose a folder outside the library folder (.*): it would read its own copies$/, (m, f) => 'vælg en mappe uden for biblioteksmappen ' + f + ': ellers ville programmet læse sine egne kopier'],
     [/^(.*) has no photos to copy$/, (m, nm) => nm + ' har ingen billeder at kopiere'],

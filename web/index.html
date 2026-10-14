@@ -1240,7 +1240,15 @@
           <span class="small finder-error" x-show="tidy.status.failed && tidy.status.last_error" x-text="tidy.status.last_error"></span>
         </div>
       </template>
-      <p class="muted small" x-show="tidy.status && tidy.status.tidy && !tidy.status.running && tidy.status.done === tidy.status.total && !tidy.status.failed">Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.</p>
+      <div class="fetch-box">
+        <h3>Fetch new photos</h3>
+        <p class="muted small">Copies the photos you don’t have yet from another folder (your phone’s OneDrive camera folder, say) into the tidy folder above, sorted the same way, and takes them into the library. That folder is only read. The first time it reads every file there; after that only new ones.</p>
+        <form class="export-row" @submit.prevent="startFetch()">
+          <input class="input export-dir" x-model="tidy.from" spellcheck="false" :placeholder="'Fetch from, e.g. ' + (navigator.platform.startsWith('Win') ? 'E:\\Onedrive\\Billeder' : '/home/you/OneDrive/Pictures')">
+          <button class="btn primary" :disabled="!tidy.from.trim() || !tidy.dir.trim() || tidy.busy || tidy.status?.running">Fetch new photos</button>
+        </form>
+      </div>
+      <p class="muted small" x-show="tidy.status && tidy.status.tidy && !tidy.status.fetch && !tidy.status.running && tidy.status.done === tidy.status.total && !tidy.status.failed">Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.</p>
     </div>
 
     <div class="panel stats-panel">

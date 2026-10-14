@@ -111,9 +111,14 @@ var cameraNames = []struct{ has, name string }{
 // "screenshot" for screen pictures (no camera, a PNG or named so), or ""
 // when nothing says.
 func photoSource(im *imageRec, path string) string {
-	mk, model := strings.ToLower(strings.TrimSpace(im.CameraMake)), strings.TrimSpace(im.CameraModel)
+	return PhotoSource(im.CameraMake, im.CameraModel, im.Format, path)
+}
+
+// PhotoSource is photoSource for a file not in the library.
+func PhotoSource(cameraMake, cameraModel, format, path string) string {
+	mk, model := strings.ToLower(strings.TrimSpace(cameraMake)), strings.TrimSpace(cameraModel)
 	lower := strings.ToLower(path)
-	if mk == "" && (im.Format == "png" || strings.Contains(lower, "screenshot") || strings.Contains(lower, "skærmbillede")) {
+	if mk == "" && (format == "png" || strings.Contains(lower, "screenshot") || strings.Contains(lower, "skærmbillede")) {
 		return "screenshot"
 	}
 	switch {
@@ -143,7 +148,7 @@ func photoSource(im *imageRec, path string) string {
 	}
 	// Unknown brand: its first word, capitalised, without characters a
 	// folder name can't have.
-	w := strings.Fields(im.CameraMake)[0]
+	w := strings.Fields(cameraMake)[0]
 	w = strings.Map(func(r rune) rune {
 		if strings.ContainsRune(`<>:"/\|?*.`, r) || r < 32 {
 			return -1

@@ -1111,3 +1111,6 @@ body:has(.sel-bar:not([style*="none"])) .toast { bottom: 84px; }
 .tidy-sources { display: flex; flex-wrap: wrap; gap: 6px; }
 .tidy-example { overflow-wrap: anywhere; }
 .tidy-panel .export-row { margin-bottom: 10px; }
+.fetch-box { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.fetch-box h3 { margin: 0 0 4px; font-size: 15px; }
+.fetch-box p { margin: 0 0 10px; }

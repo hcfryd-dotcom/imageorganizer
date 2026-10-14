@@ -78,6 +78,12 @@ the rest of the repo.
   2%, near-identical perceptual hash) are left out; the biggest is kept.
   Refuses a folder inside or around a library folder. Read-only on the
   library folders; copying again skips files already there.
+- Same panel, "Fetch new photos" (`/api/tidy/fetch`, `server/fetch.go`):
+  copies photos the library doesn't have (by the importer's content hash)
+  from an outside folder, e.g. `E:\Onedrive\Billeder` where his iPhone
+  uploads, into the tidy folder sorted the same way, then rescans.
+  Files looked at are remembered in `<data>/fetch-seen-*.json`, so only the
+  first run reads everything.
 - macOS-style look: one block at the end of `web/app.css`.
 - Danish UI: `web/i18n.js` translates the page as it is drawn (exact strings
   plus patterns); English stays the source text. Add a Danish entry there

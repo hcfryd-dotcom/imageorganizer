@@ -35,6 +35,8 @@ type exportStatus struct {
 	Person     string `json:"person,omitempty"`
 	Tidy       bool   `json:"tidy,omitempty"`     // the whole library, into a tidy folder (tidy.go)
 	LeftOut    int    `json:"left_out,omitempty"` // tidy: copies of photos not copied again
+	Fetch      bool   `json:"fetch,omitempty"`    // tidy: new photos fetched from From (fetch.go)
+	From       string `json:"from,omitempty"`
 	Dir        string `json:"dir,omitempty"`
 	ByPlace    string `json:"by_place,omitempty"` // "", "area" or "town"
 	Total      int    `json:"total"`

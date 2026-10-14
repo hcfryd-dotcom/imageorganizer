@@ -43,7 +43,8 @@ type Config struct {
 	Control    func(stage string, pause bool) bool // pause/resume a stage
 	WakeImport func()                              // there is a file to (re)import now, e.g. a photo just turned
 	PreviewDir string
-	Web        fs.FS // UI assets; os.DirFS in dev mode so edits are picked up live
+	DataDir    string // the library's own files (database, caches); "" in tests
+	Web        fs.FS  // UI assets; os.DirFS in dev mode so edits are picked up live
 	Dev        bool
 	BuildID    string
 	Log        *slog.Logger
@@ -98,6 +99,7 @@ func (s *Server) Handler() http.Handler {
 	s.peopleRoutes(mux)
 	s.exportRoutes(mux)
 	s.tidyRoutes(mux)
+	s.fetchRoutes(mux)
 	s.confidentRoutes(mux)
 	s.deleteRoutes(mux)
 	s.geoRoutes(mux)

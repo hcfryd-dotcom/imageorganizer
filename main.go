@@ -444,6 +444,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 			return j
 		},
 		PreviewDir: filepath.Join(dataDir, "previews"),
+		DataDir:    dataDir,
 		Web:        webFS, Dev: dev != "",
 		Restart: func() { restart.Store(true); stop() }, // shuts down as on a signal
 		BuildID: strconv.FormatInt(time.Now().UnixNano(), 36),

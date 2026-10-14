@@ -160,7 +160,7 @@ document.addEventListener('alpine:init', () => {
     // Copying a person's photos out into a folder, one subfolder per year.
     exportForm: {open: false, dir: '', confirmedOnly: false, byPlace: '', busy: false, status: null},
     // Folders page: the whole library copied into one tidy folder.
-    tidy: {dir: '', preview: null, busy: false, status: null},
+    tidy: {dir: '', from: '', preview: null, busy: false, status: null},
     // Deleting the open photo: its files move to a deleted-photos folder.
     deleteAsk: {open: false, trash: '', busy: false},
     also: newAlso(),
@@ -2712,13 +2712,15 @@ document.addEventListener('alpine:init', () => {
     lang() { return (window.i18n && window.i18n.lang()) || 'en'; },
     async loadTidy() {
       const t = this.tidy;
-      if (!t.dir) try { t.dir = localStorage.getItem('tidyDir') || ''; } catch (e) {}
+      try { t.dir = t.dir || localStorage.getItem('tidyDir') || ''; t.from = t.from || localStorage.getItem('fetchFrom') || ''; } catch (e) {}
       const [pre, st] = await Promise.all([
         api('/api/tidy', {method: 'POST', body: JSON.stringify({dry: true, lang: this.lang()})}).catch(() => null),
         api('/api/export').catch(() => null),
       ]);
       t.preview = pre;
       t.status = st;
+      // A library of one tidy folder: that's where new photos go.
+      if (!t.dir && this.folders.length === 1) t.dir = this.folders[0].location;
       if (st && st.tidy && st.running) this.pollTidy();
     },
     // tidyExample shows where a photo goes, with the folder typed.
@@ -2748,12 +2750,30 @@ document.addEventListener('alpine:init', () => {
         t.busy = false;
       }
     },
+    async startFetch() {
+      const t = this.tidy;
+      if (t.busy || !t.from.trim() || !t.dir.trim()) return;
+      t.busy = true;
+      try {
+        t.status = await api('/api/tidy/fetch', {method: 'POST', body: JSON.stringify({from: t.from, dir: t.dir, lang: this.lang()})});
+        try { localStorage.setItem('fetchFrom', t.status.from); localStorage.setItem('tidyDir', t.status.dir); } catch (e) {}
+        this.pollTidy();
+      } catch (e) {
+        this.notify(`Couldn’t fetch: ${e.message}`, 8000);
+      } finally {
+        t.busy = false;
+      }
+    },
     async pollTidy() {
       const t = this.tidy;
       clearTimeout(this._tidyTimer);
       t.status = await api('/api/export').catch(() => t.status);
       if (t.status && t.status.running) {
         this._tidyTimer = setTimeout(() => this.pollTidy(), 1000);
+      } else if (t.status && t.status.fetch && t.status.finished_at) {
+        const st = t.status;
+        this.notify((st.copied === 1 ? 'Fetched 1 new photo' : `Fetched ${fmtCount(st.copied)} new photos`) + (st.failed ? `, ${fmtCount(st.failed)} failed` : ''), 8000);
+        this.refreshStats().catch(() => {});
       } else if (t.status && t.status.tidy && t.status.finished_at) {
         const st = t.status;
         this.notify(`Copied ${fmtCount(st.copied)} photos` + (st.skipped ? `, ${fmtCount(st.skipped)} were already there` : '') + (st.failed ? `, ${fmtCount(st.failed)} failed` : ''), 8000);
