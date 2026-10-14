@@ -181,6 +181,7 @@ document.addEventListener('alpine:init', () => {
     testResult: null,
     savingSettings: false,
     backingUp: false,   // "Back up now" in Settings
+    savingStill: false, // a video frame being saved as a picture
     restarting: false,
     zoom: {s: 1, x: 0, y: 0, drag: null, moved: false}, // lightbox zoom and pan
     dateEdit: null,     // the photo date being corrected (datetime-local value)
@@ -3414,6 +3415,27 @@ document.addEventListener('alpine:init', () => {
     thumbURL(im) { return im.thumb ? '/thumb/' + im.hash + (im.rot ? '?r=' + im.rot : '') : ''; },
     previewURL(im) { return '/preview/' + im.id + '?h=' + im.hash + (im.rot ? '&r=' + im.rot : ''); },
     fmtCount: n => (n || 0).toLocaleString(),
+    // saveStill saves the frame the video is paused at as a picture next
+    // to the video, under a name the user gives.
+    async saveStill() {
+      const im = this.current(), v = document.querySelector('video.lb-video');
+      if (!im || !v || this.savingStill) return;
+      v.pause();
+      const at = v.currentTime;
+      const stem = this.baseName(im.path).replace(/\.[^.]+$/, '');
+      const name = (this.ask('Name of the picture', `${stem} ${Math.floor(at / 60)}m${String(Math.floor(at % 60)).padStart(2, '0')}s`) || '').trim();
+      if (!name) return;
+      this.savingStill = true;
+      try {
+        const r = await api(`/api/images/${im.id}/frame`, {method: 'POST', body: JSON.stringify({at, name})});
+        this.notify(`Saved the picture as ${r.name}, next to the video`, 6000);
+        setTimeout(() => { this.softRefresh(); this.refreshStats().catch(() => {}); }, 4000); // once the scan has taken it in
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 8000);
+      } finally {
+        this.savingStill = false;
+      }
+    },
     // fmtDuration shows a video's length: 0:07, 1:23, 1:02:03.
     fmtDuration(s) {
       s = Math.round(s || 0);

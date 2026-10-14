@@ -1477,6 +1477,7 @@
     <button class="icon-btn" @click="closeLightbox()" x-html="icons.close" title="Close (Esc)"></button>
     <div class="lb-title" x-text="current() && (current().title || baseName(current().path))"></div>
     <div class="lb-actions">
+      <button class="btn lb-still" x-show="current()?.video" :disabled="savingStill" @click="saveStill()" title="Pause where you want it: the frame is saved as a picture next to the video" x-html="icons.camera + '<span>' + (savingStill ? 'Saving…' : 'Save picture') + '</span>'"></button>
       <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(-90)" x-html="icons.rotateLeft" title="Turn left — for photos the camera saved sideways (Shift+R)"></button>
       <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(90)" x-html="icons.rotate" title="Turn right (R)"></button>
       <button class="icon-btn" :class="{active: lightbox.faces}" @click="toggleFaces()" x-html="icons.people" title="Show who is in the photo (F)"></button>

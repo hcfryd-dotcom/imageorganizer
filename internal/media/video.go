@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -219,4 +220,28 @@ func ProcessVideo(ctx context.Context, path string, wantWork bool, rot int) (Res
 		res.Info.Width, res.Info.Height = res.Info.Height, res.Info.Width
 	}
 	return res, nil
+}
+
+// SaveFrame writes the frame at a time (seconds) of the video at path as
+// a full-size JPEG at dest, through a temporary file.
+func SaveFrame(ctx context.Context, path string, at float64, dest string) error {
+	if ffmpeg == "" {
+		return errors.New("video is not enabled")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	tmp := dest + ".tmp.jpg"
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, ffmpeg, "-v", "error", "-y", "-ss", strconv.FormatFloat(max(at, 0), 'f', 3, 64), "-i", path,
+		"-frames:v", "1", "-q:v", "2", tmp)
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("ffmpeg: %v: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	if fi, err := os.Stat(tmp); err != nil || fi.Size() == 0 {
+		os.Remove(tmp)
+		return errors.New("ffmpeg: no frame there")
+	}
+	return os.Rename(tmp, dest)
 }

@@ -101,6 +101,7 @@ func (s *Server) Handler() http.Handler {
 	s.tidyRoutes(mux)
 	s.fetchRoutes(mux)
 	s.albumRoutes(mux)
+	s.frameRoutes(mux)
 	s.confidentRoutes(mux)
 	s.deleteRoutes(mux)
 	s.geoRoutes(mux)

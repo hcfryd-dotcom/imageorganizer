@@ -313,6 +313,9 @@
       'Kopierer alle billeder fra mapperne ovenfor til én mappe, sorteret efter år, måned og hvad der tog dem (iPhone, Canon, Skærmbilleder …). Hvert billede kommer kun med én gang: kopier af det samme billede springes over. Dine mapper ændres ikke, og kopierer du igen, tilføjes kun det nye.',
     'Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.':
       'Næste skridt: kig den nye mappe igennem. Når du er tilfreds, tilføjer du den ovenfor og fjerner de gamle mapper: billederne bliver genkendt, så navne og steder bliver. De gamle mapper lader programmet være, så du selv kan slette eller gemme dem.',
+    // A picture from a video
+    'Save picture': 'Gem billede', 'Name of the picture': 'Navn på billedet',
+    'Pause where you want it: the frame is saved as a picture next to the video': 'Sæt på pause, hvor du vil have det: billedet gemmes ved siden af videoen',
     // Albums
     'Albums': 'Album', 'New album': 'Nyt album', 'All albums': 'Alle album', 'Delete album': 'Slet album',
     'Add to album…': 'Tilføj til album…', 'Remove from album': 'Fjern fra album', 'Make album': 'Lav album',
@@ -445,6 +448,7 @@
     [/^For example: (.*)$/, (m, p) => 'Fx: ' + p],
     [/^Fetch from, e\.g\. (.*)$/, (m, p) => 'Hent fra, fx ' + p],
     [/^Main folder: (.*)$/, (m, p) => 'Hovedmappe: ' + p],
+    [/^Saved the picture as (.*), next to the video$/, (m, n) => 'Billedet er gemt som ' + n + ', ved siden af videoen'],
     [/^(\d[\d., ]*) (album|albums)$/, (m, n, a) => n + ' album'],
     [/^Add (\d[\d., ]*) photos to an album$/, (m, n) => 'Tilføj ' + n + ' billeder til et album'],
     [/^Made the album “(.*)” with (\d[\d., ]*) (photos?)$/, (m, a, n, p) => 'Lavede albummet “' + a + '” med ' + n + (p === 'photo' ? ' billede' : ' billeder')],
@@ -515,6 +519,9 @@
     [/^the library has no photos to copy$/, () => 'biblioteket har ingen billeder at kopiere'],
     [/^give the album a name$/, () => 'giv albummet et navn'],
     [/^videos can’t be turned here$/, () => 'videoer kan ikke drejes her'],
+    [/^give the picture a name$/, () => 'giv billedet et navn'],
+    [/^that isn’t a video$/, () => 'det er ikke en video'],
+    [/^pictures can only be saved from videos on this computer$/, () => 'billeder kan kun gemmes fra videoer på denne computer'],
     [/^choose a folder outside the library folder (.*): it would read its own copies$/, (m, f) => 'vælg en mappe uden for biblioteksmappen ' + f + ': ellers ville programmet læse sine egne kopier'],
     [/^(.*) has no photos to copy$/, (m, nm) => nm + ' har ingen billeder at kopiere'],
     [/^choose between 50% and 100%$/, () => 'vælg mellem 50 % og 100 %'],

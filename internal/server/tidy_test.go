@@ -46,3 +46,17 @@ func TestExportDirTakesBrowsedLocations(t *testing.T) {
 		t.Error("a relative folder was taken")
 	}
 }
+
+func TestStillName(t *testing.T) {
+	for in, want := range map[string]string{
+		"Mathilde blæser lys ud": "Mathilde blæser lys ud.jpg",
+		"  kage.JPG ":            "kage.jpg",
+		`..\..\Windows\x`:        "-..-Windows-x.jpg",
+		"a:b?":                   "a-b-.jpg",
+		"   ":                    "",
+	} {
+		if got := stillName(in); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
+		}
+	}
+}
