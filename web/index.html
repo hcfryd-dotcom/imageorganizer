@@ -1201,8 +1201,11 @@
           </template>
           <div class="add-actions">
             <button type="button" class="btn" @click="openBrowser()" :disabled="add.kind === 'smb' && !add.host">Browse…</button>
+            <button type="button" class="btn" x-show="add.kind === 'file' && tidy.dir" :disabled="!add.path.trim() || tidy.busy || tidy.status?.running" @click="copyIntoMain()"
+                    :title="'Copy the photos you don’t have yet into ' + tidy.dir + ', sorted by year, month and camera, instead of adding the folder'">Copy into main folder</button>
             <button class="btn primary" :disabled="add.busy || !(add.kind === 'file' ? add.path : add.host && add.path)" x-text="add.busy ? 'Connecting…' : 'Add folder'"></button>
           </div>
+          <div class="muted small" x-show="add.kind === 'file' && tidy.dir" x-text="'Main folder: ' + tidy.dir"></div>
         </form>
       </div>
       <div class="error" x-show="folderError" x-text="folderError"></div>

@@ -2750,18 +2750,36 @@ document.addEventListener('alpine:init', () => {
         t.busy = false;
       }
     },
-    async startFetch() {
-      const t = this.tidy;
-      if (t.busy || !t.from.trim() || !t.dir.trim()) return;
+    // startFetch copies the new photos of from (the folder to fetch from
+    // kept in the panel, or a folder being added) into the main folder.
+    async startFetch(from) {
+      const t = this.tidy, once = from !== undefined;
+      from = once ? from : t.from;
+      if (t.busy || !from.trim() || !t.dir.trim()) return false;
       t.busy = true;
       try {
-        t.status = await api('/api/tidy/fetch', {method: 'POST', body: JSON.stringify({from: t.from, dir: t.dir, lang: this.lang()})});
-        try { localStorage.setItem('fetchFrom', t.status.from); localStorage.setItem('tidyDir', t.status.dir); } catch (e) {}
+        t.status = await api('/api/tidy/fetch', {method: 'POST', body: JSON.stringify({from, dir: t.dir, lang: this.lang()})});
+        try {
+          if (!once) localStorage.setItem('fetchFrom', t.status.from);
+          localStorage.setItem('tidyDir', t.status.dir);
+        } catch (e) {}
         this.pollTidy();
+        return true;
       } catch (e) {
         this.notify(`Couldn’t fetch: ${e.message}`, 8000);
+        return false;
       } finally {
         t.busy = false;
+      }
+    },
+    // copyIntoMain is "Add folder" made a copy: the folder's photos go into
+    // the main folder instead of the library reading it where it is.
+    async copyIntoMain() {
+      const from = this.addLocation();
+      if (await this.startFetch(from)) {
+        this.add.path = '';
+        this.notify(`Copying the new photos from ${from} into ${this.tidy.dir}`, 6000);
+        this.$nextTick(() => document.querySelector('.tidy-panel .export-status')?.scrollIntoView({block: 'center', behavior: 'smooth'}));
       }
     },
     async pollTidy() {

@@ -313,7 +313,7 @@
       'Kopierer alle billeder fra mapperne ovenfor til én mappe, sorteret efter år, måned og hvad der tog dem (iPhone, Canon, Skærmbilleder …). Hvert billede kommer kun med én gang: kopier af det samme billede springes over. Dine mapper ændres ikke, og kopierer du igen, tilføjes kun det nye.',
     'Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.':
       'Næste skridt: kig den nye mappe igennem. Når du er tilfreds, tilføjer du den ovenfor og fjerner de gamle mapper: billederne bliver genkendt, så navne og steder bliver. De gamle mapper lader programmet være, så du selv kan slette eller gemme dem.',
-    'Fetch new photos': 'Hent nye billeder', 'Fetched 1 new photo': 'Hentede 1 nyt billede',
+    'Fetch new photos': 'Hent nye billeder', 'Copy into main folder': 'Kopiér til hovedmappe', 'Fetched 1 new photo': 'Hentede 1 nyt billede',
     'Copies the photos you don’t have yet from another folder (your phone’s OneDrive camera folder, say) into the tidy folder above, sorted the same way, and takes them into the library. That folder is only read. The first time it reads every file there; after that only new ones.':
       'Kopierer de billeder, du ikke har endnu, fra en anden mappe (fx din telefons OneDrive-mappe) ind i den ryddede mappe ovenfor, sorteret på samme måde, og tager dem ind i biblioteket. Den anden mappe bliver kun læst. Første gang læses alle filer dér; derefter kun de nye.',
     'Place set for 1 photo': 'Sted sat på 1 billede', 'Place removed from 1 photo': 'Sted fjernet fra 1 billede', '1 photo got a place': '1 billede fik et sted',
@@ -426,6 +426,9 @@
     [/^(\d[\d., ]*) photos · ([^·]+?)( · (\d[\d., ]*) copies left out)?$/, (m, n, size, x, c) => n.trim() + ' billeder · ' + size + (c ? ' · ' + c.trim() + ' kopier springes over' : '')],
     [/^For example: (.*)$/, (m, p) => 'Fx: ' + p],
     [/^Fetch from, e\.g\. (.*)$/, (m, p) => 'Hent fra, fx ' + p],
+    [/^Main folder: (.*)$/, (m, p) => 'Hovedmappe: ' + p],
+    [/^Copy the photos you don’t have yet into (.*), sorted by year, month and camera, instead of adding the folder$/, (m, p) => 'Kopiér de billeder, du ikke har endnu, ind i ' + p + ', sorteret efter år, måned og kamera, i stedet for at tilføje mappen'],
+    [/^Copying the new photos from (.*) into (.*)$/, (m, a, b) => 'Kopierer de nye billeder fra ' + a + ' ind i ' + b],
     [/^Fetched (\d[\d., ]*) new photos(, (\d[\d., ]*) failed)?$/, (m, n, x, f) => 'Hentede ' + n.trim() + ' nye billeder' + (f ? ', ' + f.trim() + ' mislykkedes' : '')],
     [/^Couldn’t fetch: (.*)$/, (m, e) => 'Kunne ikke hente: ' + trServer(e)],
     [/^The whole path of a new folder, e\.g\. (.*)$/, (m, p) => 'Hele stien til en ny mappe, fx ' + p],
