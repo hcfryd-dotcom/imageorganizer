@@ -222,7 +222,9 @@ nav { display: flex; flex-direction: column; gap: 2px; }
 .empty p { color: var(--muted); max-width: 380px; margin: 0 auto 14px; }
 
 /* ---------- map ---------- */
-.mapview { flex: 1; position: relative; }
+/* isolate: Leaflet's panes have z-indexes up to 1000, which would otherwise
+   put the map over the photo viewer opened from it. */
+.mapview { flex: 1; position: relative; isolation: isolate; }
 #map { position: absolute; inset: 0; background: var(--bg); }
 .map-bar { position: absolute; left: 16px; top: 16px; z-index: 500; display: flex; align-items: center; gap: 10px; }
 .map-back { box-shadow: var(--shadow); }
