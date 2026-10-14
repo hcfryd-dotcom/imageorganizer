@@ -36,8 +36,13 @@ the rest of the repo.
 - Face models in `models\`: `scrfd_10g.onnx` and `arcface_w600k_r50.onnx`
   (InsightFace buffalo_l, non-commercial licence). No age model
   (`mivolo_v2_age.onnx`), so ages and genders are unknown.
-- Photos: `E:\Onedrive\Billeder` (~23,000; OneDrive, so files may be
-  cloud-only until read).
+- Photos: the library's one folder is `E:\Billeder ryddet` (~30,000, made
+  on 2026-10-14 by the tidy copy from `E:\Onedrive\Billeder` and
+  `E:\Old_Onedrive`; outside OneDrive). The two old folders are still on
+  disk, untouched, no longer in the library; deleting them is his call.
+  Backup of the library from just before the switch:
+  `E:\ImageOrganizer-backup\library.bolt.before-switch-20261014`.
+  `C:` is nearly full (~3 GB free): put big temporary files on `E:`.
 - Search by meaning is off: llama-server is in `dist\ImageOrganizer\llama\`,
   but the EmbeddingGemma 2 model files (`embeddinggemma-2-Q8_0.gguf` and
   `mmproj-Q8_0.gguf` from unsloth/embeddinggemma-2-GGUF on Hugging Face) have
