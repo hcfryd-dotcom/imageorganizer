@@ -91,10 +91,7 @@ func (c *Client) props(ctx context.Context) (marker, model string, err error) {
 	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
 		return "", "", err
 	}
-	model = p.ModelPath
-	if i := strings.LastIndexByte(model, '/'); i >= 0 {
-		model = model[i+1:]
-	}
+	model = modelName(p.ModelPath)
 	if !p.Modalities.Vision || p.MediaMarker == "" {
 		return "", model, errors.New("embedding server has no vision support (start llama-server with --mmproj)")
 	}
@@ -238,4 +235,14 @@ func Dot(a, b []float32) float32 {
 		s += a[i] * b[i]
 	}
 	return s
+}
+
+// modelName is the file name of the model the server loaded, whatever
+// folder (and on Windows, separator) it was started with: the vectors are
+// pinned to it, and a path changing between starts would re-index them all.
+func modelName(path string) string {
+	if i := strings.LastIndexAny(path, `/\`); i >= 0 {
+		return path[i+1:]
+	}
+	return path
 }

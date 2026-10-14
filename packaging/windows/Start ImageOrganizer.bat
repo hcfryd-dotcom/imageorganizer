@@ -8,9 +8,10 @@ set MMPROJ=
 for %%f in (llama\models\*.gguf) do (
   echo %%~nf | findstr /i "mmproj" >nul && (set "MMPROJ=%%f") || (set "MODEL=%%f")
 )
+rem -ngl 99 runs it on the graphics card when llama has a GPU backend, ggml-vulkan.dll; without one it runs on the CPU as before.
 if defined MODEL if defined MMPROJ (
   echo Starter llama-server med %MODEL% ...
-  start "llama-server (soegning efter indhold)" /min llama\llama-server.exe -m "%MODEL%" --mmproj "%MMPROJ%" --embeddings --port 8095 --host 127.0.0.1
+  start "llama-server (soegning efter indhold)" /min llama\llama-server.exe -m "%MODEL%" --mmproj "%MMPROJ%" --embeddings --port 8095 --host 127.0.0.1 -ngl 99
 )
 if defined MODEL if not defined MMPROJ echo BEMAERK: projector-filen (mmproj*.gguf) mangler i llama\models - soegning efter indhold startes ikke.
 start "" "http://127.0.0.1:8420"
