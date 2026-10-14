@@ -33,6 +33,7 @@ const icons = {
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   strip: '<svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="5" height="10" rx="1.2"/><rect x="9.5" y="5" width="5" height="14" rx="1.2"/><rect x="16.5" y="7" width="5" height="10" rx="1.2"/></svg>',
   pin: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  album: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="15" height="14" rx="2.5"/><path d="M3 16.5V5.5A2.5 2.5 0 015.5 3H16"/><path d="M21 16l-4-4-7 7"/><circle cx="11" cy="10.5" r="1.5"/></svg>',
 };
 
 const PAGE = 300;
@@ -59,6 +60,7 @@ document.addEventListener('alpine:init', () => {
     nav: [
       {id: 'photos', label: 'Photos', icon: 'photos'},
       {id: 'favorites', label: 'Favorites', icon: 'heart', view: 'photos', fav: true},
+      {id: 'albums', label: 'Albums', icon: 'album'},
       {id: 'discover', label: 'Discover', icon: 'discover', badge: true},
       {id: 'people', label: 'People', icon: 'people'},
       {id: 'review', label: 'Review', icon: 'check', badge: true},
@@ -94,6 +96,9 @@ document.addEventListener('alpine:init', () => {
     scan: {running: false},
     jobs: null,
     person: 0,          // photos filtered to this person
+    album: 0,           // photos filtered to this album
+    albums: [],         // the Albums page
+    albumPick: {open: false, ids: [], name: '', busy: false}, // "Add to album…" for these photos
     personName: '',
     peopleData: {people: [], groups: []},
     openPersonId: 0,    // person page in the People view
@@ -219,6 +224,7 @@ document.addEventListener('alpine:init', () => {
       this.loadFolders();
       this.loadDrafts();
       this.loadPeople();
+      this.loadAlbums();
       this.loadSettings();
       this.reload().then(() => {
         this.ready = true;
@@ -241,6 +247,7 @@ document.addEventListener('alpine:init', () => {
       this.hadQ = !!this.q.trim();
       this.fav = p.get('fav') === '1';
       this.person = +p.get('person') || 0;
+      this.album = +p.get('album') || 0;
       this.openPersonId = +p.get('p') || 0;
       this.reviewGroup = +p.get('g') || 0;
       this.pendingImage = +p.get('img') || null;
@@ -254,6 +261,7 @@ document.addEventListener('alpine:init', () => {
       if (this.sort !== 'taken_desc') p.set('sort', this.sort);
       if (this.fav) p.set('fav', '1');
       if (this.person) p.set('person', this.person);
+      if (this.album) p.set('album', this.album);
       if (this.view === 'people' && this.openPersonId) p.set('p', this.openPersonId);
       if (this.view === 'review' && this.reviewGroup) p.set('g', this.reviewGroup);
       if (this.lightbox.open && this.current()) p.set('img', this.current().id);
@@ -320,12 +328,12 @@ document.addEventListener('alpine:init', () => {
     onHashChange() {
       this.restoring = true;
       try {
-        const before = [this.view, this.q, this.tokenIDs(), this.sort, this.fav, this.person].join('|');
+        const before = [this.view, this.q, this.tokenIDs(), this.sort, this.fav, this.person, this.album].join('|');
         const view = this.view, pid = this.openPersonId, gid = this.reviewGroup;
         this.readHash();
         const img = this.pendingImage;
         if (this.lightbox.open && (!img || this.current()?.id !== img)) this.closeLightbox();
-        if ([this.view, this.q, this.tokenIDs(), this.sort, this.fav, this.person].join('|') !== before) {
+        if ([this.view, this.q, this.tokenIDs(), this.sort, this.fav, this.person, this.album].join('|') !== before) {
           const st = this.restoreScroll;
           this.reload().then(() => this.scrollBack(st));
         }
@@ -341,12 +349,14 @@ document.addEventListener('alpine:init', () => {
     // ---------- navigation ----------
     isNav(n) {
       const v = n.view || n.id;
-      return this.view === v && !!n.fav === this.fav && (v !== 'photos' || !this.person);
+      if (v === 'albums') return this.view === 'albums' || this.view === 'photos' && !!this.album;
+      return this.view === v && !!n.fav === this.fav && (v !== 'photos' || !this.person && !this.album);
     },
     goNav(n) {
       this.clearMapFocus();
       this.fav = !!n.fav;
       this.person = 0;
+      this.album = 0;
       if (n.id === 'people') this.openPersonId = 0;
       if (n.id === 'review') { this.reviewGroup = 0; this.reviewFocus = null; }
       this.setView(n.view || n.id);
@@ -372,6 +382,7 @@ document.addEventListener('alpine:init', () => {
       if (v === 'lanes') this.openLanes();
       if (v === 'discover') this.loadDiscover();
       if (v === 'family') this.loadPeople();
+      if (v === 'albums') this.loadAlbums();
       if (v === 'photos') this.$nextTick(() => this.layout());
     },
     isPhotoView() { return ['photos', 'table', 'map'].includes(this.view); },
@@ -384,6 +395,7 @@ document.addEventListener('alpine:init', () => {
       if (this.tokens.length) p.set('people', this.tokenIDs());
       if (this.fav) p.set('fav', '1');
       if (this.person) p.set('person', this.person);
+      if (this.album) p.set('album', this.album);
       return p.toString();
     },
     async reload() {
@@ -1979,7 +1991,9 @@ document.addEventListener('alpine:init', () => {
         api('/api/images/' + im.id).catch(() => null),
         api('/api/images/' + im.id + '/faces').catch(() => []),
       ]);
-      if (d && this.current() && this.current().id === d.id) this.detail = {...d, faces};
+      if (d && this.current() && this.current().id === d.id) this.detail = {...d, faces, albums: []};
+      const albums = await api('/api/images/' + im.id + '/albums').catch(() => []);
+      if (this.detail && this.detail.id === im.id) this.detail = {...this.detail, albums};
     },
     // ---------- around: the photos taken just before and after ----------
     toggleStrip() {
@@ -2357,6 +2371,10 @@ document.addEventListener('alpine:init', () => {
           e.target.blur();
           if (this.assign.face) this.closeAssign();
         }
+        return;
+      }
+      if (this.albumPick.open) {
+        if (e.key === 'Escape') this.albumPick.open = false;
         return;
       }
       if (this.pick.open) {
@@ -2822,6 +2840,91 @@ document.addEventListener('alpine:init', () => {
       this.reload();
     },
     clearPerson() { this.person = 0; this.reload(); },
+    // ---------- albums ----------
+    async loadAlbums() { this.albums = await api('/api/albums').catch(() => this.albums); },
+    openAlbum(a) {
+      this.album = a.id;
+      this.q = '';
+      this.tokens = [];
+      this.fav = false;
+      this.person = 0;
+      this.setView('photos');
+      this.reload();
+    },
+    clearAlbum() { this.album = 0; this.reload(); },
+    albumLabel() { const a = this.albums.find(a => a.id === this.album); return a ? a.name : '…'; },
+    ask(text, value = '') { return window.prompt(window.i18n ? window.i18n.tr(text) : text, value); },
+    async newAlbum(ids = []) {
+      const name = (this.ask('Name of the new album') || '').trim();
+      if (!name) return null;
+      try {
+        const a = await api('/api/albums', {method: 'POST', body: JSON.stringify({name, ids})});
+        await this.loadAlbums();
+        return a;
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+        return null;
+      }
+    },
+    async renameAlbum() {
+      const a = this.albums.find(a => a.id === this.album);
+      const name = (this.ask('New name of the album', a ? a.name : '') || '').trim();
+      if (!name || (a && name === a.name)) return;
+      try {
+        await api('/api/albums/' + this.album, {method: 'PATCH', body: JSON.stringify({name})});
+        await this.loadAlbums();
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      }
+    },
+    async deleteAlbum() {
+      if (!confirm(`Delete the album “${this.albumLabel()}”?\n\nThe photos in it are not deleted.`)) return;
+      await api('/api/albums/' + this.album, {method: 'DELETE'}).catch(e => this.notify(`Couldn’t remove: ${e.message}`, 6000));
+      this.album = 0;
+      this.setView('albums');
+    },
+    // "Add to album…": pick an album (or make one) for these photos.
+    async openAlbumPick(ids) {
+      this.albumPick = {open: true, ids, name: '', busy: false};
+      this.loadAlbums();
+    },
+    async pickAlbum(a) {
+      const p = this.albumPick;
+      if (p.busy) return;
+      p.busy = true;
+      try {
+        if (!a) {
+          const name = p.name.trim();
+          if (!name) return;
+          a = await api('/api/albums', {method: 'POST', body: JSON.stringify({name, ids: p.ids})});
+          this.notify(`Made the album “${a.name}” with ${fmtCount(a.photos)} ${a.photos === 1 ? 'photo' : 'photos'}`, 5000);
+        } else {
+          const r = await api(`/api/albums/${a.id}/add`, {method: 'POST', body: JSON.stringify({ids: p.ids})});
+          this.notify(r.changed === 1 ? `Added 1 photo to “${a.name}”` : `Added ${fmtCount(r.changed)} photos to “${a.name}”`, 5000);
+        }
+        p.open = false;
+        await this.loadAlbums();
+        if (this.detail && p.ids.includes(this.detail.id)) this.detail = {...this.detail, albums: await api('/api/images/' + this.detail.id + '/albums').catch(() => this.detail.albums)};
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      } finally {
+        p.busy = false;
+      }
+    },
+    async removeFromAlbum(albumID, ids) {
+      try {
+        const r = await api(`/api/albums/${albumID}/remove`, {method: 'POST', body: JSON.stringify({ids})});
+        this.notify(r.changed === 1 ? 'Took 1 photo out of the album' : `Took ${fmtCount(r.changed)} photos out of the album`, 4000);
+        if (this.detail && ids.includes(this.detail.id)) this.detail = {...this.detail, albums: (this.detail.albums || []).filter(x => x.id !== albumID)};
+        if (this.album === albumID) {
+          this.sel.ids = {};
+          this.reload();
+        }
+        this.loadAlbums();
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      }
+    },
     personLabel() { const p = this.peopleData.people.find(p => p.id === this.person); return p ? p.name : this.personName || '…'; },
     // confirmGroup turns an automatically filed group into a confirmed one.
     async confirmGroup(g) {

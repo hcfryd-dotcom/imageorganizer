@@ -176,8 +176,9 @@ type Store struct {
 	facesByImage map[int64][]int64
 	people       map[int64]*personRec
 	clusters     map[int64]*cluster
-	junkDir      []float32 // see junk.go
-	tune         tuning    // people settings in effect (settings.go)
+	albums       map[int64]*albumRec // see albums.go
+	junkDir      []float32           // see junk.go
+	tune         tuning              // people settings in effect (settings.go)
 	// CropPath gives the file of a face crop by key (hash_index); set by
 	// the program so pictures can be judged on their pixels.
 	CropPath func(key string) string
@@ -220,6 +221,7 @@ func Open(path string) (*Store, error) {
 		facesByImage: map[int64][]int64{},
 		people:       map[int64]*personRec{},
 		clusters:     map[int64]*cluster{},
+		albums:       map[int64]*albumRec{},
 	}
 	if err := s.load(); err != nil {
 		db.Close()
@@ -276,6 +278,9 @@ func (s *Store) load() error {
 			return err
 		}
 		if err := s.loadVectors(tx); err != nil {
+			return err
+		}
+		if err := s.loadAlbums(tx); err != nil {
 			return err
 		}
 		return s.loadFaces(tx)
@@ -1031,7 +1036,7 @@ func (s *Store) merge(srcID, dstID int64) error {
 	s.setImage(&nd)
 	applySrc()
 	applyDst()
-	return nil
+	return s.albumsMerged(srcID, dstID) // the photo stays in its albums
 }
 
 func hamming(a, b uint64) int {

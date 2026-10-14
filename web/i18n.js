@@ -313,6 +313,17 @@
       'Kopierer alle billeder fra mapperne ovenfor til én mappe, sorteret efter år, måned og hvad der tog dem (iPhone, Canon, Skærmbilleder …). Hvert billede kommer kun med én gang: kopier af det samme billede springes over. Dine mapper ændres ikke, og kopierer du igen, tilføjes kun det nye.',
     'Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.':
       'Næste skridt: kig den nye mappe igennem. Når du er tilfreds, tilføjer du den ovenfor og fjerner de gamle mapper: billederne bliver genkendt, så navne og steder bliver. De gamle mapper lader programmet være, så du selv kan slette eller gemme dem.',
+    // Albums
+    'Albums': 'Album', 'New album': 'Nyt album', 'All albums': 'Alle album', 'Delete album': 'Slet album',
+    'Add to album…': 'Tilføj til album…', 'Remove from album': 'Fjern fra album', 'Make album': 'Lav album',
+    'Add the photo to an album': 'Tilføj billedet til et album', 'Take it out of this album': 'Tag det ud af dette album',
+    'New album, e.g. Summer 2024': 'Nyt album, fx Sommer 2024', 'No albums yet: make the first below.': 'Ingen album endnu: lav det første herunder.',
+    'Name of the new album': 'Navn på det nye album', 'New name of the album': 'Nyt navn på albummet',
+    'Took 1 photo out of the album': 'Tog 1 billede ud af albummet',
+    'This album is empty. In Photos, click Select, choose some photos and then “Add to album…”.':
+      'Albummet er tomt. Under Billeder: klik på Vælg, vælg nogle billeder og derefter “Tilføj til album…”.',
+    'No albums yet. Make one here, or in Photos: click Select, choose photos and then “Add to album…”. A photo can be in several albums, from any folder, and taking it out of an album never deletes it.':
+      'Ingen album endnu. Lav et her, eller under Billeder: klik på Vælg, vælg billeder og derefter “Tilføj til album…”. Et billede kan være i flere album, fra alle mapper, og at tage det ud af et album sletter det aldrig.',
     // Settings: backup of the library
     'Backup of the library': 'Sikkerhedskopi af biblioteket',
     'Once a day the program copies its library (names of faces, places, dates, albums) to a folder of its own. Best on another drive than the program’s. Your photos aren’t copied.':
@@ -434,7 +445,13 @@
     [/^For example: (.*)$/, (m, p) => 'Fx: ' + p],
     [/^Fetch from, e\.g\. (.*)$/, (m, p) => 'Hent fra, fx ' + p],
     [/^Main folder: (.*)$/, (m, p) => 'Hovedmappe: ' + p],
-    [/^(.+) · (\d[\d., ]*) (copy|copies)$/, (m, d, n, c) => tr(d) + ' · ' + n + (c === 'copy' ? ' kopi' : ' kopier')],
+    [/^(\d[\d., ]*) (album|albums)$/, (m, n, a) => n + ' album'],
+    [/^Add (\d[\d., ]*) photos to an album$/, (m, n) => 'Tilføj ' + n + ' billeder til et album'],
+    [/^Made the album “(.*)” with (\d[\d., ]*) (photos?)$/, (m, a, n, p) => 'Lavede albummet “' + a + '” med ' + n + (p === 'photo' ? ' billede' : ' billeder')],
+    [/^Added (\d[\d., ]*) (photos?) to “(.*)”$/, (m, n, p, a) => 'Tilføjede ' + n + (p === 'photo' ? ' billede' : ' billeder') + ' til “' + a + '”'],
+    [/^Took (\d[\d., ]*) photos out of the album$/, (m, n) => 'Tog ' + n + ' billeder ud af albummet'],
+    [/^Delete the album “(.*)”\?\n\nThe photos in it are not deleted\.$/, (m, a) => 'Slet albummet “' + a + '”?\n\nBillederne i det slettes ikke.'],
+    [/^(.+) · (\d[\d., ]*) (copy|copies)$/, (m, d, n, c) => (tr(d) ?? d) + ' · ' + n + (c === 'copy' ? ' kopi' : ' kopier')],
     [/^Library copied to (.*)$/, (m, p) => 'Biblioteket er kopieret til ' + p],
     [/^Couldn’t copy the library: (.*)$/, (m, e) => 'Kunne ikke kopiere biblioteket: ' + trServer(e)],
     [/^The last copy of the library failed: (.*)$/, (m, e) => 'Den seneste kopi af biblioteket mislykkedes: ' + e],
@@ -496,6 +513,7 @@
     [/^the folder to fetch from and the tidy folder can’t be inside each other$/, () => 'mappen der hentes fra og den ryddede mappe må ikke ligge inden i hinanden'],
     [/^no data folder to remember fetched files in$/, () => 'ingen datamappe at huske hentede filer i'],
     [/^the library has no photos to copy$/, () => 'biblioteket har ingen billeder at kopiere'],
+    [/^give the album a name$/, () => 'giv albummet et navn'],
     [/^choose a folder outside the library folder (.*): it would read its own copies$/, (m, f) => 'vælg en mappe uden for biblioteksmappen ' + f + ': ellers ville programmet læse sine egne kopier'],
     [/^(.*) has no photos to copy$/, (m, nm) => nm + ' har ingen billeder at kopiere'],
     [/^choose between 50% and 100%$/, () => 'vælg mellem 50 % og 100 %'],

@@ -134,6 +134,16 @@
       <span class="chip">Photos of <b x-text="personLabel()"></b></span>
       <button class="btn ghost" @click="clearPerson()">Show all photos</button>
     </div>
+    <div class="result-line album-line" x-show="album" x-cloak>
+      <span class="album-title" x-text="albumLabel()"></span>
+      <span class="muted" x-text="fmtCount(total) + (total === 1 ? ' photo' : ' photos')"></span>
+      <button class="btn ghost" @click="renameAlbum()">Rename</button>
+      <button class="btn ghost danger" @click="deleteAlbum()">Delete album</button>
+      <button class="btn ghost" @click="setView('albums'); album = 0">All albums</button>
+    </div>
+    <div class="empty album-empty" x-show="album && !loading && total === 0" x-cloak>
+      <p>This album is empty. In Photos, click Select, choose some photos and then “Add to album…”.</p>
+    </div>
     <div class="result-line" x-show="q || fav || tokens.length">
       <span class="smart" x-show="semantic" title="Ranked by EmbeddingGemma 2 image–text similarity">✦ Smart search</span>
       <template x-for="p in searchPeople" :key="p.id"><span class="chip person-chip" x-text="p.name"></span></template>
@@ -176,6 +186,8 @@
     <span class="muted small" x-show="selCount()" x-text="fmtCount(selItems().filter(im => im.lat == null).length) + ' without a place'"></span>
     <button class="btn primary" :disabled="!selCount()" @click="openPlacePick(selIDs())">Set place…</button>
     <button class="btn" x-show="selItems().some(im => im.geo_src)" @click="clearPlaces(selIDs())">Remove place</button>
+    <button class="btn" :disabled="!selCount()" @click="openAlbumPick(selIDs())">Add to album…</button>
+    <button class="btn" x-show="album && selCount()" @click="removeFromAlbum(album, selIDs())">Remove from album</button>
     <button class="btn ghost" x-show="selCount()" @click="sel.ids = {}">Clear selection</button>
     <span class="muted small sel-hint">Shift-click selects a run of photos</span>
   </div>
@@ -1120,6 +1132,25 @@
     </template>
   </section>
 
+  <!-- Albums -->
+  <section class="albums" x-show="view === 'albums'" x-cloak>
+    <div class="people-head">
+      <h2>Albums</h2>
+      <span class="muted" x-text="albums.length ? fmtCount(albums.length) + (albums.length === 1 ? ' album' : ' albums') : ''"></span>
+      <button class="btn primary albums-new" @click="newAlbum().then(a => a && openAlbum(a))">New album</button>
+    </div>
+    <p class="muted" x-show="!albums.length">No albums yet. Make one here, or in Photos: click Select, choose photos and then “Add to album…”. A photo can be in several albums, from any folder, and taking it out of an album never deletes it.</p>
+    <div class="album-grid">
+      <template x-for="a in albums" :key="a.id">
+        <button class="album-card" @click="openAlbum(a)">
+          <span class="album-cover"><img x-show="a.cover" :src="a.cover ? thumbURL({thumb: true, hash: a.cover, rot: a.cover_rot}) : ''" alt="" loading="lazy"><span x-show="!a.cover" x-html="icons.album"></span></span>
+          <b x-text="a.name"></b>
+          <small class="muted" x-text="fmtCount(a.photos) + (a.photos === 1 ? ' photo' : ' photos')"></small>
+        </button>
+      </template>
+    </div>
+  </section>
+
   <!-- Map -->
   <section class="mapview" x-show="view === 'map'" x-cloak>
     <div id="map" x-ref="map"></div>
@@ -1501,6 +1532,12 @@
             <small class="place-links"><a href="#" @click.prevent="showOnMap(detail)">Show on map</a><template x-if="detail.geo_src"><span> · <a href="#" @click.prevent="openPlacePick([detail.id])">Change</a> · <a href="#" @click.prevent="clearPlaces([detail.id])">Remove</a></span></template></small></dd></div></template>
           <template x-if="detail && detail.lat == null"><div><dt x-html="icons.pin"></dt><dd><b class="muted">No place</b><small><a href="#" @click.prevent="openPlacePick([detail.id])">Set place…</a></small></dd></div></template>
         </dl>
+        <div class="lb-albums">
+          <template x-for="a in (detail.albums || [])" :key="a.id">
+            <span class="kin-chip"><a href="#" @click.prevent="closeLightbox(true); openAlbum(a)" x-text="a.name"></a><button title="Take it out of this album" @click="removeFromAlbum(a.id, [detail.id])">×</button></span>
+          </template>
+          <button class="btn ghost" @click="openAlbumPick([detail.id])" x-html="icons.album + '<span>Add to album…</span>'"></button>
+        </div>
         <div class="lb-faces" x-show="detail.faces && detail.faces.length">
           <template x-for="f in (detail.faces || []).filter(f => f.person || !f.bg)" :key="f.id">
             <button class="lb-face" :class="{unknown: !f.person || f.auto}" @click="f.person && !f.auto ? goPerson(f.person) : (lightbox.faces = true, openAssign(f))">
@@ -1551,6 +1588,30 @@
       <button class="btn primary" :disabled="pick.lat == null || pick.busy" @click="savePlace()">Save</button>
     </div>
     <div class="place-note muted small">Photos whose camera saved a place keep it. Only the library is changed, not your files.</div>
+  </div>
+</div>
+<!-- Add photos to an album: one of them, or a new one -->
+<div class="modal-back" x-show="albumPick.open" x-cloak @click.self="albumPick.open = false">
+  <div class="modal album-modal">
+    <div class="modal-head">
+      <b x-text="albumPick.ids.length === 1 ? 'Add the photo to an album' : 'Add ' + fmtCount(albumPick.ids.length) + ' photos to an album'"></b>
+      <span class="spacer"></span>
+      <button class="icon-btn" title="Close (Esc)" @click="albumPick.open = false" x-html="icons.close"></button>
+    </div>
+    <div class="dir-list">
+      <template x-for="a in albums" :key="a.id">
+        <button class="dir" :disabled="albumPick.busy" @click="pickAlbum(a)">
+          <span class="album-mini"><img x-show="a.cover" :src="a.cover ? thumbURL({thumb: true, hash: a.cover, rot: a.cover_rot}) : ''" alt=""></span>
+          <span x-text="a.name"></span>
+          <small class="muted" x-text="fmtCount(a.photos)"></small>
+        </button>
+      </template>
+      <div class="muted pad" x-show="!albums.length">No albums yet: make the first below.</div>
+    </div>
+    <form class="modal-foot album-new" @submit.prevent="pickAlbum(null)">
+      <input class="input" x-model="albumPick.name" placeholder="New album, e.g. Summer 2024" autocomplete="off">
+      <button class="btn primary" :disabled="!albumPick.name.trim() || albumPick.busy">Make album</button>
+    </form>
   </div>
 </div>
 <!-- A bigger look at a small face crop, on hover -->

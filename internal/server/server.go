@@ -100,6 +100,7 @@ func (s *Server) Handler() http.Handler {
 	s.exportRoutes(mux)
 	s.tidyRoutes(mux)
 	s.fetchRoutes(mux)
+	s.albumRoutes(mux)
 	s.confidentRoutes(mux)
 	s.deleteRoutes(mux)
 	s.geoRoutes(mux)
@@ -519,6 +520,9 @@ func (s *Server) parseQuery(r *http.Request) (store.Filter, parsedQuery) {
 			keep[id] = true
 		}
 		f.IDs = slices.DeleteFunc(f.IDs, func(id int64) bool { return !keep[id] })
+	}
+	if aid, err := strconv.ParseInt(q.Get("album"), 10, 64); err == nil && aid > 0 {
+		restrict(s.Store.AlbumImageIDs(aid))
 	}
 	if pid, err := strconv.ParseInt(q.Get("person"), 10, 64); err == nil && pid > 0 {
 		restrict(s.Store.PersonImageIDs(pid))
