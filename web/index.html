@@ -1089,6 +1089,26 @@
           </label>
         </div>
 
+        <div class="set-group" x-show="settings.backup">
+          <h3>Backup of the library</h3>
+          <p class="muted small">Once a day the program copies its library (names of faces, places, dates, albums) to a folder of its own. Best on another drive than the program’s. Your photos aren’t copied.</p>
+          <label class="set-row"><span>Folder for the copies</span>
+            <input class="input" x-model="form.backup_dir" :placeholder="settings.defaults.backup_dir" spellcheck="false">
+            <small class="muted">Empty: the data folder’s “backups”. “off”: no copies.</small>
+          </label>
+          <label class="set-row"><span>Copies to keep</span>
+            <span class="set-field"><input class="input narrow" type="number" min="1" x-model.number="form.backup_keep" :placeholder="settings.effective.backup_keep"> <span class="muted">days</span></span>
+          </label>
+          <div class="set-row">
+            <span>Last copy</span>
+            <span class="set-field">
+              <span x-text="settings.backup && settings.backup.last ? fmtDateLong(settings.backup.last) + ' · ' + fmtCount(settings.backup.copies) + (settings.backup.copies === 1 ? ' copy' : ' copies') : (settings.backup && settings.backup.dir ? 'None yet' : 'Off')"></span>
+              <button class="btn" type="button" @click="backupNow()" :disabled="backingUp || !(settings.backup && settings.backup.dir)" x-text="backingUp ? 'Copying…' : 'Back up now'"></button>
+            </span>
+            <small class="finder-error" x-show="settings.backup && settings.backup.error" x-text="settings.backup && settings.backup.error"></small>
+          </div>
+        </div>
+
         <p class="muted small" x-show="Object.keys(settings.locked).length">Greyed-out settings are set on the command line (<span x-text="Object.values(settings.locked).join(', ')"></span>), which takes priority.</p>
         <p class="muted small">Data folder: <code x-text="settings.data_dir"></code></p>
 

@@ -313,6 +313,13 @@
       'Kopierer alle billeder fra mapperne ovenfor til én mappe, sorteret efter år, måned og hvad der tog dem (iPhone, Canon, Skærmbilleder …). Hvert billede kommer kun med én gang: kopier af det samme billede springes over. Dine mapper ændres ikke, og kopierer du igen, tilføjes kun det nye.',
     'Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.':
       'Næste skridt: kig den nye mappe igennem. Når du er tilfreds, tilføjer du den ovenfor og fjerner de gamle mapper: billederne bliver genkendt, så navne og steder bliver. De gamle mapper lader programmet være, så du selv kan slette eller gemme dem.',
+    // Settings: backup of the library
+    'Backup of the library': 'Sikkerhedskopi af biblioteket',
+    'Once a day the program copies its library (names of faces, places, dates, albums) to a folder of its own. Best on another drive than the program’s. Your photos aren’t copied.':
+      'Én gang i døgnet kopierer programmet sit bibliotek (navne på ansigter, steder, datoer, album) til en mappe for sig. Helst på et andet drev end programmets. Dine billeder kopieres ikke.',
+    'Folder for the copies': 'Mappe til kopierne', 'Empty: the data folder’s “backups”. “off”: no copies.': 'Tom: datamappens “backups”. “off”: ingen kopier.',
+    'Copies to keep': 'Kopier der gemmes', 'days': 'dage', 'Last copy': 'Seneste kopi', 'None yet': 'Ingen endnu', 'Off': 'Slået fra',
+    'Back up now': 'Tag en kopi nu', 'Copying…': 'Kopierer…',
     'Fetch new photos': 'Hent nye billeder', 'Copy into main folder': 'Kopiér til hovedmappe', 'Fetched 1 new photo': 'Hentede 1 nyt billede',
     'Copies the photos you don’t have yet from another folder (your phone’s OneDrive camera folder, say) into the tidy folder above, sorted the same way, and takes them into the library. That folder is only read. The first time it reads every file there; after that only new ones.':
       'Kopierer de billeder, du ikke har endnu, fra en anden mappe (fx din telefons OneDrive-mappe) ind i den ryddede mappe ovenfor, sorteret på samme måde, og tager dem ind i biblioteket. Den anden mappe bliver kun læst. Første gang læses alle filer dér; derefter kun de nye.',
@@ -427,6 +434,10 @@
     [/^For example: (.*)$/, (m, p) => 'Fx: ' + p],
     [/^Fetch from, e\.g\. (.*)$/, (m, p) => 'Hent fra, fx ' + p],
     [/^Main folder: (.*)$/, (m, p) => 'Hovedmappe: ' + p],
+    [/^(.+) · (\d[\d., ]*) (copy|copies)$/, (m, d, n, c) => tr(d) + ' · ' + n + (c === 'copy' ? ' kopi' : ' kopier')],
+    [/^Library copied to (.*)$/, (m, p) => 'Biblioteket er kopieret til ' + p],
+    [/^Couldn’t copy the library: (.*)$/, (m, e) => 'Kunne ikke kopiere biblioteket: ' + trServer(e)],
+    [/^The last copy of the library failed: (.*)$/, (m, e) => 'Den seneste kopi af biblioteket mislykkedes: ' + e],
     [/^Copy the photos you don’t have yet into (.*), sorted by year, month and camera, instead of adding the folder$/, (m, p) => 'Kopiér de billeder, du ikke har endnu, ind i ' + p + ', sorteret efter år, måned og kamera, i stedet for at tilføje mappen'],
     [/^Copying the new photos from (.*) into (.*)$/, (m, a, b) => 'Kopierer de nye billeder fra ' + a + ' ind i ' + b],
     [/^Fetched (\d[\d., ]*) new photos(, (\d[\d., ]*) failed)?$/, (m, n, x, f) => 'Hentede ' + n.trim() + ' nye billeder' + (f ? ', ' + f.trim() + ' mislykkedes' : '')],

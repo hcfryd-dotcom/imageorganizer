@@ -174,6 +174,7 @@ document.addEventListener('alpine:init', () => {
     testing: false,
     testResult: null,
     savingSettings: false,
+    backingUp: false,   // "Back up now" in Settings
     restarting: false,
     zoom: {s: 1, x: 0, y: 0, drag: null, moved: false}, // lightbox zoom and pan
     dateEdit: null,     // the photo date being corrected (datetime-local value)
@@ -2519,7 +2520,7 @@ document.addEventListener('alpine:init', () => {
     resetForm() {
       // Unset (zero) numbers show as empty, so the field shows the value in use.
       const f = {...(this.settings ? this.settings.saved : {})};
-      for (const k of ['embed_workers', 'face_gpu_mem_mb', 'workers', 'conns', 'rescan_minutes', 'review_min']) if (!f[k]) f[k] = '';
+      for (const k of ['embed_workers', 'face_gpu_mem_mb', 'workers', 'conns', 'rescan_minutes', 'review_min', 'backup_keep']) if (!f[k]) f[k] = '';
       this.form = f;
       this.testResult = null;
     },
@@ -2540,6 +2541,19 @@ document.addEventListener('alpine:init', () => {
         this.notify(`Couldn’t save: ${e.message}`, 6000);
       } finally {
         this.savingSettings = false;
+      }
+    },
+    async backupNow() {
+      if (this.backingUp) return;
+      this.backingUp = true;
+      try {
+        const r = await api('/api/backup', {method: 'POST'});
+        this.settings = r.state;
+        this.notify(`Library copied to ${r.path}`, 6000);
+      } catch (e) {
+        this.notify(`Couldn’t copy the library: ${e.message}`, 8000);
+      } finally {
+        this.backingUp = false;
       }
     },
     async testEmbed() {

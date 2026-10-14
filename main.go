@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lkarlslund/imageorganizer/internal/backup"
 	"github.com/lkarlslund/imageorganizer/internal/embed"
 	"github.com/lkarlslund/imageorganizer/internal/faces"
 	"github.com/lkarlslund/imageorganizer/internal/pipeline"
@@ -355,6 +356,10 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		webFS = os.DirFS(dev)
 		log.Info("dev mode: serving UI from disk", "dir", dev)
 	}
+	// Daily copies of the library database.
+	backups := &backup.Runner{Store: st, DefaultDir: filepath.Join(dataDir, "backups"), Log: log}
+	go backups.Run(ctx)
+
 	// The Settings page: what is saved and in effect, what needs attention.
 	defaults := flags.withSettings(store.Settings{}, map[string]bool{}) // flags' own defaults
 	settingsState := func() server.SettingsState {
@@ -368,9 +373,15 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		eff.AutoFileOff, eff.AutoFileMin, eff.ReviewMin, eff.MapTiles = saved.AutoFileOff, saved.AutoFileMin, st.ReviewMin(), saved.MapTiles
 		def := defaults.asSettings()
 		def.AutoFileMin, def.ReviewMin = 0.6, 2
+		def.BackupDir, def.BackupKeep = backups.DefaultDir, backup.DefaultKeep
+		bst := backups.Status()
+		eff.BackupDir, eff.BackupKeep = bst.Dir, bst.Keep
+		if bst.Dir == "" {
+			eff.BackupDir = "off"
+		}
 		state := server.SettingsState{
 			Saved: saved, Effective: eff, Defaults: def, Locked: map[string]string{},
-			RestartNeeded: want.needsRestart(cfg), DataDir: dataDir, Issues: []server.Issue{},
+			RestartNeeded: want.needsRestart(cfg), DataDir: dataDir, Issues: []server.Issue{}, Backup: &bst,
 		}
 		for setting, fl := range settingFlags {
 			if explicit[fl] {
@@ -389,6 +400,9 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		}
 		if faceErr != nil {
 			state.Issues = append(state.Issues, server.Issue{Level: "error", Text: "Face recognition is off: " + faceErr.Error()})
+		}
+		if b := backups.Status(); b.Error != "" {
+			state.Issues = append(state.Issues, server.Issue{Level: "error", Text: "The last copy of the library failed: " + b.Error})
 		}
 		if state.RestartNeeded {
 			state.Issues = append(state.Issues, server.Issue{Level: "info", Text: "Some changes take effect after a restart."})
@@ -415,6 +429,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 			time.Sleep(300 * time.Millisecond) // let the response go out
 			stop()
 		},
+		BackupNow: backups.Now,
 	}
 
 	srv := server.New(ctx, server.Config{

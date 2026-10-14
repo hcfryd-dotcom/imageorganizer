@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lkarlslund/imageorganizer/internal/backup"
 	"github.com/lkarlslund/imageorganizer/internal/embed"
 	"github.com/lkarlslund/imageorganizer/internal/store"
 )
@@ -27,13 +28,15 @@ type SettingsState struct {
 	RestartNeeded bool              `json:"restart_needed"`
 	Issues        []Issue           `json:"issues"`
 	DataDir       string            `json:"data_dir"`
+	Backup        *backup.Status    `json:"backup,omitempty"` // daily copies of the library; nil: not set up
 }
 
 // SettingsHooks connect the Settings page to the running program.
 type SettingsHooks struct {
-	State   func() SettingsState
-	Save    func(store.Settings) error // stores and applies what applies at once
-	Restart func()                     // graceful exit; a service manager starts it again
+	State     func() SettingsState
+	Save      func(store.Settings) error // stores and applies what applies at once
+	Restart   func()                     // graceful exit; a service manager starts it again
+	BackupNow func() (string, error)     // a copy of the library at once; nil: not set up
 }
 
 func (s *Server) settingsRoutes(mux *http.ServeMux) {
@@ -71,6 +74,18 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 			out["error"] = err.Error()
 		}
 		writeJSON(w, out)
+	})
+	mux.HandleFunc("POST /api/backup", func(w http.ResponseWriter, r *http.Request) {
+		if s.Settings.BackupNow == nil {
+			http.NotFound(w, r)
+			return
+		}
+		path, err := s.Settings.BackupNow()
+		if err != nil {
+			httpError(w, 500, err)
+			return
+		}
+		writeJSON(w, map[string]any{"path": path, "state": s.Settings.State()})
 	})
 	mux.HandleFunc("POST /api/restart", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]bool{"ok": true})

@@ -37,6 +37,11 @@ type Settings struct {
 
 	// Map tiles: a URL template with {z}/{x}/{y} (and optionally {s}).
 	MapTiles string `json:"map_tiles"`
+
+	// Daily copies of the database (applies at once): the folder ("":
+	// <data>/backups, "off": none) and how many to keep (0: 14).
+	BackupDir  string `json:"backup_dir"`
+	BackupKeep int    `json:"backup_keep"`
 }
 
 var keySettings = []byte("settings")
