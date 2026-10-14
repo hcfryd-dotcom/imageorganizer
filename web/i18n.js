@@ -514,6 +514,7 @@
     [/^no data folder to remember fetched files in$/, () => 'ingen datamappe at huske hentede filer i'],
     [/^the library has no photos to copy$/, () => 'biblioteket har ingen billeder at kopiere'],
     [/^give the album a name$/, () => 'giv albummet et navn'],
+    [/^videos can’t be turned here$/, () => 'videoer kan ikke drejes her'],
     [/^choose a folder outside the library folder (.*): it would read its own copies$/, (m, f) => 'vælg en mappe uden for biblioteksmappen ' + f + ': ellers ville programmet læse sine egne kopier'],
     [/^(.*) has no photos to copy$/, (m, nm) => nm + ' har ingen billeder at kopiere'],
     [/^choose between 50% and 100%$/, () => 'vælg mellem 50 % og 100 %'],

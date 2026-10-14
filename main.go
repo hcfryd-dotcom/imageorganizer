@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -23,6 +24,7 @@ import (
 	"github.com/lkarlslund/imageorganizer/internal/backup"
 	"github.com/lkarlslund/imageorganizer/internal/embed"
 	"github.com/lkarlslund/imageorganizer/internal/faces"
+	"github.com/lkarlslund/imageorganizer/internal/media"
 	"github.com/lkarlslund/imageorganizer/internal/pipeline"
 	"github.com/lkarlslund/imageorganizer/internal/scanner"
 	"github.com/lkarlslund/imageorganizer/internal/server"
@@ -169,6 +171,12 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		return err
 	}
 	_ = os.Chmod(dataDir, 0o700)
+	if ff, fp, ok := findVideoTools(); ok {
+		media.EnableVideo(ff, fp)
+		log.Info("videos are indexed", "ffmpeg", ff)
+	} else {
+		log.Info("videos are skipped: ffmpeg and ffprobe not found next to the program or on the PATH")
+	}
 	st, err := store.Open(filepath.Join(dataDir, "library.bolt"))
 	if err != nil {
 		return err
@@ -524,4 +532,32 @@ func defaultORTLib() string {
 		return "onnxruntime.dll"
 	}
 	return "/usr/lib/libonnxruntime.so"
+}
+
+// findVideoTools looks for ffmpeg and ffprobe next to the program (or in
+// its "ffmpeg" folder), then on the PATH. Both are needed for videos.
+func findVideoTools() (ffmpeg, ffprobe string, ok bool) {
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	var dirs []string
+	if exe, err := os.Executable(); err == nil {
+		dir := filepath.Dir(exe)
+		dirs = append(dirs, filepath.Join(dir, "ffmpeg"), dir)
+	}
+	for _, d := range dirs {
+		a, b := filepath.Join(d, "ffmpeg"+ext), filepath.Join(d, "ffprobe"+ext)
+		if fileExists(a) && fileExists(b) {
+			return a, b, true
+		}
+	}
+	a, err1 := exec.LookPath("ffmpeg")
+	b, err2 := exec.LookPath("ffprobe")
+	return a, b, err1 == nil && err2 == nil
+}
+
+func fileExists(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.Mode().IsRegular()
 }

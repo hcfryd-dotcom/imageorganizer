@@ -82,6 +82,8 @@ type imageRec struct {
 	Exposure    string   `json:"exposure,omitempty"`
 	Focal       float64  `json:"focal,omitempty"`
 	HasThumb    bool     `json:"thumb,omitempty"`
+	Video       bool     `json:"video,omitempty"` // a video file; its thumbnail is a frame
+	Duration    float32  `json:"dur,omitempty"`   // a video's length in seconds
 	// Analysis records which version of each analysis component produced
 	// this image's data (see package analysis).
 	Analysis      analysis.Versions `json:"av,omitempty"`
@@ -700,6 +702,8 @@ type ImageData struct {
 	Exposure    string
 	Focal       float64
 	HasThumb    bool
+	Video       bool
+	Duration    float32
 
 	// Analysis lists the components this import performed (empty for a
 	// hash-only link). Faces is meaningful when it includes faces; Vector
@@ -734,6 +738,7 @@ func (d ImageData) apply(im *imageRec) {
 	im.CameraMake, im.CameraModel, im.Lens = d.CameraMake, d.CameraModel, d.Lens
 	im.ISO, im.FNumber, im.Exposure, im.Focal = d.ISO, d.FNumber, d.Exposure, d.Focal
 	im.HasThumb = d.HasThumb
+	im.Video, im.Duration = d.Video, d.Duration
 	if d.AutoRotate != 0 && (im.Rotate == 0 || im.RotateAuto) {
 		im.Rotate, im.RotateAuto = d.AutoRotate, true
 	}
@@ -970,6 +975,7 @@ func (s *Store) merge(srcID, dstID int64) error {
 	}
 	nd.CameraMake, nd.CameraModel, nd.Lens = src.CameraMake, src.CameraModel, src.Lens
 	nd.ISO, nd.FNumber, nd.Exposure, nd.Focal, nd.HasThumb = src.ISO, src.FNumber, src.Exposure, src.Focal, src.HasThumb
+	nd.Video, nd.Duration = src.Video, src.Duration
 	nd.Analysis = maps.Clone(src.Analysis)
 	nd.UpdatedAt = time.Now().Unix()
 	// The new image's faces replace the old one's, keeping the old person

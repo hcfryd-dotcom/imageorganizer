@@ -37,6 +37,7 @@ const (
 	kindDecodable kind = iota // Go can decode the file directly
 	kindTIFFRaw               // TIFF-based RAW: use the embedded JPEG preview
 	kindCR3                   // Canon CR3: embedded JPEG preview
+	kindVideo                 // a video: through ffmpeg (video.go)
 )
 
 var extensions = map[string]kind{
@@ -70,6 +71,7 @@ type Info struct {
 	Exposure    string
 	Focal       float64
 	Orientation int
+	Duration    float32 // seconds, for a video
 }
 
 // Result of processing a file: metadata plus rendered thumbnail.
@@ -100,6 +102,9 @@ func Process(path string, data []byte, wantWork bool, rot int) (Result, error) {
 	var res Result
 	k := extensions[strings.ToLower(filepath.Ext(path))]
 	res.Info.Format = strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), ".")
+	if k == kindVideo {
+		return res, fmt.Errorf("%s: a video (ProcessVideo)", path)
+	}
 
 	if e, err := imagemeta.Decode(bytes.NewReader(data)); err == nil {
 		res.Info.fromExif(e)

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -81,7 +82,8 @@ func (im *Importer) Stage(workers int) pipeline.Stage[store.FileJob] {
 }
 
 func (im *Importer) importFile(ctx context.Context, j store.FileJob) error {
-	if j.Size > maxFileSize {
+	video := media.IsVideo(j.Path)
+	if j.Size > maxFileSize && !video { // a video is read in pieces
 		return fmt.Errorf("%s: file too large (%d bytes)", j.Path, j.Size)
 	}
 	folder, err := im.Store.Folder(ctx, j.FolderID)
@@ -92,14 +94,29 @@ func (im *Importer) importFile(ctx context.Context, j store.FileJob) error {
 	if err != nil {
 		return err
 	}
-	var data []byte
+	var (
+		data []byte
+		hash string
+		size int64
+	)
 	if err := im.Pool.Do(ctx, folder.ID, spec, func(fsys fs.FS) error {
+		if video {
+			f, err := fsys.Open(j.Path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			hash, size, err = media.HashReader(f)
+			return err
+		}
 		data, err = fs.ReadFile(fsys, j.Path)
 		return err
 	}); err != nil {
 		return err
 	}
-	hash := fmt.Sprintf("%016x%08x", xxhash.Sum64(data), len(data))
+	if !video {
+		hash, size = fmt.Sprintf("%016x%08x", xxhash.Sum64(data), len(data)), int64(len(data))
+	}
 	ref := store.FileRef{FolderID: j.FolderID, Path: j.Path, Size: j.Size, MTime: j.MTime}
 
 	// Known content (a move, rename or copy): link it without decoding
@@ -110,17 +127,29 @@ func (im *Importer) importFile(ctx context.Context, j store.FileJob) error {
 	}
 
 	rot := im.Store.Rotation(hash) // a correction the user (or an earlier import) made
-	r, perr := media.Process(j.Path, data, im.Faces != nil, rot)
+	var (
+		r    media.Result
+		perr error
+	)
+	switch local, ok := source.LocalPath(spec, j.Path); {
+	case !video:
+		r, perr = media.Process(j.Path, data, im.Faces != nil, rot)
+	case ok:
+		r, perr = media.ProcessVideo(ctx, local, im.Faces != nil, rot)
+	default:
+		perr = errors.New("videos are only read from folders on this computer")
+		r.Info.Format = strings.TrimPrefix(strings.ToLower(path.Ext(j.Path)), ".")
+	}
 	if perr != nil {
 		// Still index it (metadata may be fine); just without a thumbnail.
 		im.Log.Debug("no thumbnail", "path", j.Path, "err", perr)
 	}
 	d := store.ImageData{
 		ContentHash: hash, PHash: r.PHash, Width: r.Info.Width, Height: r.Info.Height,
-		FileSize: int64(len(data)), Format: r.Info.Format, TakenAt: r.Info.TakenAt,
+		FileSize: size, Format: r.Info.Format, TakenAt: r.Info.TakenAt,
 		Lat: r.Info.Lat, Lon: r.Info.Lon, CameraMake: r.Info.CameraMake, CameraModel: r.Info.CameraModel,
 		Lens: r.Info.Lens, ISO: r.Info.ISO, FNumber: r.Info.FNumber, Exposure: r.Info.Exposure,
-		Focal: r.Info.Focal, Rotated: rot,
+		Focal: r.Info.Focal, Rotated: rot, Video: video, Duration: r.Info.Duration,
 	}
 	if d.TakenAt == nil {
 		// No EXIF date: fall back to the file's modification time.
@@ -136,7 +165,7 @@ func (im *Importer) importFile(ctx context.Context, j store.FileJob) error {
 		// The camera may have recorded the wrong orientation: when every
 		// face lies on its side, try the photo turned upright and keep it
 		// if faces are found at least as well.
-		if b := r.Work.Bounds(); rot == 0 {
+		if b := r.Work.Bounds(); rot == 0 && !video { // a video isn't turned by its faces
 			if deg := faces.Sideways(found, b.Dx(), b.Dy()); deg != 0 {
 				turned := media.RotateCW(r.Work, deg)
 				again, err := im.Faces.Analyze(turned)

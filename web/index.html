@@ -165,6 +165,7 @@
               <figure class="tile" :class="{picking: sel.on, picked: sel.ids[it.im.id]}" :data-id="it.im.id" :style="`width:${it.w}px`" @click="sel.on ? toggleSel(it, $event) : openLightbox(it.idx)">
                 <img :src="thumbURL(it.im)" loading="lazy" decoding="async" alt="" @load="$el.classList.add('in')">
                 <span class="fav-badge" x-show="it.im.fav" x-html="icons.heartFill"></span>
+                <span class="video-badge" x-show="it.im.video" x-html="icons.play + '<span>' + fmtDuration(it.im.duration) + '</span>'"></span>
                 <span class="sel-mark" x-show="sel.on" x-html="icons.check"></span>
                 <span class="geo-badge" x-show="sel.on && it.im.lat != null" :class="it.im.geo_src" x-html="icons.pin"
                       :title="it.im.geo_src === 'near' ? 'Place borrowed from a photo taken around the same time' : it.im.geo_src === 'user' ? 'Place set by you' : 'Place from the camera'"></span>
@@ -1380,9 +1381,10 @@
        @click.capture="if (zoom.moved) { $event.stopPropagation(); zoom.moved = false }" @dblclick="dblZoom($event)">
     <template x-if="current()">
       <div class="lb-frame" x-ref="lbFrame" :style="zoomStyle()" @click.self="closeAssign()">
-        <img class="lb-img" :src="previewURL(current())" :key="current().id" alt="" draggable="false" @click="closeAssign()">
+        <template x-if="!current().video"><img class="lb-img" :src="previewURL(current())" :key="current().id" alt="" draggable="false" @click="closeAssign()"></template>
+        <template x-if="current().video"><video class="lb-img lb-video" :src="'/original/' + current().id" :poster="previewURL(current())" controls autoplay playsinline></video></template>
         <!-- Who is in the photo: toggle with the faces button or F -->
-        <template x-if="lightbox.faces && detail && detail.id === current().id">
+        <template x-if="lightbox.faces && detail && detail.id === current().id && !current().video">
           <div>
             <template x-for="f in detail.faces || []" :key="f.id">
               <div style="display: contents">
@@ -1475,8 +1477,8 @@
     <button class="icon-btn" @click="closeLightbox()" x-html="icons.close" title="Close (Esc)"></button>
     <div class="lb-title" x-text="current() && (current().title || baseName(current().path))"></div>
     <div class="lb-actions">
-      <button class="icon-btn" :disabled="rotating" @click="rotateCurrent(-90)" x-html="icons.rotateLeft" title="Turn left — for photos the camera saved sideways (Shift+R)"></button>
-      <button class="icon-btn" :disabled="rotating" @click="rotateCurrent(90)" x-html="icons.rotate" title="Turn right (R)"></button>
+      <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(-90)" x-html="icons.rotateLeft" title="Turn left — for photos the camera saved sideways (Shift+R)"></button>
+      <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(90)" x-html="icons.rotate" title="Turn right (R)"></button>
       <button class="icon-btn" :class="{active: lightbox.faces}" @click="toggleFaces()" x-html="icons.people" title="Show who is in the photo (F)"></button>
       <button class="icon-btn" :class="{on: current()?.fav}" @click="toggleFav(current())" x-html="current()?.fav ? icons.heartFill : icons.heart" title="Favorite (H)"></button>
       <a class="icon-btn" :href="current() && '/original/' + current().id + '?download'" x-html="icons.download" title="Download original"></a>

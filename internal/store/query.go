@@ -31,6 +31,8 @@ type Image struct {
 	Exposure    string   `json:"exposure,omitempty"`
 	Focal       float64  `json:"focal,omitempty"`
 	HasThumb    bool     `json:"thumb"`
+	Video       bool     `json:"video,omitempty"`
+	Duration    float32  `json:"duration,omitempty"` // seconds
 	Favorite    bool     `json:"fav"`
 	Rating      int      `json:"rating"`
 	Title       string   `json:"title,omitempty"`
@@ -52,7 +54,7 @@ func (s *Store) view(im *imageRec) Image {
 		ID: im.ID, Hash: im.Hash, Width: im.Width, Height: im.Height, FileSize: im.FileSize, Format: im.Format,
 		TakenAt: im.TakenAt, Lat: im.Lat, Lon: im.Lon, GeoSrc: im.GeoSrc, CameraMake: im.CameraMake, CameraModel: im.CameraModel,
 		Lens: im.Lens, ISO: im.ISO, FNumber: im.FNumber, Exposure: im.Exposure, Focal: im.Focal,
-		HasThumb: im.HasThumb, Favorite: im.Favorite, Rating: im.Rating, Title: im.Title, Notes: im.Notes,
+		HasThumb: im.HasThumb, Video: im.Video, Duration: im.Duration, Favorite: im.Favorite, Rating: im.Rating, Title: im.Title, Notes: im.Notes,
 		Caption: im.Caption, Rot: im.Rotate,
 		Nsfw: s.isNsfw(im), NsfwScore: max(im.Nsfw, 0), NsfwUser: im.UserNsfw, Blurry: isBlurry(im), Sharp: max(im.Sharp, 0),
 	}

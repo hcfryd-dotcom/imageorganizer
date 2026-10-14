@@ -33,6 +33,7 @@ const icons = {
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   strip: '<svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="5" height="10" rx="1.2"/><rect x="9.5" y="5" width="5" height="14" rx="1.2"/><rect x="16.5" y="7" width="5" height="10" rx="1.2"/></svg>',
   pin: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  play: '<svg viewBox="0 0 24 24" class="fill"><path d="M8 5.5v13a1 1 0 001.5.86l10.5-6.5a1 1 0 000-1.72L9.5 4.64A1 1 0 008 5.5z"/></svg>',
   album: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="15" height="14" rx="2.5"/><path d="M3 16.5V5.5A2.5 2.5 0 015.5 3H16"/><path d="M21 16l-4-4-7 7"/><circle cx="11" cy="10.5" r="1.5"/></svg>',
 };
 
@@ -2072,6 +2073,7 @@ document.addEventListener('alpine:init', () => {
     // once, and it can be turned again right away; thumbnail and faces
     // follow once it has been analysed again upright, a few seconds later.
     async rotateCurrent(by) {
+      if (this.current()?.video) return; // a video plays; it isn't zoomed or turned
       const im = this.current();
       if (!im || this.rotating) return;
       this.resetZoom();
@@ -2282,16 +2284,19 @@ document.addEventListener('alpine:init', () => {
       if (z.s === 1) z.x = z.y = 0;
     },
     wheelZoom(e) {
+      if (this.current()?.video) return; // a video plays; it isn't zoomed or turned
       if (e.target.closest('.assign-pop, .lb-nav')) return;
       this.closeAssign();
       const k = Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0025));
       this.zoomTo(this.zoom.s * k, e.clientX, e.clientY);
     },
     dblZoom(e) {
+      if (this.current()?.video) return; // a video plays; it isn't zoomed or turned
       if (e.target.closest('.assign-pop, .lb-nav, .face-box')) return;
       this.zoomTo(this.zoom.s > 1 ? 1 : 2.5, e.clientX, e.clientY);
     },
     panStart(e) {
+      if (this.current()?.video) return; // a video plays; it isn't zoomed or turned
       if (this.zoom.s === 1 || e.button !== 0 || e.target.closest('.assign-pop, .lb-nav')) return;
       this.zoom.drag = {px: e.clientX, py: e.clientY, x: this.zoom.x, y: this.zoom.y, b: this.zoomBox()};
       this.zoom.moved = false;
@@ -3409,6 +3414,12 @@ document.addEventListener('alpine:init', () => {
     thumbURL(im) { return im.thumb ? '/thumb/' + im.hash + (im.rot ? '?r=' + im.rot : '') : ''; },
     previewURL(im) { return '/preview/' + im.id + '?h=' + im.hash + (im.rot ? '&r=' + im.rot : ''); },
     fmtCount: n => (n || 0).toLocaleString(),
+    // fmtDuration shows a video's length: 0:07, 1:23, 1:02:03.
+    fmtDuration(s) {
+      s = Math.round(s || 0);
+      const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, sec = String(s % 60).padStart(2, '0');
+      return h ? h + ':' + String(m).padStart(2, '0') + ':' + sec : m + ':' + sec;
+    },
     fmtBytes(n) {
       if (!n) return '0 B';
       const u = ['B', 'KB', 'MB', 'GB', 'TB'];

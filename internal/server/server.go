@@ -292,6 +292,11 @@ func (s *Server) original(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Disposition", `attachment; filename="`+strings.ReplaceAll(path.Base(f.Path), `"`, "")+`"`)
 		}
 		w.Header().Set("Cache-Control", "private, max-age=3600")
+		if strings.EqualFold(path.Ext(f.Path), ".mov") {
+			// Browsers play an iPhone's .mov (H.264 or HEVC in MP4's container)
+			// as MP4, but not when told it is QuickTime.
+			w.Header().Set("Content-Type", "video/mp4")
+		}
 		http.ServeFileFS(w, r, fsys, f.Path)
 		return nil
 	})
@@ -305,6 +310,10 @@ func (s *Server) original(w http.ResponseWriter, r *http.Request) {
 func (s *Server) preview(w http.ResponseWriter, r *http.Request) {
 	err := s.withFile(r, func(fsys fs.FS, f store.ImageFile) error {
 		w.Header().Set("Cache-Control", "private, max-age=86400")
+		if media.VideoFormat(f.Format) { // its frame, as in the grid
+			http.ServeFile(w, r, s.Thumbs.Path(f.Hash))
+			return nil
+		}
 		if media.BrowserNative(f.Format) && f.Rotate == 0 {
 			if _, err := fs.Stat(fsys, f.Path); err != nil {
 				return err
@@ -670,6 +679,10 @@ func (s *Server) rotateImage(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || (req.By != 90 && req.By != -90 && req.By != 180) {
 		httpError(w, 400, fmt.Errorf("by must be 90, -90 or 180"))
+		return
+	}
+	if f, err := s.Store.ImageFile(r.Context(), id); err == nil && media.VideoFormat(f.Format) {
+		httpError(w, 400, errors.New("videos can’t be turned here"))
 		return
 	}
 	rot, err := s.Store.RotateImage(r.Context(), id, req.By)

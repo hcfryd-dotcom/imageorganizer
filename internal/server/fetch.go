@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -206,33 +207,67 @@ func (s *Server) runFetch(ctx context.Context, cancel context.CancelFunc, from, 
 // fetchOne copies the photo at path into its tidy folder in dir, unless
 // the library has it already (its content, by the importer's hash).
 func (s *Server) fetchOne(ctx context.Context, path string, mod time.Time, dir string, names tidyNames, done map[string]bool) (bool, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false, err
+	// The content hash, and what took it when: a photo is read whole, a
+	// video in pieces (it may be gigabytes) and then asked with ffprobe.
+	var (
+		hash string
+		size int64
+		data []byte
+		info media.Info
+	)
+	if media.IsVideo(path) {
+		f, err := os.Open(path)
+		if err != nil {
+			return false, err
+		}
+		hash, size, err = media.HashReader(f)
+		f.Close()
+		if err != nil {
+			return false, err
+		}
+	} else {
+		var err error
+		if data, err = os.ReadFile(path); err != nil {
+			return false, err
+		}
+		hash, size = fmt.Sprintf("%016x%08x", xxhash.Sum64(data), len(data)), int64(len(data))
 	}
-	hash := fmt.Sprintf("%016x%08x", xxhash.Sum64(data), len(data))
 	if known, _ := s.Store.HashKnown(ctx, hash); known || done[hash] { // done: fetched in this run, not imported yet
 		return false, nil
 	}
-	r, _ := media.Process(path, data, false, 0) // metadata even when it can't be decoded
+	if data != nil {
+		r, _ := media.Process(path, data, false, 0) // metadata even when it can't be decoded
+		info = r.Info
+	} else {
+		info, _ = media.VideoInfo(ctx, path)
+	}
 	taken := mod.UTC()
-	if r.Info.TakenAt != nil {
-		taken = r.Info.TakenAt.UTC()
+	if info.TakenAt != nil {
+		taken = info.TakenAt.UTC()
 	}
 	t := taken.Unix()
 	it := store.TidyItem{
 		ExportItem: store.ExportItem{Taken: &t},
-		Source:     store.PhotoSource(r.Info.CameraMake, r.Info.CameraModel, r.Info.Format, path),
+		Source:     store.PhotoSource(info.CameraMake, info.CameraModel, info.Format, path),
 	}
 	folder := names.folder(dir, it)
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		return false, err
 	}
-	dest, exists := exportTarget(folder, filepath.Base(path), int64(len(data)))
+	dest, exists := exportTarget(folder, filepath.Base(path), size)
 	if exists {
 		return false, nil
 	}
-	if err := writeFileAtomic(dest, bytes.NewReader(data)); err != nil {
+	var src io.Reader = bytes.NewReader(data)
+	if data == nil {
+		f, err := os.Open(path)
+		if err != nil {
+			return false, err
+		}
+		defer f.Close()
+		src = f
+	}
+	if err := writeFileAtomic(dest, src); err != nil {
 		return false, err
 	}
 	_ = os.Chtimes(dest, taken, taken)
