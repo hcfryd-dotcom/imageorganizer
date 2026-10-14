@@ -43,10 +43,15 @@ the rest of the repo.
   Backup of the library from just before the switch:
   `E:\ImageOrganizer-backup\library.bolt.before-switch-20261014`.
   `C:` is nearly full (~3 GB free): put big temporary files on `E:`.
-- Search by meaning is off: llama-server is in `dist\ImageOrganizer\llama\`,
-  but the EmbeddingGemma 2 model files (`embeddinggemma-2-Q8_0.gguf` and
-  `mmproj-Q8_0.gguf` from unsloth/embeddinggemma-2-GGUF on Hugging Face) have
-  not been put in `llama\models\` yet. Untested on Windows.
+- Search by meaning is on since 2026-10-14: llama-server is in
+  `dist\ImageOrganizer\llama\`; `llama\models` is a junction to
+  `E:\ImageOrganizer-models` (EmbeddingGemma 2 `embeddinggemma-2-Q8_0.gguf`
+  and `mmproj-Q8_0.gguf` from unsloth/embeddinggemma-2-GGUF, checksums
+  verified). The Start .bat starts llama-server on port 8095; when Claude
+  starts the .exe directly, start llama-server too (minimized, working dir
+  `llama`, `-m models\embeddinggemma-2-Q8_0.gguf --mmproj
+  models\mmproj-Q8_0.gguf --embeddings --port 8095 --host 127.0.0.1`).
+  Setting "embed_url" = `http://127.0.0.1:8095`.
 
 ## What this fork adds (on main; PR #1 and after)
 
