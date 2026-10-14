@@ -15,6 +15,7 @@ echo Bygger... (foerste gang henter Go de noedvendige pakker)
 go build -trimpath -ldflags="-s -w" -o dist\ImageOrganizer\imageorganizer.exe . || goto :fail
 copy /y "packaging\windows\Start ImageOrganizer.bat" dist\ImageOrganizer\ >nul
 copy /y packaging\windows\LAES-MIG.txt dist\ImageOrganizer\ >nul
+copy /y packaging\windows\imageorganizer.ico dist\ImageOrganizer\ >nul
 copy /y LICENSE dist\ImageOrganizer\LICENSE.txt >nul
 if exist onnxruntime.dll (copy /y onnxruntime*.dll dist\ImageOrganizer\ >nul) else (echo BEMAERK: onnxruntime.dll ligger ikke ved siden af scriptet - ansigtsgenkendelse kraever den i programmappen.)
 if exist dist\ImageOrganizer-windows-x64.zip del dist\ImageOrganizer-windows-x64.zip
