@@ -282,6 +282,16 @@ func (s *Store) load() error {
 		if err := s.loadVectors(tx); err != nil {
 			return err
 		}
+		// Files of a folder that is gone (removed while its scan ran, before
+		// Discover checked): forgotten, as removing the folder would have.
+		for id, f := range s.files {
+			if _, ok := s.folders[f.FolderID]; !ok {
+				if err := del(tx, bucketFiles, id); err != nil {
+					return err
+				}
+				s.unindexFile(f)
+			}
+		}
 		if err := s.loadAlbums(tx); err != nil {
 			return err
 		}
@@ -508,6 +518,9 @@ type Discovered struct {
 func (s *Store) Discover(ctx context.Context, folderID, scan int64, batch []Discovered) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, ok := s.folders[folderID]; !ok {
+		return 0, nil // removed while its scan ran: nothing of it is kept
+	}
 	type change struct {
 		old *fileRec // nil for a new file
 		rec fileRec
