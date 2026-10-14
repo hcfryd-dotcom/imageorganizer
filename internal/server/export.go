@@ -18,6 +18,7 @@ import (
 
 	"github.com/lkarlslund/imageorganizer/internal/places"
 	"github.com/lkarlslund/imageorganizer/internal/scanner"
+	"github.com/lkarlslund/imageorganizer/internal/source"
 	"github.com/lkarlslund/imageorganizer/internal/store"
 )
 
@@ -143,6 +144,13 @@ func exportDir(dir string) (string, error) {
 	dir = strings.Trim(strings.TrimSpace(dir), `"`)
 	if dir == "" {
 		return "", errors.New("choose a folder to copy to")
+	}
+	// The folder browser gives a location ("/E:/Pictures" on Windows):
+	// the same folder, written the way this computer writes paths.
+	if sp, err := source.Parse(dir); err == nil && sp.Scheme == "file" {
+		if p, ok := source.LocalPath(sp, ""); ok {
+			dir = p
+		}
 	}
 	if !filepath.IsAbs(dir) {
 		return "", fmt.Errorf("give the whole path of the folder, such as %s", examplePath())

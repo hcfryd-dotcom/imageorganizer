@@ -29,3 +29,20 @@ func TestTidyFolder(t *testing.T) {
 		}
 	}
 }
+
+func TestExportDirTakesBrowsedLocations(t *testing.T) {
+	want := filepath.Join(t.TempDir(), "iCloud")
+	browsed := "/" + filepath.ToSlash(want) // as the folder browser gives it on Windows
+	if filepath.Separator == '/' {
+		browsed = want
+	}
+	for _, in := range []string{want, browsed, `"` + want + `"`} {
+		got, err := exportDir(in)
+		if err != nil || got != want {
+			t.Errorf("%q: %q %v, want %q", in, got, err, want)
+		}
+	}
+	if _, err := exportDir("relative/folder"); err == nil {
+		t.Error("a relative folder was taken")
+	}
+}
