@@ -50,7 +50,7 @@ the rest of the repo.
   verified). The Start .bat starts llama-server on port 8095; when Claude
   starts the .exe directly, start llama-server too (minimized, working dir
   `llama`, `-m models\embeddinggemma-2-Q8_0.gguf --mmproj
-  models\mmproj-Q8_0.gguf --embeddings --port 8095 --host 127.0.0.1`).
+  models\mmproj-Q8_0.gguf --embeddings --port 8095 --host 127.0.0.1 -ngl 99`).
   Setting "embed_url" = `http://127.0.0.1:8095`. It runs on his Radeon
   RX 570 through Vulkan: `ggml-vulkan.dll` from the same llama.cpp build
   (b11574, `llama-b11574-bin-win-vulkan-x64.zip`, unpacked in
