@@ -1211,6 +1211,38 @@
       </div>
     </div>
 
+    <!-- Every photo once, from all the folders, into one tidy folder -->
+    <div class="panel tidy-panel">
+      <h2>Collect everything in one tidy folder</h2>
+      <p class="muted">Copies every photo from the folders above into one folder, sorted by year, month and what took it (iPhone, Canon, Screenshots …). Each photo comes once: copies of the same photo are left out. Your folders aren’t changed, and copying again only adds what’s new.</p>
+      <div class="tidy-preview" x-show="tidy.preview">
+        <div class="tidy-sum" x-text="tidy.preview ? fmtCount(tidy.preview.photos) + ' photos · ' + fmtBytes(tidy.preview.bytes) + (tidy.preview.left_out ? ' · ' + fmtCount(tidy.preview.left_out) + ' copies left out' : '') : ''"></div>
+        <div class="tidy-sources">
+          <template x-for="s in (tidy.preview ? tidy.preview.sources : [])" :key="s.name">
+            <span class="chip"><span x-text="s.name"></span> <span class="muted" x-text="fmtCount(s.photos)"></span></span>
+          </template>
+        </div>
+        <div class="muted small tidy-example" x-text="'For example: ' + tidyExample()"></div>
+      </div>
+      <form class="export-row" @submit.prevent="startTidy()">
+        <input class="input export-dir" x-model="tidy.dir" spellcheck="false" :placeholder="'The whole path of a new folder, e.g. ' + tidyBase()">
+        <button class="btn primary" :disabled="!tidy.dir.trim() || tidy.busy || tidy.status?.running">Copy</button>
+      </form>
+      <template x-if="tidy.status && tidy.status.tidy && (tidy.status.running || tidy.status.finished_at)">
+        <div class="export-status">
+          <progress :max="tidy.status.total" :value="tidy.status.done"></progress>
+          <span class="small" x-text="(tidy.status.running ? 'Copying · ' : tidy.status.done < tidy.status.total ? 'Stopped · ' : 'Done · ') + fmtCount(tidy.status.done) + ' of ' + fmtCount(tidy.status.total)
+            + (tidy.status.copied ? ' · ' + fmtCount(tidy.status.copied) + ' copied' : '')
+            + (tidy.status.skipped ? ' · ' + fmtCount(tidy.status.skipped) + ' already there' : '')
+            + (tidy.status.failed ? ' · ' + fmtCount(tidy.status.failed) + ' failed' : '')"></span>
+          <span class="small muted" x-show="!tidy.status.running" x-text="'in ' + tidy.status.dir"></span>
+          <button type="button" class="btn ghost" x-show="tidy.status.running" @click="cancelExport()">Stop</button>
+          <span class="small finder-error" x-show="tidy.status.failed && tidy.status.last_error" x-text="tidy.status.last_error"></span>
+        </div>
+      </template>
+      <p class="muted small" x-show="tidy.status && tidy.status.tidy && !tidy.status.running && tidy.status.done === tidy.status.total && !tidy.status.failed">Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.</p>
+    </div>
+
     <div class="panel stats-panel">
       <h2>Library</h2>
       <div class="stat-grid">

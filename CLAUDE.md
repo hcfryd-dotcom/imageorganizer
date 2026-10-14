@@ -65,6 +65,14 @@ the rest of the repo.
   lends a photo the position of one taken within N hours (`near`);
   Photos → Select → "Set place…" sets one by town search or map click
   (`user`). A position the file gets later wins. Files are never written.
+- Folders → "Collect everything in one tidy folder" (`/api/tidy`,
+  `internal/server/tidy.go`, `store/tidy.go`): copies every photo of all
+  library folders once into `<dir>/<year>/<MM Month>/<source>/` (source:
+  iPhone, camera brand, Screenshots, Unknown camera; names in the UI's
+  language). Copies of one photo (same second, same pixels, size within
+  2%, near-identical perceptual hash) are left out; the biggest is kept.
+  Refuses a folder inside or around a library folder. Read-only on the
+  library folders; copying again skips files already there.
 - macOS-style look: one block at the end of `web/app.css`.
 - Danish UI: `web/i18n.js` translates the page as it is drawn (exact strings
   plus patterns); English stays the source text. Add a Danish entry there

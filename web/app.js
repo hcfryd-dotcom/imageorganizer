@@ -159,6 +159,8 @@ document.addEventListener('alpine:init', () => {
     assign: {face: null, group: null, name: '', busy: false},
     // Copying a person's photos out into a folder, one subfolder per year.
     exportForm: {open: false, dir: '', confirmedOnly: false, byPlace: '', busy: false, status: null},
+    // Folders page: the whole library copied into one tidy folder.
+    tidy: {dir: '', preview: null, busy: false, status: null},
     // Deleting the open photo: its files move to a deleted-photos folder.
     deleteAsk: {open: false, trash: '', busy: false},
     also: newAlso(),
@@ -361,7 +363,7 @@ document.addEventListener('alpine:init', () => {
     enterView() {
       const v = this.view;
       if (v === 'map') this.$nextTick(() => this.showMap());
-      if (v === 'folders') this.loadFolders();
+      if (v === 'folders') { this.loadFolders(); this.loadTidy(); }
       if (v === 'settings') this.loadSettings();
       if (v === 'people') this.loadPeople();
       if (v === 'review') { this.loadPeople(); this.loadReview(true); }
@@ -2700,12 +2702,63 @@ document.addEventListener('alpine:init', () => {
       ef.status = await api('/api/export').catch(() => ef.status);
       if (ef.status && ef.status.running) {
         this._exportTimer = setTimeout(() => this.pollExport(), 1000);
-      } else if (ef.status && ef.status.finished_at) {
+      } else if (ef.status && ef.status.finished_at && !ef.status.tidy) {
         const st = ef.status;
         this.notify(`Copied ${fmtCount(st.copied)} photos of ${st.person}` + (st.skipped ? `, ${fmtCount(st.skipped)} were already there` : '') + (st.failed ? `, ${fmtCount(st.failed)} failed` : ''), 8000);
       }
     },
     cancelExport() { api('/api/export/cancel', {method: 'POST'}).catch(() => {}); },
+    // ---------- the whole library into one tidy folder ----------
+    lang() { return (window.i18n && window.i18n.lang()) || 'en'; },
+    async loadTidy() {
+      const t = this.tidy;
+      if (!t.dir) try { t.dir = localStorage.getItem('tidyDir') || ''; } catch (e) {}
+      const [pre, st] = await Promise.all([
+        api('/api/tidy', {method: 'POST', body: JSON.stringify({dry: true, lang: this.lang()})}).catch(() => null),
+        api('/api/export').catch(() => null),
+      ]);
+      t.preview = pre;
+      t.status = st;
+      if (st && st.tidy && st.running) this.pollTidy();
+    },
+    // tidyExample shows where a photo goes, with the folder typed.
+    // tidyBase is the example folder shown before one is typed.
+    tidyBase() {
+      const win = navigator.platform.startsWith('Win'), name = this.lang() === 'da' ? 'Billeder ryddet' : 'Tidy photos';
+      return win ? 'E:\\' + name : '/home/you/' + name;
+    },
+    tidyExample() {
+      const p = this.tidy.preview, top = p && p.sources[0];
+      const sep = navigator.platform.startsWith('Win') ? '\\' : '/';
+      const base = (this.tidy.dir.trim() || this.tidyBase()).replace(/[\\/]+$/, '');
+      const month = new Date(2011, 4, 1).toLocaleString(this.lang() === 'da' ? 'da-DK' : 'en-GB', {month: 'long'});
+      return [base, '2011', '05 ' + month[0].toUpperCase() + month.slice(1), top ? top.name : 'Canon', 'IMG_0037.JPG'].join(sep);
+    },
+    async startTidy() {
+      const t = this.tidy;
+      if (t.busy || !t.dir.trim()) return;
+      t.busy = true;
+      try {
+        t.status = await api('/api/tidy', {method: 'POST', body: JSON.stringify({dir: t.dir, lang: this.lang()})});
+        try { localStorage.setItem('tidyDir', t.status.dir); } catch (e) {}
+        this.pollTidy();
+      } catch (e) {
+        this.notify(`Couldn’t copy: ${e.message}`, 8000);
+      } finally {
+        t.busy = false;
+      }
+    },
+    async pollTidy() {
+      const t = this.tidy;
+      clearTimeout(this._tidyTimer);
+      t.status = await api('/api/export').catch(() => t.status);
+      if (t.status && t.status.running) {
+        this._tidyTimer = setTimeout(() => this.pollTidy(), 1000);
+      } else if (t.status && t.status.tidy && t.status.finished_at) {
+        const st = t.status;
+        this.notify(`Copied ${fmtCount(st.copied)} photos` + (st.skipped ? `, ${fmtCount(st.skipped)} were already there` : '') + (st.failed ? `, ${fmtCount(st.failed)} failed` : ''), 8000);
+      }
+    },
     openedPerson() { return this.peopleData.people.find(p => p.id === this.openPersonId) || null; },
     showPersonPhotos(p) {
       this.person = p.id;

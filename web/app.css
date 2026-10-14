@@ -1103,3 +1103,11 @@ body:has(.sel-bar:not([style*="none"])) .toast { bottom: 84px; }
 .place-note { padding: 0 14px 12px; }
 .pick-pin { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); cursor: grab; }
 .lb-info dd small + small { display: block; }
+
+/* ---------- Folders: the library into one tidy folder ---------- */
+.tidy-panel > p { margin-bottom: 12px; }
+.tidy-preview { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.tidy-sum { font-weight: 600; }
+.tidy-sources { display: flex; flex-wrap: wrap; gap: 6px; }
+.tidy-example { overflow-wrap: anywhere; }
+.tidy-panel .export-row { margin-bottom: 10px; }

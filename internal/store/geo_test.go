@@ -37,7 +37,7 @@ func TestPlaces(t *testing.T) {
 	at := func(hh, mm int) time.Time { return time.Date(2012, 7, 1, hh, mm, 0, 0, time.UTC) }
 	const aLat, aLon, cLat, cLon = 56.15, 10.21, 55.68, 12.57 // Aarhus, Copenhagen
 	a := h.geoPhoto("a", at(10, 0), "jpg", aLat, aLon)
-	b := h.geoPhoto("b", at(10, 40), "jpg")  // 40 min after a
+	b := h.geoPhoto("b", at(10, 40), "jpg")   // 40 min after a
 	png := h.geoPhoto("d", at(10, 10), "png") // a screenshot: never borrows
 	f := h.geoPhoto("f", at(11, 0), "jpg")    // an hour from a and from e, far apart: unsure
 	e := h.geoPhoto("e", at(12, 0), "jpg", cLat, cLon)

@@ -97,6 +97,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/jobs/{stage}/{action}", s.controlJob)
 	s.peopleRoutes(mux)
 	s.exportRoutes(mux)
+	s.tidyRoutes(mux)
 	s.confidentRoutes(mux)
 	s.deleteRoutes(mux)
 	s.geoRoutes(mux)

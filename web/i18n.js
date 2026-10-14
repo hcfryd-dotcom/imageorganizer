@@ -307,6 +307,12 @@
     'Search for a town, or click on the map': 'Søg efter en by, eller klik på kortet',
     'Photos whose camera saved a place keep it. Only the library is changed, not your files.':
       'Billeder, hvor kameraet har gemt et sted, beholder det. Kun biblioteket ændres, ikke dine filer.',
+    // Folders: the whole library into one tidy folder
+    'Collect everything in one tidy folder': 'Saml alt i én ryddet mappe',
+    'Copies every photo from the folders above into one folder, sorted by year, month and what took it (iPhone, Canon, Screenshots …). Each photo comes once: copies of the same photo are left out. Your folders aren’t changed, and copying again only adds what’s new.':
+      'Kopierer alle billeder fra mapperne ovenfor til én mappe, sorteret efter år, måned og hvad der tog dem (iPhone, Canon, Skærmbilleder …). Hvert billede kommer kun med én gang: kopier af det samme billede springes over. Dine mapper ændres ikke, og kopierer du igen, tilføjes kun det nye.',
+    'Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.':
+      'Næste skridt: kig den nye mappe igennem. Når du er tilfreds, tilføjer du den ovenfor og fjerner de gamle mapper: billederne bliver genkendt, så navne og steder bliver. De gamle mapper lader programmet være, så du selv kan slette eller gemme dem.',
     'Place set for 1 photo': 'Sted sat på 1 billede', 'Place removed from 1 photo': 'Sted fjernet fra 1 billede', '1 photo got a place': '1 billede fik et sted',
   };
 
@@ -412,6 +418,11 @@
     [/^Copied (\d[\d.,\u00a0]*) photos of (.*?)(, (\d[\d.,\u00a0]*) were already there)?(, (\d[\d.,\u00a0]*) failed)?$/, (m, n, nm, a, s, b, f) => 'Kopierede ' + n.trim() + ' billeder af ' + nm + (s ? ', ' + s.trim() + ' lå der i forvejen' : '') + (f ? ', ' + f.trim() + ' mislykkedes' : '')],
     [/^(Copying|Done:) (.*?) · (\d[\d.,\u00a0]*) of (\d[\d.,\u00a0]*)(.*)$/, (m, st, nm, a, b, rest) => (st === 'Copying' ? 'Kopierer ' : 'Færdig: ') + nm + ' · ' + a.trim() + ' af ' + b.trim() + rest.replace(/ · (\d[\d.,\u00a0]*) copied/, ' · $1 kopieret').replace(/ · (\d[\d.,\u00a0]*) already there/, ' · $1 lå der i forvejen').replace(/ · (\d[\d.,\u00a0]*) failed/, ' · $1 mislykkedes')],
     [/^in (.:\\.*|\/.*)$/, (m, p) => 'i ' + p],
+    [/^(Copying|Stopped|Done) · (\d[\d., ]*) of (\d[\d., ]*)(.*)$/, (m, st, a, b, rest) => ({Copying: 'Kopierer · ', Stopped: 'Stoppet · ', Done: 'Færdig · '})[st] + a.trim() + ' af ' + b.trim() + rest.replace(/ · (\d[\d., ]*) copied/, ' · $1 kopieret').replace(/ · (\d[\d., ]*) already there/, ' · $1 lå der i forvejen').replace(/ · (\d[\d., ]*) failed/, ' · $1 mislykkedes')],
+    [/^Copied (\d[\d., ]*) photos(, (\d[\d., ]*) were already there)?(, (\d[\d., ]*) failed)?$/, (m, n, a, s, b, f) => 'Kopierede ' + n.trim() + ' billeder' + (s ? ', ' + s.trim() + ' lå der i forvejen' : '') + (f ? ', ' + f.trim() + ' mislykkedes' : '')],
+    [/^(\d[\d., ]*) photos · ([^·]+?)( · (\d[\d., ]*) copies left out)?$/, (m, n, size, x, c) => n.trim() + ' billeder · ' + size + (c ? ' · ' + c.trim() + ' kopier springes over' : '')],
+    [/^For example: (.*)$/, (m, p) => 'Fx: ' + p],
+    [/^The whole path of a new folder, e\.g\. (.*)$/, (m, p) => 'Hele stien til en ny mappe, fx ' + p],
     [/^Show (\d+) more$/, (m, n) => 'Vis ' + n + ' mere'],
     [/^(\d+)% alike$/, (m, p) => p + ' % ens'],
     [/^(\d+)% alike · (\d[\d.,\u00a0]*) of (\d[\d.,\u00a0]*) (photos?)$/, (m, p, a, b) => p + ' % ens · ' + a.trim() + ' af ' + b.trim() + ' ' + n1(b, 'billede', 'billeder')],
@@ -460,6 +471,9 @@
     [/^give the whole path of the folder, such as (.*)$/, (m, p) => 'angiv hele stien til mappen, fx ' + p],
     [/^can’t create the folder: (.*)$/, (m, e) => 'kan ikke oprette mappen: ' + e],
     [/^already copying (.*)’s photos$/, (m, nm) => 'kopierer allerede ' + nm + 's billeder'],
+    [/^already copying the library into a tidy folder$/, () => 'kopierer allerede biblioteket til en ryddet mappe'],
+    [/^the library has no photos to copy$/, () => 'biblioteket har ingen billeder at kopiere'],
+    [/^choose a folder outside the library folder (.*): it would read its own copies$/, (m, f) => 'vælg en mappe uden for biblioteksmappen ' + f + ': ellers ville programmet læse sine egne kopier'],
     [/^(.*) has no photos to copy$/, (m, nm) => nm + ' har ingen billeder at kopiere'],
     [/^choose between 50% and 100%$/, () => 'vælg mellem 50 % og 100 %'],
     [/^give a percentage, such as 75$/, () => 'angiv en procent, fx 75'],

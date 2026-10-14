@@ -33,6 +33,8 @@ const noYearFolder = "Unknown year"
 type exportStatus struct {
 	Running    bool   `json:"running"`
 	Person     string `json:"person,omitempty"`
+	Tidy       bool   `json:"tidy,omitempty"`     // the whole library, into a tidy folder (tidy.go)
+	LeftOut    int    `json:"left_out,omitempty"` // tidy: copies of photos not copied again
 	Dir        string `json:"dir,omitempty"`
 	ByPlace    string `json:"by_place,omitempty"` // "", "area" or "town"
 	Total      int    `json:"total"`
@@ -113,7 +115,7 @@ func (s *Server) startExport(w http.ResponseWriter, r *http.Request) {
 	s.export.mu.Lock()
 	if s.export.st.Running {
 		s.export.mu.Unlock()
-		httpError(w, http.StatusConflict, fmt.Errorf("already copying %s’s photos", s.export.st.Person))
+		httpError(w, http.StatusConflict, s.exportBusy())
 		return
 	}
 	ctx, cancel := context.WithCancel(s.scanCtx)
@@ -123,6 +125,14 @@ func (s *Server) startExport(w http.ResponseWriter, r *http.Request) {
 	s.export.mu.Unlock()
 	go s.runExport(ctx, cancel, dir, items, req.ByPlace)
 	writeJSON(w, st)
+}
+
+// exportBusy says what copy is running; call with s.export.mu held.
+func (s *Server) exportBusy() error {
+	if s.export.st.Tidy {
+		return errors.New("already copying the library into a tidy folder")
+	}
+	return fmt.Errorf("already copying %s’s photos", s.export.st.Person)
 }
 
 // exportDir checks the folder the user typed: an absolute path on this
@@ -146,19 +156,36 @@ func examplePath() string {
 }
 
 func (s *Server) runExport(ctx context.Context, cancel context.CancelFunc, dir string, items []store.ExportItem, byPlace string) {
-	defer cancel()
 	placeOf := placeFolders(items, byPlace)
+	jobs := make([]copyJob, len(items))
+	for i, it := range items {
+		jobs[i] = copyJob{it, yearFolder(dir, it.Taken, placeOf[it.ImageID])}
+	}
+	s.runCopies(ctx, cancel, jobs)
+}
+
+// copyJob is a photo to copy into a folder.
+type copyJob struct {
+	it  store.ExportItem
+	dir string
+}
+
+// runCopies copies the photos out one by one, keeping s.export.st up to
+// date, until done or stopped.
+func (s *Server) runCopies(ctx context.Context, cancel context.CancelFunc, jobs []copyJob) {
+	defer cancel()
 	step := func(f func(st *exportStatus)) {
 		s.export.mu.Lock()
 		f(&s.export.st)
 		s.export.mu.Unlock()
 	}
-	for _, it := range items {
+	for _, j := range jobs {
+		it := j.it
 		if ctx.Err() != nil {
 			step(func(st *exportStatus) { st.LastError = "stopped" })
 			break
 		}
-		copied, err := s.exportOne(ctx, dir, it, placeOf[it.ImageID])
+		copied, err := s.copyInto(ctx, j.dir, it)
 		step(func(st *exportStatus) {
 			st.Done++
 			switch {
@@ -179,7 +206,7 @@ func (s *Server) runExport(ctx context.Context, cancel context.CancelFunc, dir s
 	s.export.mu.Lock()
 	st := s.export.st
 	s.export.mu.Unlock()
-	s.Log.Info("copied photos out", "person", st.Person, "dir", st.Dir, "copied", st.Copied, "skipped", st.Skipped, "failed", st.Failed)
+	s.Log.Info("copied photos out", "person", st.Person, "tidy", st.Tidy, "dir", st.Dir, "copied", st.Copied, "skipped", st.Skipped, "failed", st.Failed)
 }
 
 // placeFolders names the place folder of each photo with a GPS position
@@ -218,20 +245,28 @@ func placeFolders(items []store.ExportItem, byPlace string) map[int64]string {
 	return out
 }
 
-// exportOne copies one photo into its year's folder, and its place's
-// within it when place is set. A file of the same name and size already
-// there is taken to be this photo (copying again skips it); another file
-// of the same name gets " (2)" and so on.
-func (s *Server) exportOne(ctx context.Context, dir string, it store.ExportItem, place string) (bool, error) {
+// yearFolder is a photo's year's folder in dir, and its place's within it
+// when place is set.
+func yearFolder(dir string, taken *int64, place string) string {
 	year := noYearFolder
+	if taken != nil {
+		year = strconv.Itoa(time.Unix(*taken, 0).UTC().Year())
+	}
+	d := filepath.Join(dir, year)
+	if place != "" {
+		d = filepath.Join(d, place)
+	}
+	return d
+}
+
+// copyInto copies one photo into the folder yearDir, dated like the photo.
+// A file of the same name and size already there is taken to be this photo
+// (copying again skips it); another file of the same name gets " (2)" and
+// so on.
+func (s *Server) copyInto(ctx context.Context, yearDir string, it store.ExportItem) (bool, error) {
 	var mtime time.Time
 	if it.Taken != nil {
-		t := time.Unix(*it.Taken, 0).UTC()
-		year, mtime = strconv.Itoa(t.Year()), t
-	}
-	yearDir := filepath.Join(dir, year)
-	if place != "" {
-		yearDir = filepath.Join(yearDir, place)
+		mtime = time.Unix(*it.Taken, 0).UTC()
 	}
 	if err := os.MkdirAll(yearDir, 0o755); err != nil {
 		return false, err
