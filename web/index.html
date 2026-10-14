@@ -897,6 +897,10 @@
     <div class="people-head">
       <h2>Review</h2>
       <span class="muted" x-text="fmtCount(reviewFaces) + (reviewFaces === 1 ? ' face' : ' faces') + ' in ' + fmtCount(reviewTotal) + (reviewTotal === 1 ? ' group' : ' groups') + ' to go'"></span>
+      <label class="zoom review-zoom" title="Size of the faces">
+        <span x-html="icons.grid"></span>
+        <input type="range" min="220" max="560" step="20" x-model.number="reviewZoom" @input="saveReviewZoom()">
+      </label>
       <select class="select review-order" x-model="reviewOrder" @change="setReviewOrder()" title="Order">
         <option value="size">Largest groups first</option>
         <option value="match">Likely match first</option>
@@ -932,7 +936,7 @@
       </div>
       <p class="small muted">Lower percentages file more, with more mistakes. Filed groups can be checked on each person’s page and moved if wrong.</p>
     </div>
-    <div class="group-grid">
+    <div class="group-grid" :style="`--card: ${reviewZoom}px`">
       <template x-for="it in reviewCards()" :key="it.id">
         <div class="group-card" :class="reviewFocus && reviewFocus.id === it.id && 'focused'">
           <div class="focus-head" x-show="reviewFocus && reviewFocus.id === it.id">

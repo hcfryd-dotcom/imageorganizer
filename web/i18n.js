@@ -33,7 +33,7 @@
     'Add a folder': 'Tilføj en mappe', 'Photos of': 'Billeder af', 'Show all photos': 'Vis alle billeder', '✦ Smart search': '✦ Smart søgning',
     'Most relevant to “': 'Mest relevante for “', '” first': '” først', 'matching “': 'der matcher “', 'from': 'fra', 'in favorites': 'i favoritter',
     'and…': 'og…', 'Search your photos — “Anna in the garden 2010”, “snow”, “birthday cake”…': 'Søg i dine billeder — “Anna i haven 2010”, “sne”, “fødselsdagskage”…',
-    'The 300 best matches, in this order': 'De 300 bedste match, i denne rækkefølge', 'Thumbnail size': 'Miniaturestørrelse',
+    'The 300 best matches, in this order': 'De 300 bedste match, i denne rækkefølge', 'Thumbnail size': 'Miniaturestørrelse', 'Size of the faces': 'Ansigternes størrelse',
     'Ranked by EmbeddingGemma 2 image–text similarity': 'Sorteret efter billede–tekst-lighed (EmbeddingGemma 2)',
     'That’s everything': 'Det var alt', 'Unknown date': 'Ukendt dato', 'Undated': 'Uden dato',
     // Person page

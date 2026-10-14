@@ -145,6 +145,7 @@ document.addEventListener('alpine:init', () => {
     reviewTotal: 0,
     reviewFaces: 0,     // faces in the review groups
     reviewOrder: 'size',
+    reviewZoom: 260,    // Review: the width of a card, from the slider
     // Filing every Review group whose best suggestion is at least min% alike.
     bulk: {min: 75, preview: null, busy: false, loading: false, showPeople: false},
     peopleOrder: 'name',
@@ -212,6 +213,7 @@ document.addEventListener('alpine:init', () => {
       try { this.lightbox.faces = localStorage.getItem('showFaces') === '1'; } catch (e) {}
       try { this.lightbox.strip = localStorage.getItem('showStrip') === '1'; } catch (e) {}
       try { this.reviewOrder = localStorage.getItem('reviewOrder') || 'size'; } catch (e) {}
+      try { this.reviewZoom = +localStorage.getItem('reviewZoom') || 260; } catch (e) {}
       try { this.peopleOrder = localStorage.getItem('peopleOrder') || 'name'; } catch (e) {}
       try { this.bulk.min = +localStorage.getItem('bulkMin') || 75; } catch (e) {}
       try { Object.assign(this.matchFilter, JSON.parse(localStorage.getItem('matchFilter') || '{}')); } catch (e) {}
@@ -3147,6 +3149,7 @@ document.addEventListener('alpine:init', () => {
     },
     savePeopleOrder() { try { localStorage.setItem('peopleOrder', this.peopleOrder); } catch (e) {} },
     personName(id) { const p = this.peopleData.people.find(p => p.id === id); return p ? p.name : '…'; },
+    saveReviewZoom() { try { localStorage.setItem('reviewZoom', this.reviewZoom); } catch (e) {} },
     setReviewOrder() {
       try { localStorage.setItem('reviewOrder', this.reviewOrder); } catch (e) {}
       this.loadReview(true);

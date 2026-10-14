@@ -1144,3 +1144,7 @@ body:has(.sel-bar:not([style*="none"])) .toast { bottom: 84px; }
 .lb-video { background: #000; outline: none; }
 .lb-still { height: 32px; margin-right: 6px; }
 .lb-still svg { width: 16px; height: 16px; }
+/* Review: the cards (and their faces) as big as the slider says */
+.group-grid { grid-template-columns: repeat(auto-fill, minmax(min(var(--card, 260px), 100%), 1fr)); }
+.review-zoom { margin-left: auto; }
+.review-zoom + .review-order { margin-left: 0; }
