@@ -123,6 +123,11 @@ the rest of the repo.
   bits) and, if asked, dark ones (thumbnail brightness, `media.Looks`).
   Automatic straightening was tried (edge directions) and dropped: it
   was wrong on a third of real photos; photos are turned by hand (✂).
+  Also: "Fill the boxes" crops around the faces (`/api/books/info` sends
+  face boxes), ⇄ swaps a photo for one taken near the same time, "Better
+  light" lifts dark photos with a CSS filter (files untouched), chapters
+  by events (12 h gaps, merged to about one per six photos, titled by
+  town and dates) and panoramas over two pages.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - macOS-style look: one block at the end of `web/app.css`.

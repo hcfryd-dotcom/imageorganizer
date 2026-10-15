@@ -110,6 +110,9 @@ type faceBit struct {
 	P   int64   `json:"p,omitempty"` // the person, if known
 	W   float32 `json:"w"`           // width, as a share of the photo's
 	Cut bool    `json:"cut,omitempty"`
+	// B is the face's box: left, top, right, bottom, as shares of the
+	// photo, for keeping faces in view when a photo is cropped.
+	B [4]float32 `json:"b"`
 }
 
 type photoLook struct {
@@ -192,7 +195,7 @@ func (s *Server) bookInfo(w http.ResponseWriter, r *http.Request) {
 			pi.BigFace = max(pi.BigFace, f.Box[2]-f.Box[0]) // boxes are shares of the photo
 			b := f.Box
 			pi.List = append(pi.List, faceBit{P: f.PersonID, W: b[2] - b[0],
-				Cut: b[0] < cutEdge || b[1] < cutEdge || b[2] > 1-cutEdge || b[3] > 1-cutEdge})
+				Cut: b[0] < cutEdge || b[1] < cutEdge || b[2] > 1-cutEdge || b[3] > 1-cutEdge, B: round3(b)})
 		}
 		out = append(out, pi)
 	}
@@ -214,4 +217,12 @@ func (s *Server) bookInfo(w http.ResponseWriter, r *http.Request) {
 		wg.Wait()
 	}
 	writeJSON(w, out)
+}
+
+// round3 keeps three decimals of a box, enough for laying out a page.
+func round3(b [4]float32) [4]float32 {
+	for i, v := range b {
+		b[i] = float32(math.Round(float64(v)*1000) / 1000)
+	}
+	return b
 }

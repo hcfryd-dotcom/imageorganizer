@@ -67,6 +67,20 @@
     font: 600 11px -apple-system, "Segoe UI", sans-serif; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); cursor: help; }
   .lowres.bad { background: #ff3b30; color: #fff; }
   @media print { .lowres, .book-bar .weak { display: none !important; } }
+  /* A panorama: one photo over two pages, each showing its half. */
+  .page.pano .slot .ph { overflow: hidden; }
+  .page.pano .slot .ph img { position: absolute; top: 0; height: 100%; width: 200%; max-width: none; max-height: none; object-fit: cover; }
+  .page.pano.left .slot .ph img { left: 0; }
+  .page.pano.right .slot .ph img { left: -100%; }
+  .page-tools .warn { color: #b26a00; font-weight: 600; }
+  /* Photos to swap one for. */
+  .alts { width: min(1000px, 100%); padding: 10px; border-radius: 10px; background: var(--panel); box-shadow: 0 2px 10px rgba(0, 0, 0, .15); }
+  .alts-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+  .alts-head button { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; }
+  .alts .strip { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--muted); }
+  .alts img { height: 80px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+  .alts img:hover { outline: 3px solid var(--accent); }
+  @media print { .alts { display: none !important; } }
   /* Which photos may be in the book. */
   .filters { position: fixed; z-index: 6; top: calc(var(--bar-h, 64px) + 6px); right: 20px; width: min(460px, calc(100vw - 40px));
     display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: var(--panel); box-shadow: 0 8px 30px rgba(0, 0, 0, .25); font-size: 13px; }
@@ -263,6 +277,16 @@
     <option value="boy">Boy</option>
     <option value="elegant">Elegant</option>
     <option value="ocean">Sea and travel</option>
+  </select></label>
+  <label title="Every photo fills its box, cropped so the faces show">
+    <input type="checkbox" id="fillAll"> Fill the boxes</label>
+  <label title="Dark or flat photos a little lighter and clearer, on the page only: your files are not changed">
+    <input type="checkbox" id="enhance"> Better light</label>
+  <label>Chapters <select class="select" id="chapters">
+    <option value="">None</option>
+    <option value="event">By events (dates and places)</option>
+    <option value="month">By month</option>
+    <option value="year">By year</option>
   </select></label>
   <label>Frames <select class="select" id="frame">
     <option value="">None</option>
@@ -549,7 +573,66 @@
     }
     return key;
   }
+  // chapterKind is how the book is split in chapters: as chosen in it, or
+  // as it was made ("year" for a person through the years, "month" for a
+  // year), else none.
+  const chapterKind = () => book.chapters != null ? book.chapters : src.get('chapters') || '';
+
+  // events splits photos (oldest first) where more than 12 hours pass
+  // between two; an event of under four photos joins the one before if
+  // that was at most four days earlier. Each gets a title: the town most
+  // of it was in, and its dates.
+  function events(list) {
+    const groups = [];
+    let prev = null;
+    for (const im of list) {
+      if (!prev || !(im.taken && prev.taken && im.taken - prev.taken <= 12 * 3600)) groups.push([]);
+      groups[groups.length - 1].push(im);
+      prev = im;
+    }
+    const merged = [];
+    for (const g of groups) {
+      const last = merged[merged.length - 1];
+      const end = last && last[last.length - 1];
+      if (last && g.length < 4 && g[0].taken && end.taken && g[0].taken - end.taken <= 4 * 86400) last.push(...g);
+      else merged.push(g);
+    }
+    // No more than a chapter for about every six photos: the smallest
+    // joins the neighbour nearest in time, until few enough.
+    const gap = (a, b) => (b[0].taken || 0) - (a[a.length - 1].taken || 0);
+    while (merged.length > Math.max(3, Math.round(list.length / 6))) {
+      let i = 0;
+      merged.forEach((g, j) => { if (g.length < merged[i].length) i = j; });
+      const before = i > 0 ? gap(merged[i - 1], merged[i]) : Infinity;
+      const after = i < merged.length - 1 ? gap(merged[i], merged[i + 1]) : Infinity;
+      if (before <= after) merged.splice(i - 1, 2, merged[i - 1].concat(merged[i]));
+      else merged.splice(i, 2, merged[i].concat(merged[i + 1]));
+    }
+    return merged.map((g, i) => ['e' + i, g, eventTitle(g)]);
+  }
+  function eventTitle(g) {
+    const count = new Map();
+    for (const im of g) {
+      const p = (info.get(im.id) || {}).place;
+      if (p) count.set(p, (count.get(p) || 0) + 1);
+    }
+    const [place, n] = [...count].sort((a, b) => b[1] - a[1])[0] || [];
+    const dated = g.filter(im => im.taken);
+    if (!dated.length) return place || t('Without a date');
+    const a = new Date(dated[0].taken * 1000), b = new Date(dated[dated.length - 1].taken * 1000);
+    const day = d => d.toLocaleDateString(locale, {day: 'numeric', timeZone: 'UTC'});
+    const month = d => d.toLocaleDateString(locale, {month: 'long', year: 'numeric', timeZone: 'UTC'});
+    let when;
+    if (a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10)) when = fmtDate(dated[0].taken);
+    else if (a.getUTCMonth() === b.getUTCMonth() && a.getUTCFullYear() === b.getUTCFullYear()) when = day(a) + '–' + day(b) + ' ' + month(a);
+    else if (a.getUTCFullYear() === b.getUTCFullYear()) when = a.toLocaleDateString(locale, {month: 'long', timeZone: 'UTC'}) + ' – ' + month(b);
+    else when = month(a) + ' – ' + month(b);
+    when = when.charAt(0).toUpperCase() + when.slice(1);
+    return [n >= g.length * .3 ? place : '', when].filter(Boolean).join('\n');
+  }
+
   function chapters(list, ch) {
+    if (ch === 'event') return events(list);
     const groups = new Map();
     for (const im of list) {
       const k = chapterKey(im, ch);
@@ -607,7 +690,7 @@
     }
     end();
     if (kept.length <= n) return kept;
-    const ch = src.get('chapters');
+    const ch = chapterKind();
     let groups;
     if (ch) groups = chapters(kept, ch).map(([, g]) => g);
     else {
@@ -659,10 +742,10 @@
       }
       return;
     }
-    const ch = src.get('chapters');
+    const ch = chapterKind();
     if (ch) {
-      for (const [key, group] of chapters(list, ch)) {
-        book.pages.push({n: 0, ids: [], text: chapterTitle(key, ch)});
+      for (const [key, group, title] of chapters(list, ch)) {
+        book.pages.push({n: 0, ids: [], text: title || chapterTitle(key, ch)});
         book.pages.push(...pack(group, book.per));
       }
     } else book.pages = pack(list, book.per);
@@ -882,12 +965,18 @@
     cw.append(cs);
     root.appendChild(cw);
 
+    // Page numbers: a panorama takes two.
+    const isPano = p => p.pano && p.n > 0 && p.ids.length === 1 && p.month == null;
+    const numbers = [];
+    pages.reduce((n, p) => { numbers.push(n); return n + (isPano(p) ? 2 : 1); }, 1);
+    const lastNumber = pages.length ? numbers[pages.length - 1] + (isPano(pages[pages.length - 1]) ? 1 : 0) : 0;
     const toPage = id => {
-      const ans = prompt(t('Move the photo to page number (1–' + pages.length + '):'));
+      const ans = prompt(t('Move the photo to page number (1–' + lastNumber + '):'));
       const p = parseInt(ans, 10);
-      if (!p || p < 1 || p > pages.length) return;
-      if (!pages[p - 1].n) { alert(t('That is a page of text; choose a page with photos.')); return; }
-      moveTo(id, pages[p - 1].ids[0]);
+      const pi = numbers.findIndex((n, i) => n === p || isPano(pages[i]) && n + 1 === p);
+      if (pi < 0) return;
+      if (!pages[pi].n) { alert(t('That is a page of text; choose a page with photos.')); return; }
+      moveTo(id, pages[pi].ids[0]);
     };
 
     const maps = []; // map pages, drawn once they are on the page
@@ -898,7 +987,8 @@
       tools.className = 'page-tools';
       const sec = document.createElement('section');
       const num = document.createElement('b');
-      num.textContent = t('Page ' + (pi + 1)) + (pg.month != null ? ' · ' + monthName(book.calendar, pg.month) : '');
+      const pano = isPano(pg), at = numbers[pi];
+      num.textContent = (pano ? t('Pages ' + at + '–' + (at + 1)) : t('Page ' + at)) + (pg.month != null ? ' · ' + monthName(book.calendar, pg.month) : '');
       tools.append(num);
       if (pg.map) {
         // A map of where the book's photos were taken.
@@ -918,8 +1008,8 @@
           tool('Remove page', '', () => { book.pages.splice(pi, 1); reflow(); render(); }));
       } else {
         const month = pg.month != null;
-        const full = pg.full && pg.ids.length === 1 && !month;
-        sec.className = 'page' + (full ? ' full' : '') + (month ? ' calpage' + (pageWide() ? ' wide' : '') : '');
+        const full = (pg.full || pano) && pg.ids.length === 1 && !month;
+        sec.className = 'page' + (full ? ' full' : '') + (pano ? ' pano left' : '') + (month ? ' calpage' + (pageWide() ? ' wide' : '') : '');
         // Dropped on the page but not on a photo: first place on the page.
         sec.addEventListener('dragover', e => { if (dragged) { e.preventDefault(); sec.classList.add('drop'); } });
         sec.addEventListener('dragleave', e => { if (!sec.contains(e.relatedTarget)) sec.classList.remove('drop'); });
@@ -945,7 +1035,9 @@
           if (book.tilt && book.tilt[id]) img.dataset.tilt = book.tilt[id];
           img.draggable = false; // the slot is what drags
           const c = book.crop && book.crop[id];
-          if (c || cropping === id) slot.classList.add('cropped');
+          // Filling its place: cropped by hand, or around the faces (decorate).
+          if (c || cropping === id || book.fillAll) slot.classList.add('cropped');
+          if (!c && (full || book.fillAll || cropping === id)) img.dataset.auto = '1';
           if (c) cropStyle(img, c);
           if (cropping === id) cropEdit(slot, img, id);
           const text = caption(im);
@@ -972,7 +1064,8 @@
           out.className = 'out';
           pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)),
             tool('#', 'Move to page…', () => toPage(id)),
-            tool('✂', 'Crop and straighten: choose the part of the photo that shows, and turn it', () => { cropping = cropping === id ? null : id; render(); }), star, out);
+            tool('✂', 'Crop and straighten: choose the part of the photo that shows, and turn it', () => { cropping = cropping === id ? null : id; render(); }),
+            tool('⇄', 'Swap it for another photo from about the same time', () => { swapping = swapping === id ? null : id; render(); }), star, out);
           slot.appendChild(pt);
           // Dragged onto another photo, it takes that photo's place.
           slot.draggable = cropping !== id;
@@ -1001,7 +1094,12 @@
           for (const n of [1, 2, 3, 4, 6]) seg.append(tool(String(n), 'Photos on this page', () => { pg.n = n; reflow(); render(); }, pg.n === n));
           tools.append(document.createTextNode(t('Photos on this page')), seg);
         }
-        if (pg.ids.length === 1 && !month) tools.append(tool(full ? 'With a margin' : 'Fill the page', '', () => { pg.full = !full; render(); }));
+        if (pg.ids.length === 1 && !month) {
+          tools.append(tool(full && !pano ? 'With a margin' : 'Fill the page', '', () => { pg.full = !(full && !pano); pg.pano = false; render(); }),
+            tool(pano ? 'One page' : 'Panorama over two pages', 'The photo across this page and the next, as one picture over an open book', () => { pg.pano = !pano; render(); }, pano));
+          // A panorama lies across an open book only from a left page (even).
+          if (pano && at % 2 === 1) { const w = document.createElement('span'); w.className = 'warn'; w.textContent = t('Starts on a right page: move it one page to lie across a spread'); tools.append(w); }
+        }
         tools.append(tool(pg.text != null ? 'Remove text' : '+ Text', '', () => { pg.text = pg.text != null ? null : ''; render(); }));
         if (pg.text != null) tools.append(styleButton(pi));
       }
@@ -1011,6 +1109,8 @@
       if (styling === pi) wrap.append(styleRow(() => pg));
       wrap.append(sec);
       root.appendChild(wrap);
+      if (swapping != null && pg.ids.includes(swapping)) wrap.append(alternatives(swapping));
+      if (pano) root.appendChild(panoRight(pg, at + 1));
     });
 
     if (book.back) {
@@ -1073,7 +1173,7 @@
     }
     if (tray.childNodes.length) root.appendChild(tray);
 
-    const left = gone.length, total = pages.length + 1 + (book.back ? 1 : 0);
+    const left = gone.length, total = lastNumber + 1 + (book.back ? 1 : 0); // and the cover
     $('count').textContent = t(list.length + (list.length === 1 ? ' photo' : ' photos') + ' · ' + total + ' pages') +
       (left ? ' · ' + t(left + ' left out') : '');
     // Print shops bind sheets, so they mostly want an even number of pages.
@@ -1083,7 +1183,7 @@
     root.classList.toggle('spreads', !!book.spreads);
     if (book.frame) root.dataset.frame = book.frame; else delete root.dataset.frame;
     renderOverview(cover);
-    requestAnimationFrame(afterLayout);
+    setTimeout(afterLayout); // not requestAnimationFrame: a tab in the background never gets one
   }
 
   // ---------- calendar ----------
@@ -1226,12 +1326,113 @@
   function afterLayout() {
     for (const img of document.querySelectorAll('.page img[data-tilt]')) turn(img);
     checkPrint();
+    decorate();
+  }
+
+  // decorate does what needs the photos' faces and light, which may come
+  // a moment later: a photo filling its place without a crop of the
+  // user's is cropped around its faces, and with "better light" dark or
+  // flat photos are lifted (only on the page; the files are not touched).
+  async function decorate() {
+    const imgs = [...document.querySelectorAll('.page img[data-id]')];
+    await needInfo(imgs.map(i => +i.dataset.id), !!book.enhance).catch(() => {});
+    const who = whose();
+    for (const img of imgs) {
+      if (!img.isConnected) return; // drawn again meanwhile
+      const id = +img.dataset.id, im = byId.get(id), f = info.get(id) || {};
+      if (img.dataset.auto && im && im.w && im.h) {
+        const pos = focus(f.list || [], who, im, img.parentElement);
+        if (pos) {
+          img.style.objectPosition = `${pos[0]}% ${pos[1]}%`;
+          img._focus = pos;
+        }
+      }
+      const l = f.look && f.look.light;
+      img.style.filter = book.enhance && l != null
+        ? `brightness(${l < .42 ? Math.min(1.35, 1 + (.45 - l) * 1.3) : l > .78 ? .96 : 1}) contrast(1.07) saturate(1.06)` : '';
+    }
+  }
+
+  // focus is where (object-position, in percent) a photo filling a box
+  // should be shifted to so its faces show: theirs in a book of people,
+  // else the bigger ones, kept a little above the middle as a
+  // photographer would.
+  function focus(faces, who, im, box) {
+    let fs = faces.filter(x => who.has(x.p));
+    if (!fs.length) fs = faces.filter(x => x.w > .04);
+    if (!fs.length || !box.clientWidth || !box.clientHeight || box.closest('.pano')) return null;
+    const x0 = Math.min(...fs.map(x => x.b[0])), x1 = Math.max(...fs.map(x => x.b[2]));
+    const y0 = Math.min(...fs.map(x => x.b[1])), y1 = Math.max(...fs.map(x => x.b[3]));
+    const bw = box.clientWidth, bh = box.clientHeight;
+    const s = Math.max(bw / im.w, bh / im.h), sw = im.w * s, sh = im.h * s;
+    const at = (c, size, room, aim) => size - room > 1 ? Math.min(100, Math.max(0, (c * size - room * aim) / (size - room) * 100)) : 50;
+    return [Math.round(at((x0 + x1) / 2, sw, bw, .5)), Math.round(at((y0 + y1) / 2, sh, bh, .42))];
+  }
+
+  // alternatives shows, under the page, photos of the book's source not in
+  // it, taken near the time of photo id: the nearest first. One clicked
+  // takes its place.
+  let swapping = null; // the photo whose alternatives are shown
+  function alternatives(id) {
+    const im = byId.get(id), have = inBook();
+    const near = (a, b) => Math.abs((a.taken || 0) - (b.taken || 0));
+    let pool = usable(photos).filter(p => !have.has(p.id));
+    const sameTime = pool.filter(p => im.taken && p.taken && near(p, im) < 6 * 3600);
+    pool = (sameTime.length >= 4 ? sameTime : pool).sort((a, b) => near(a, im) - near(b, im)).slice(0, 24);
+    const box = document.createElement('div');
+    box.className = 'alts';
+    const hd = document.createElement('div');
+    hd.className = 'alts-head';
+    const b = document.createElement('b');
+    b.textContent = t(sameTime.length ? 'Photos from about the same time' : 'The photos nearest in time');
+    hd.append(b, tool('Close', '', () => { swapping = null; render(); }));
+    box.appendChild(hd);
+    const strip = document.createElement('div');
+    strip.className = 'strip';
+    if (!pool.length) strip.textContent = t('There are no other photos to choose from.');
+    for (const p of pool) {
+      const i = document.createElement('img');
+      i.src = thumb(p);
+      i.loading = 'lazy';
+      i.title = fmtDate(p.taken);
+      i.addEventListener('click', () => {
+        const [pi, k] = locate(id);
+        if (pi < 0) return;
+        book.pages[pi].ids[k] = p.id;
+        if (book.cover === id) book.cover = p.id;
+        swapping = null;
+        render();
+      });
+      strip.appendChild(i);
+    }
+    box.appendChild(strip);
+    return box;
+  }
+
+  // panoRight draws the right half of a panorama: the next page, the same
+  // photo, the other half.
+  function panoRight(pg, number) {
+    const wrap = document.createElement('div');
+    wrap.className = 'page-wrap';
+    const tools = document.createElement('div');
+    tools.className = 'page-tools';
+    const b = document.createElement('b');
+    b.textContent = t('Page ' + number) + ' · ' + t('the panorama’s right half');
+    tools.appendChild(b);
+    const sec = document.createElement('section');
+    sec.className = 'page full pano right';
+    const im = byId.get(pg.ids[0]);
+    sec.innerHTML = '<div class="grid"><div class="slot"><div class="ph"><img alt=""></div></div></div>';
+    sec.querySelector('img').src = imgSrc(im);
+    wrap.append(tools, sec);
+    return wrap;
   }
 
   function cropEdit(slot, img, id) {
     slot.classList.add('cropping');
     const box = img.parentElement;
     const c = {x: 50, y: 50, z: 1, ...(book.crop && book.crop[id])};
+    let moved = false;
     const keep = () => { book.crop = {...(book.crop || {}), [id]: {...c}}; save(); };
     cropStyle(img, c);
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -1239,6 +1440,9 @@
       if (e.target.closest('button')) return;
       e.preventDefault();
       box.setPointerCapture(e.pointerId);
+      // Not cropped by hand yet: start from where the faces put it.
+      if (!(book.crop && book.crop[id]) && img._focus && !moved) [c.x, c.y] = img._focus;
+      moved = true;
       let lx = e.clientX, ly = e.clientY;
       const move = ev => {
         // Dragging the photo right shows more of its left side.
@@ -1495,6 +1699,9 @@
     $('bleed').checked = !!book.bleed;
     $('spreads').checked = !!book.spreads;
     $('frame').value = book.frame || '';
+    $('fillAll').checked = !!book.fillAll;
+    $('enhance').checked = !!book.enhance;
+    $('chapters').value = chapterKind();
     for (const box of document.querySelectorAll('#filters input[data-k]')) box.checked = !!filters()[box.dataset.k];
     const pick = $('pick');
     if (![...pick.options].some(o => +o.value === book.pick)) {
@@ -1565,6 +1772,15 @@
   $('overview').addEventListener('click', () => { overviewOpen = !overviewOpen; render(); });
   $('spreads').addEventListener('change', () => { book.spreads = $('spreads').checked; render(); });
   $('frame').addEventListener('change', () => { book.frame = $('frame').value; render(); });
+  $('fillAll').addEventListener('change', () => { book.fillAll = $('fillAll').checked; render(); });
+  $('enhance').addEventListener('change', () => { book.enhance = $('enhance').checked; render(); });
+  $('chapters').addEventListener('change', async () => {
+    if (!confirm(t('Lay the book out again in these chapters? Your texts, order and left-out photos are forgotten.'))) { $('chapters').value = chapterKind(); return; }
+    book.chapters = $('chapters').value;
+    others = 0;
+    await fresh();
+    render();
+  });
   $('undo').addEventListener('click', () => step(undo, redo));
   $('redo').addEventListener('click', () => step(redo, undo));
   document.addEventListener('keydown', e => {
