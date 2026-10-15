@@ -105,6 +105,14 @@ the rest of the repo.
 - Age model `models\mivolo_v2_age.onnx` (Sam-Apostel/mivolo-v2-age-onnx,
   Apache-2.0; age only, no gender) since 2026-10-15.
 - Review has a slider for the card/face size.
+- Photo books (`web/book.html`, `store/books.go`, `server/books.go`,
+  sidebar "Photo books"): saved in the library (`books` bucket; Source is
+  the query the photos come by: album, person, people=a,b, from/to,
+  near=lat,lon&km, chapters=year|month, pick=N; Data is the page's own
+  JSON, v2: pages with photo ids). "The best N" is picked in the page
+  (no blurry, screenshots or bursts; spread over chapters or events).
+  `/api/books/info` gives town and names for captions. Books once kept
+  in the browser's localStorage are moved into the library when opened.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - macOS-style look: one block at the end of `web/app.css`.

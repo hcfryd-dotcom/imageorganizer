@@ -1159,6 +1159,30 @@
     </div>
   </section>
 
+  <!-- Photo books (web/book.html), saved in the library -->
+  <section class="albums books" x-show="view === 'books'" x-cloak>
+    <div class="people-head">
+      <h2>Photo books</h2>
+      <span class="muted" x-text="books.length ? fmtCount(books.length) + (books.length === 1 ? ' book' : ' books') : ''"></span>
+      <button class="btn primary albums-new" @click="openBookNew()">New photo book</button>
+    </div>
+    <p class="muted" x-show="!books.length">No photo books yet. Make one here, or with “Make photo book” on an album or a person. A book is saved in the program as you change it, and can be printed or saved as a PDF.</p>
+    <div class="album-grid">
+      <template x-for="b in books" :key="b.id">
+        <div class="album-card book-card">
+          <button class="album-cover" @click="openSavedBook(b)"><img x-show="b.cover_hash" :src="b.cover_hash ? thumbURL({thumb: true, hash: b.cover_hash, rot: b.cover_rot}) : ''" alt="" loading="lazy"><span x-show="!b.cover_hash" x-html="icons.book"></span></button>
+          <b x-text="b.title || '…'"></b>
+          <small class="muted" x-text="fmtCount(b.photos) + (b.photos === 1 ? ' photo' : ' photos') + ' · ' + b.pages + ' pages'"></small>
+          <small class="muted" x-text="'Changed ' + fmtDateShort(b.updated)"></small>
+          <span class="book-card-actions">
+            <button class="btn ghost" @click="openSavedBook(b)">Open</button>
+            <button class="btn ghost danger" @click="deleteBook(b)">Delete</button>
+          </span>
+        </div>
+      </template>
+    </div>
+  </section>
+
   <!-- Map -->
   <section class="mapview" x-show="view === 'map'" x-cloak>
     <div id="map" x-ref="map"></div>
@@ -1622,6 +1646,83 @@
     <form class="modal-foot album-new" @submit.prevent="pickAlbum(null)">
       <input class="input" x-model="albumPick.name" placeholder="New album, e.g. Summer 2024" autocomplete="off">
       <button class="btn primary" :disabled="!albumPick.name.trim() || albumPick.busy">Make album</button>
+    </form>
+  </div>
+</div>
+<!-- A new photo book: what it is made of -->
+<div class="modal-back" x-show="bookNew.open" x-cloak @click.self="bookNew.open = false">
+  <div class="modal book-new-modal">
+    <div class="modal-head">
+      <b>New photo book</b>
+      <span class="spacer"></span>
+      <button class="icon-btn" title="Close (Esc)" @click="bookNew.open = false" x-html="icons.close"></button>
+    </div>
+    <form class="book-new" @submit.prevent="makeBook()">
+      <label>What is the book of?
+        <select class="select" x-model="bookNew.kind">
+          <option value="person">One person</option>
+          <option value="years">One person through the years</option>
+          <option value="together">Several people together</option>
+          <option value="album">An album</option>
+          <option value="year">A year, month by month</option>
+          <option value="trip">A trip or a time (and a place)</option>
+        </select>
+      </label>
+      <label x-show="bookNew.kind === 'person' || bookNew.kind === 'years'">Who
+        <select class="select" x-model.number="bookNew.person">
+          <template x-for="p in namedPeople()" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
+        </select>
+      </label>
+      <p class="muted small" x-show="bookNew.kind === 'years'">A chapter for every year, with how old they turn when their birth year is known, and the best photos of each year.</p>
+      <div x-show="bookNew.kind === 'together'">
+        <span class="muted small">Photos with all of these in them:</span>
+        <div class="book-people">
+          <template x-for="p in namedPeople()" :key="p.id">
+            <label class="chk"><input type="checkbox" :value="p.id" x-model.number="bookNew.people"> <span x-text="p.name"></span></label>
+          </template>
+        </div>
+      </div>
+      <label x-show="bookNew.kind === 'album'">Album
+        <select class="select" x-model.number="bookNew.album">
+          <template x-for="a in albums" :key="a.id"><option :value="a.id" x-text="a.name"></option></template>
+        </select>
+      </label>
+      <label x-show="bookNew.kind === 'year'">Year
+        <input class="input" type="number" min="1900" max="2100" x-model.number="bookNew.year">
+      </label>
+      <div x-show="bookNew.kind === 'trip'" class="book-trip">
+        <label>From <input class="input" type="date" x-model="bookNew.from"></label>
+        <label>To <input class="input" type="date" x-model="bookNew.to"></label>
+        <label>Place (may be left empty)
+          <input class="input" x-model="bookNew.placeQ" @input.debounce.250ms="bookPlaces()" placeholder="A town, e.g. Skagen" autocomplete="off">
+        </label>
+        <div class="dir-list book-places" x-show="bookNew.places.length && !bookNew.place">
+          <template x-for="(p, i) in bookNew.places" :key="i">
+            <button type="button" class="dir" @click="bookNew.place = p; bookNew.placeQ = p.name"><span x-text="p.name"></span><small class="muted" x-text="[p.area, p.country].filter(Boolean).join(', ')"></small></button>
+          </template>
+        </div>
+        <label x-show="bookNew.place">Within
+          <select class="select" x-model.number="bookNew.km"><option value="5">5 km</option><option value="15">15 km</option><option value="30">30 km</option><option value="75">75 km</option><option value="200">200 km</option></select>
+          <button type="button" class="btn ghost" @click="bookNew.place = null; bookNew.placeQ = ''">Any place</button>
+        </label>
+      </div>
+      <label>Photos
+        <select class="select" x-model.number="bookNew.pick">
+          <option value="0">All photos</option>
+          <option value="40">The best 40</option>
+          <option value="80">The best 80</option>
+          <option value="150">The best 150</option>
+          <option value="300">The best 300</option>
+        </select>
+      </label>
+      <p class="muted small">With “the best”, the program leaves out blurry photos, screenshots and all but one of each burst, and spreads the rest over the whole time. You can add and remove photos in the book afterwards.</p>
+      <label>Title <input class="input" x-model="bookNew.title" :placeholder="bookTitle() || 'Title'"></label>
+      <div class="modal-foot">
+        <span class="muted small" x-text="bookNew.error"></span>
+        <span class="spacer"></span>
+        <button class="btn" type="button" @click="bookNew.open = false">Cancel</button>
+        <button class="btn primary" :disabled="bookNew.busy || !bookSource()">Make the book</button>
+      </div>
     </form>
   </div>
 </div>

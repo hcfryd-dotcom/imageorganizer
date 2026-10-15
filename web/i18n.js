@@ -329,6 +329,34 @@
     'Move to page…': 'Flyt til side…', 'That is a page of text; choose a page with photos.': 'Det er en tekstside; vælg en side med billeder.',
     'A4 landscape': 'A4 på langs', 'A4 portrait': 'A4 på højkant', 'Square (21 × 21 cm)': 'Kvadratisk (21 × 21 cm)',
     'Photos per page': 'Billeder pr. side', 'As they fit best': 'Som de passer bedst', 'Dates under the photos': 'Datoer under billederne',
+    'Date': 'Dato', 'Place': 'Sted', 'Who': 'Hvem', 'Back cover': 'Bagside', 'Under the photos:': 'Under billederne:',
+    'All photos': 'Alle billeder', 'Cover': 'Forside', 'Without a date': 'Uden dato', 'Choosing the best photos…': 'Vælger de bedste billeder…',
+    'Not saved; trying again': 'Ikke gemt; prøver igen', 'Use it on the cover': 'Brug det på forsiden', 'Leave it out of the book': 'Tag det ud af bogen',
+    'With a margin': 'Med kant', 'Fill the page': 'Fyld hele siden', 'Write a text for the back': 'Skriv en tekst til bagsiden',
+    'Put it back in the book by its date': 'Sæt det ind i bogen efter dato', 'Add it to the book by its date': 'Sæt det ind i bogen efter dato',
+    'Show more': 'Vis flere', 'Show them': 'Vis dem',
+    'The program picks the best: sharp, not screenshots, one of each burst, spread over the whole time':
+      'Programmet vælger de bedste: skarpe, ingen skærmbilleder, ét af hver serie, fordelt over hele perioden',
+    'Lay the book out again, leaving out your changes': 'Læg bogen ud igen uden dine ændringer',
+    'Choose the photos again and lay the book out anew? Your texts, order and left-out photos are forgotten.':
+      'Vælg billederne igen og læg bogen ud på ny? Dine tekster, rækkefølge og fravalgte billeder glemmes.',
+    'Lay the book out again? Your texts, order and left-out photos are forgotten.':
+      'Læg bogen ud igen? Dine tekster, rækkefølge og fravalgte billeder glemmes.',
+    'Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.':
+      'Hver side kan ændres med knapperne over den: hvor mange billeder den har, en tekst på siden, eller en tekstside efter den. Træk et billede hen på et andet billede eller en anden side for at flytte det dertil; over et billede flytter ← → det én plads, # flytter det til et sidenummer, ★ sætter det på forsiden, og × tager det ud af bogen. Fravalgte billeder og de andre, der ikke er med, står under sidste side. Bogen gemmes i programmet af sig selv. Vælg “Gem som PDF” (eller en printer) i udskriftsvinduet, sæt margener til “Ingen” og slå baggrundsgrafik til.',
+    'Photo books': 'Fotobøger', 'New photo book': 'Ny fotobog', 'Open': 'Åbn',
+    'No photo books yet. Make one here, or with “Make photo book” on an album or a person. A book is saved in the program as you change it, and can be printed or saved as a PDF.':
+      'Ingen fotobøger endnu. Lav en her, eller med “Lav fotobog” på et album eller en person. En bog gemmes i programmet, mens du ændrer den, og kan printes eller gemmes som PDF.',
+    'What is the book of?': 'Hvad skal bogen handle om?', 'One person': 'Én person', 'One person through the years': 'Én person gennem årene',
+    'Several people together': 'Flere personer sammen', 'An album': 'Et album', 'A year, month by month': 'Et år, måned for måned',
+    'A trip or a time (and a place)': 'En rejse eller en periode (og et sted)',
+    'A chapter for every year, with how old they turn when their birth year is known, and the best photos of each year.':
+      'Et kapitel for hvert år, med hvor gammel personen fylder, når fødselsåret kendes, og de bedste billeder fra hvert år.',
+    'Photos with all of these in them:': 'Billeder hvor alle disse er med:', 'Album': 'Album', 'Year': 'År', 'From': 'Fra', 'To': 'Til',
+    'Place (may be left empty)': 'Sted (kan være tomt)', 'A town, e.g. Skagen': 'En by, fx Skagen', 'Within': 'Inden for', 'Any place': 'Alle steder',
+    'With “the best”, the program leaves out blurry photos, screenshots and all but one of each burst, and spreads the rest over the whole time. You can add and remove photos in the book afterwards.':
+      'Med “de bedste” springer programmet slørede billeder, skærmbilleder og næsten ens billeder over og fordeler resten over hele perioden. Du kan tilføje og fjerne billeder i bogen bagefter.',
+    'Make the book': 'Lav bogen',
     'Design': 'Design', 'None (white)': 'Ingen (hvid)', 'Summer': 'Sommer', 'Winter': 'Vinter', 'Birthday': 'Fødselsdag',
     'Left out of the book': 'Fjernet fra bogen', 'Put back': 'Sæt ind igen',
     'Put it back in the book where it was': 'Sæt billedet ind i bogen igen, hvor det var', 'Christmas': 'Jul','Girl': 'Pige', 'Boy': 'Dreng', 'Elegant': 'Elegant', 'Sea and travel': 'Hav og rejse',
@@ -481,7 +509,15 @@
     [/^(\d+) left out$/, (m, n) => n + ' fravalgt'],
     [/^Page (\d+)$/, (m, n) => 'Side ' + n],
     [/^Move the photo to page number \(1–(\d+)\):$/, (m, n) => 'Flyt billedet til side nummer (1–' + n + '):'],
-    [/^(\d+) (photos?) · (\d+) pages$/,(m, n, p, s) => n + (p === 'photo' ? ' billede' : ' billeder') + ' · ' + s + ' sider'],
+    [/^The best (\d+)$/, (m, n) => 'De bedste ' + n],
+    [/^(.+) is born$/, (m, n) => n + ' bliver født'],
+    [/^(.+) turns (\d+)$/, (m, n, a) => n + ' fylder ' + a + ' år'],
+    [/^(.+) through the years$/, (m, n) => n + ' gennem årene'],
+    [/^(\d+) other photos? not in the book$/, (m, n) => n + (n === '1' ? ' andet billede' : ' andre billeder') + ' er ikke med i bogen'],
+    [/^([\d., ]+) books?$/, (m, n) => n + (n === '1' ? ' bog' : ' bøger')],
+    [/^Changed (.+)$/, (m, d) => 'Ændret ' + d],
+    [/^Delete the photo book “(.*)”\? The photos are not touched\.$/, (m, n) => 'Slet fotobogen “' + n + '”? Billederne røres ikke.'],
+    [/^([\d., ]+) (photos?) · (\d+) pages$/,(m, n, p, s) => n + (p === 'photo' ? ' billede' : ' billeder') + ' · ' + s + ' sider'],
     // Ages, now that faces get one
     [/^· born ~(\d+)$/, (m, y) => '· født ~' + y],
     [/^born ~(\d+) ·$/, (m, y) => 'født ~' + y + ' ·'],

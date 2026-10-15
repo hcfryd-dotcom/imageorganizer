@@ -6,10 +6,11 @@
 <title>Photo book</title>
 <link rel="stylesheet" href="app.css">
 <style>
-  /* A photo book of an album's (or a person's) photos, laid out page by
-     page for printing or saving as a PDF from the browser. Every page can
-     be changed: how many photos it holds, a text on it, text pages
-     between, and photos moved or left out. The book is remembered. */
+  /* A photo book (of an album, a person, people together, a year or a
+     trip), laid out page by page for printing or saving as a PDF from the
+     browser. Every page can be changed: how many photos it holds, a text
+     on it, text pages between, and photos moved or left out. The book is
+     saved in the library (/api/books). */
   html, body { height: auto; overflow: auto; display: block; background: #e8e8ed; }
   .book-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px;
     background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: saturate(1.8) blur(20px); border-bottom: 1px solid var(--line); }
@@ -57,6 +58,22 @@
   .cover h2 { font: 700 28pt/1.1 -apple-system, "Segoe UI Variable Display", "Segoe UI", sans-serif; margin: 0; letter-spacing: -.02em; }
   .cover p { font: 12pt -apple-system, "Segoe UI", sans-serif; color: #6e6e73; margin: 0; }
   .book-empty { padding: 60px 20px; text-align: center; }
+  .book-bar .saved { min-width: 60px; }
+  /* One photo filling the page to its edges. */
+  .page.full { padding: 0; }
+  .page.full .grid { gap: 0; }
+  .page.full .slot .ph { position: absolute; inset: 0; }
+  .page.full .slot img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
+  .page.full .slot .cap { position: absolute; left: 0; right: 0; bottom: 4mm; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+  .page.full > .page-text { position: absolute; left: 12%; right: 12%; bottom: 12mm; background: rgba(255, 255, 255, .85); }
+  .page.full .photo-tools { top: 6mm; right: 6mm; }
+  /* The back of the book. */
+  .back { justify-content: center; align-items: center; text-align: center; }
+  .back .page-text { font-size: 14pt; max-width: 70%; }
+  .back p { font: 10pt -apple-system, "Segoe UI", sans-serif; color: #8e8e93; margin: 0; }
+  .left-out .more { margin-top: 10px; }
+  .left-out h3 + .muted { margin: -4px 0 8px; }
+  .photo-tools button.is-cover { background: #d4a017; }
 
   /* Designs: backgrounds drawn here (CSS and small SVG patterns), light
      enough that photos and text stand out. They print when the print
@@ -137,7 +154,9 @@
     <option value="auto">As they fit best</option>
     <option value="1">1</option>
     <option value="2">2</option>
+    <option value="3">3</option>
     <option value="4">4</option>
+    <option value="6">6</option>
   </select></label>
   <label>Design <select class="select" id="theme">
     <option value="">None (white)</option>
@@ -150,13 +169,25 @@
     <option value="elegant">Elegant</option>
     <option value="ocean">Sea and travel</option>
   </select></label>
-  <label><input type="checkbox" id="dates" checked> Dates under the photos</label>
+  <label title="The program picks the best: sharp, not screenshots, one of each burst, spread over the whole time">Photos <select class="select" id="pick">
+    <option value="0">All photos</option>
+    <option value="40">The best 40</option>
+    <option value="80">The best 80</option>
+    <option value="150">The best 150</option>
+    <option value="300">The best 300</option>
+  </select></label>
+  <span class="muted small">Under the photos:</span>
+  <label><input type="checkbox" id="dates" checked> Date</label>
+  <label><input type="checkbox" id="place"> Place</label>
+  <label><input type="checkbox" id="who"> Who</label>
+  <label><input type="checkbox" id="back"> Back cover</label>
   <span class="grow"></span>
   <span class="muted small" id="count"></span>
-  <button class="btn" id="restart" title="Lay the book out again from the album, leaving out your changes">Start over</button>
+  <span class="muted small saved" id="saved"></span>
+  <button class="btn" id="restart" title="Lay the book out again, leaving out your changes">Start over</button>
   <button class="btn primary" id="print">Print / save as PDF</button>
 </div>
-<p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, × leaves it out of the book (it stays in the album). The book is remembered until you start over. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
+<p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
 <div class="pages" id="pages"><div class="book-empty muted">Loading the photos…</div></div>
 <script>
 (function () {
@@ -165,87 +196,293 @@
   const $ = id => document.getElementById(id);
   const SIZES = {a4l: [297, 210], a4p: [210, 297], sq: [210, 210]};
   const lang = (window.i18n && window.i18n.lang()) || 'en';
+  const locale = lang === 'da' ? 'da-DK' : 'en-GB';
   const t = s => (window.i18n ? window.i18n.tr(s) ?? s : s); // texts made here, as they change
-  const key = 'book:' + (q.get('album') ? 'album:' + q.get('album') : 'person:' + q.get('person'));
-  let photos = [];      // the album's photos, oldest first
+  const api = async (url, opt) => {
+    const r = await fetch(url, opt ? {headers: {'Content-Type': 'application/json'}, ...opt} : undefined);
+    if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
+    return r.json();
+  };
+
+  let rec = null;           // the book as stored: id, title, source
+  let src = null;           // where its photos come from (rec.source)
+  let photos = [];          // those photos, oldest first
   let byId = new Map();
-  // The book: the photos in their order, those left out, and the pages:
-  // how many photos each takes (0: a page of text) and its text (null:
-  // none). Photos fill the pages in order; any left over get pages of
-  // their own at the end.
+  const info = new Map();   // id → place, people, faces (/api/books/info)
+  let person = null;        // the person, in a book of one person
+  // The book: its pages, each with how many photos it takes (n; 0 for a
+  // page of text), the photos on it (ids) and a text (null: none); the
+  // photos left out; and its settings. A run of photo pages between two
+  // pages of text is filled in order, so a photo taken out or moved
+  // shifts the others within the run, not past a chapter.
   let book = null;
+  let others = 0;           // how many of the photos not in the book are shown
+  let dragged = null;       // the id of the photo being dragged
 
   function fmtDate(ts) {
     if (!ts) return '';
-    return new Date(ts * 1000).toLocaleDateString(lang === 'da' ? 'da-DK' : 'en-GB', {day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'});
+    return new Date(ts * 1000).toLocaleDateString(locale, {day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'});
   }
-  function src(im) { return '/preview/' + im.id + '?h=' + im.hash + (im.rot ? '&r=' + im.rot : ''); }
+  const imgSrc = im => '/preview/' + im.id + '?h=' + im.hash + (im.rot ? '&r=' + im.rot : '');
   const wide = im => (im.w || 4) >= (im.h || 3);
-  const pageWide = () => { const [w, h] = SIZES[$('size').value]; return w >= h; };
+  const pageWide = () => { const [w, h] = SIZES[book.size] || SIZES.a4l; return w >= h; };
+  const yearOf = im => im.taken ? new Date(im.taken * 1000).getUTCFullYear() : 0;
 
-  // pack makes pages for photos: one, two side by side (or one above the
-  // other), or four, as the setting and their shapes say.
+  // ---------- pages ----------
+
+  // pack makes pages for photos: as many on each as the setting says, or
+  // with "as they fit best", two that suit the page's shape together.
   function pack(list, per) {
     const out = [];
     for (let i = 0; i < list.length;) {
-      const a = list[i], b = list[i + 1];
-      let n = 1;
-      if (per === '4' || per === '2') n = +per;
-      else if (b && (pageWide() ? !wide(a) && !wide(b) : wide(a) && wide(b))) n = 2;
-      out.push({n, text: null});
+      let n = per === 'auto' ? 0 : +per;
+      if (!n) {
+        const a = list[i], b = list[i + 1];
+        n = b && (pageWide() ? !wide(a) && !wide(b) : wide(a) && wide(b)) ? 2 : 1;
+      }
+      out.push({n, ids: list.slice(i, i + n).map(p => p.id), text: null});
       i += n;
     }
     return out;
   }
 
-  function save() {
-    try {
-      localStorage.setItem(key, JSON.stringify({...book, title: $('title').value, theme: $('theme').value}));
-      localStorage.setItem('bookOptions', JSON.stringify({size: $('size').value, per: $('per').value, dates: $('dates').checked}));
-    } catch (e) {}
+  // reflow fills every run of photo pages in order: each page takes as
+  // many photos as it is set to, photos left over get new pages at the
+  // run's end, and a page left empty goes (or, with a text, keeps it as a
+  // page of text).
+  function reflow() {
+    const out = [];
+    let run = [];
+    const flush = () => {
+      if (!run.length) return;
+      const ids = run.flatMap(p => p.ids);
+      let i = 0;
+      for (const p of run) {
+        const take = ids.slice(i, i + p.n);
+        i += take.length;
+        if (take.length) out.push({...p, ids: take});
+        else if (p.text != null) out.push({n: 0, ids: [], text: p.text});
+      }
+      if (i < ids.length) out.push(...pack(ids.slice(i).map(id => byId.get(id)), book.per));
+      run = [];
+    };
+    for (const p of book.pages) {
+      if (p.n > 0) run.push(p);
+      else { flush(); out.push(p); }
+    }
+    flush();
+    book.pages = out;
   }
 
-  function fresh() {
-    book = {order: photos.map(p => p.id), out: [], pages: pack(photos, $('per').value)};
+  const seq = () => book.pages.flatMap(p => p.ids);
+  const inBook = () => new Set(seq());
+  function locate(id) {
+    for (let pi = 0; pi < book.pages.length; pi++) {
+      const k = book.pages[pi].ids.indexOf(id);
+      if (k >= 0) return [pi, k];
+    }
+    return [-1, -1];
+  }
+  // runOf numbers the runs of photo pages: pages of text between count.
+  const runOf = pi => book.pages.slice(0, pi).filter(p => p.n === 0).length;
+  function takeOut(id) {
+    const [pi, k] = locate(id);
+    if (pi >= 0) book.pages[pi].ids.splice(k, 1);
   }
 
-  // shown is the photos in the book, in their order.
-  const shown = () => book.order.filter(id => !book.out.includes(id) && byId.has(id)).map(id => byId.get(id));
-
-  // moveTo puts a photo at place k of the book (counted as shown before
-  // the move), so it lands in the slot that place has on its page.
-  // Photos left out keep their places in the order.
-  function moveTo(im, k) {
-    const list = shown().filter(p => p !== im);
-    list.splice(Math.max(0, Math.min(k, list.length)), 0, im);
-    let j = 0;
-    book.order = book.order.map(id => (!book.out.includes(id) && byId.has(id)) ? list[j++].id : id);
+  // moveTo puts a photo in the place of another (the anchor), which moves
+  // one on.
+  function moveTo(id, anchor) {
+    if (id === anchor) return;
+    const [spi] = locate(id), [api_] = locate(anchor);
+    const s = seq();
+    const after = runOf(spi) === runOf(api_) && s.indexOf(id) < s.indexOf(anchor);
+    takeOut(id);
+    reflow();
+    const [tpi, tk] = locate(anchor);
+    book.pages[tpi].ids.splice(tk + (after ? 1 : 0), 0, id);
+    reflow();
     render();
   }
-  let dragged = null; // the photo being dragged to another place
 
-  // flow matches the pages to the photos: each page takes its number of
-  // photos; pages left without photos go unless they hold text; photos
-  // left over get pages of their own.
-  function flow() {
-    const list = shown();
-    const pages = [];
-    let i = 0;
-    for (const pg of book.pages) {
-      if (pg.n === 0) { pages.push(pg); continue; }
-      const items = list.slice(i, i + pg.n);
-      i += items.length;
-      if (items.length) pages.push({...pg, n: pg.n, items});
-      else if (pg.text != null) pages.push({n: 0, text: pg.text});
+  // insertByDate puts a photo back among the others by when it was taken.
+  function insertByDate(id) {
+    const im = byId.get(id);
+    const s = seq().map(i => byId.get(i));
+    let anchor = null;
+    for (const o of s) if (im.taken && o.taken && o.taken <= im.taken) anchor = o;
+    if (anchor) {
+      const [pi, k] = locate(anchor.id);
+      book.pages[pi].ids.splice(k + 1, 0, id);
+    } else {
+      const pi = book.pages.findIndex(p => p.n > 0);
+      if (pi >= 0) book.pages[pi].ids.unshift(id);
+      else book.pages.push(...pack([im], book.per));
     }
-    if (i < list.length) {
-      const rest = list.slice(i);
-      let j = 0;
-      for (const pg of pack(rest, $('per').value)) { pages.push({...pg, items: rest.slice(j, j + pg.n)}); j += pg.n; }
-    }
-    book.pages = pages.map(p => ({n: p.n, text: p.text}));
-    return pages;
+    reflow();
   }
+
+  // repack lays every run out anew with the photos-per-page setting;
+  // texts on photo pages stay with the run.
+  function repack() {
+    const out = [];
+    let run = [];
+    const flush = () => {
+      if (!run.length) return;
+      const np = pack(run.flatMap(p => p.ids).map(id => byId.get(id)), book.per);
+      run.forEach((p, i) => {
+        if (p.text == null || !np.length) return;
+        const to = np[Math.min(i, np.length - 1)];
+        to.text = to.text == null ? p.text : to.text + '\n' + p.text;
+      });
+      out.push(...np);
+      run = [];
+    };
+    for (const p of book.pages) {
+      if (p.n > 0) run.push(p);
+      else { flush(); out.push(p); }
+    }
+    flush();
+    book.pages = out;
+  }
+
+  // ---------- choosing the photos ----------
+
+  async function needInfo() {
+    const want = photos.filter(p => !info.has(p.id)).map(p => p.id);
+    for (let i = 0; i < want.length; i += 1000) {
+      for (const f of await api('/api/books/info', {method: 'POST', body: JSON.stringify({ids: want.slice(i, i + 1000)})})) info.set(f.id, f);
+    }
+  }
+
+  const shot = im => (im.format || '').toLowerCase() === 'png' && !im.make || /screenshot|skærmbillede|screen shot/i.test(im.path || '');
+
+  function chapterKey(im, ch) {
+    if (!im.taken) return 'none';
+    const d = new Date(im.taken * 1000);
+    return ch === 'month' ? d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') : String(d.getUTCFullYear());
+  }
+  function chapterTitle(key, ch) {
+    if (key === 'none') return t('Without a date');
+    if (ch === 'month') {
+      const [y, m] = key.split('-').map(Number);
+      const s = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(locale, {month: 'long', year: 'numeric', timeZone: 'UTC'});
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    const y = +key;
+    if (person && person.birth_year && y >= person.birth_year) {
+      const age = y - person.birth_year;
+      return key + '\n' + t(age === 0 ? person.name + ' is born' : person.name + ' turns ' + age);
+    }
+    return key;
+  }
+  function chapters(list, ch) {
+    const groups = new Map();
+    for (const im of list) {
+      const k = chapterKey(im, ch);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(im);
+    }
+    const keys = [...groups.keys()].sort((a, b) => a === 'none' ? 1 : b === 'none' ? -1 : a < b ? -1 : 1);
+    return keys.map(k => [k, groups.get(k)]);
+  }
+
+  // pickBest chooses about n of the photos: no blurry ones or
+  // screenshots, the best of each burst (taken within 30 seconds), then
+  // round by round the best left of every chapter, or of every event
+  // (photos less than four hours apart), so the whole time is covered.
+  function pickBest(list, n) {
+    const ok = list.filter(im => !im.blurry && !shot(im));
+    const sharp = ok.map(im => im.sharp || 0).sort((a, b) => a - b);
+    const rank = v => {
+      let lo = 0, hi = sharp.length;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (sharp[m] < v) lo = m + 1; else hi = m; }
+      return sharp.length ? lo / sharp.length : 0;
+    };
+    const one = !!src.get('person');
+    const score = new Map(ok.map(im => {
+      const f = info.get(im.id) || {};
+      return [im.id, (im.fav ? 3 : 0) + (im.rating || 0) * .6 + rank(im.sharp || 0) + (f.faces ? .5 : 0) - (f.faces > 6 ? .3 : 0) +
+        (one ? Math.min((f.big_face || 0) * 4, 1) * .8 : 0) + Math.min((im.w || 0) * (im.h || 0) / 8e6, 1) * .3];
+    }));
+    const better = (a, b) => score.get(b.id) - score.get(a.id);
+    const kept = [];
+    let burst = [];
+    const end = () => { if (burst.length) kept.push(burst.slice().sort(better)[0]); burst = []; };
+    for (const im of ok) {
+      const last = burst[burst.length - 1];
+      if (last && !(im.taken && last.taken && im.taken - last.taken <= 30)) end();
+      burst.push(im);
+    }
+    end();
+    if (kept.length <= n) return kept;
+    const ch = src.get('chapters');
+    let groups;
+    if (ch) groups = chapters(kept, ch).map(([, g]) => g);
+    else {
+      groups = [];
+      let prev = null;
+      for (const im of kept) {
+        if (!prev || !(im.taken && prev.taken && im.taken - prev.taken < 4 * 3600)) groups.push([]);
+        groups[groups.length - 1].push(im);
+        prev = im;
+      }
+    }
+    groups.forEach(g => g.sort(better));
+    const chosen = new Set(), at = groups.map(() => 0);
+    while (chosen.size < n) {
+      const round = groups.map((g, i) => [g[at[i]], i]).filter(([im]) => im).sort((a, b) => better(a[0], b[0]));
+      if (!round.length) break;
+      for (const [im, i] of round) {
+        if (chosen.size >= n) break;
+        chosen.add(im.id);
+        at[i]++;
+      }
+    }
+    return kept.filter(im => chosen.has(im.id));
+  }
+
+  // fresh lays the book out anew from its photos, keeping its settings.
+  async function fresh() {
+    let list = photos;
+    if (book.pick > 0 && photos.length > book.pick) {
+      $('pages').innerHTML = '<div class="book-empty muted"></div>';
+      $('pages').firstChild.textContent = t('Choosing the best photos…');
+      await needInfo();
+      list = pickBest(photos, book.pick);
+    }
+    book.pages = [];
+    book.out = [];
+    book.cover = null;
+    const ch = src.get('chapters');
+    if (ch) {
+      for (const [key, group] of chapters(list, ch)) {
+        book.pages.push({n: 0, ids: [], text: chapterTitle(key, ch)});
+        book.pages.push(...pack(group, book.per));
+      }
+    } else book.pages = pack(list, book.per);
+  }
+
+  // ---------- saving ----------
+
+  let saveTimer = 0, dirty = false;
+  function save() {
+    dirty = true;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, 700);
+  }
+  function flushSave(leaving) {
+    clearTimeout(saveTimer);
+    if (!dirty || !rec) return;
+    dirty = false;
+    const body = JSON.stringify({title: $('title').value.trim(), source: rec.source, data: book});
+    fetch('/api/books/' + rec.id, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body, keepalive: !!leaving && body.length < 60000})
+      .then(r => { if (!r.ok) throw new Error(r.statusText); $('saved').textContent = t('Saved'); })
+      .catch(() => { dirty = true; $('saved').textContent = t('Not saved; trying again'); saveTimer = setTimeout(flushSave, 5000); });
+  }
+  addEventListener('pagehide', () => flushSave(true));
+
+  // ---------- drawing ----------
 
   function tool(label, title, fn, on) {
     const b = document.createElement('button');
@@ -257,20 +494,47 @@
     return b;
   }
 
-  function textBox(pg, placeholder) {
+  function textBox(obj, placeholder) {
     const d = document.createElement('div');
     d.className = 'page-text';
     d.contentEditable = 'true';
     d.dataset.ph = t(placeholder);
-    d.textContent = pg.text || '';
-    d.addEventListener('input', () => { pg.text = d.innerText.replace(/\n$/, ''); save(); });
+    d.textContent = obj.text || '';
+    d.addEventListener('input', () => { obj.text = d.innerText.replace(/\n$/, ''); save(); });
     return d;
   }
 
+  function caption(im) {
+    const f = info.get(im.id) || {};
+    return [im.title, book.cap.date && fmtDate(im.taken), book.cap.place && f.place, book.cap.who && (f.people || []).join(', ')]
+      .filter(Boolean).join(' · ');
+  }
+
+  // layout sets the grid for a page of count photos: one big and two
+  // small for three, otherwise rows and columns that suit the page.
+  function layout(grid, count) {
+    const w = pageWide();
+    let cols, rows;
+    if (count === 3) {
+      grid.style.gridTemplateColumns = w ? '2fr 1fr' : '1fr 1fr';
+      grid.style.gridTemplateRows = w ? '1fr 1fr' : '2fr 1fr';
+      return w ? 'row' : 'col';
+    }
+    if (count === 1) [cols, rows] = [1, 1];
+    else if (count === 2) [cols, rows] = w ? [2, 1] : [1, 2];
+    else if (count === 4) [cols, rows] = [2, 2];
+    else if (count <= 6) [cols, rows] = w ? [3, 2] : [2, 3];
+    else { cols = Math.ceil(Math.sqrt(count)); rows = Math.ceil(count / cols); }
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    return '';
+  }
+
   function render() {
-    const [w, h] = SIZES[$('size').value];
-    const dates = $('dates').checked, title = $('title').value.trim();
+    const [w, h] = SIZES[book.size] || SIZES.a4l;
+    const title = $('title').value.trim();
     $('page-size').textContent = `@page { size: ${w}mm ${h}mm; margin: 0; } .page { width: ${w}mm; height: ${h}mm; }`;
+    document.body.dataset.theme = book.theme || '';
     const root = $('pages');
     root.textContent = '';
     if (!photos.length) {
@@ -278,39 +542,40 @@
       root.firstChild.textContent = t('There are no photos to put in a book here.');
       return;
     }
-    const pages = flow();
     save();
-    const list = shown();
-    // The cover: the title, the years and the first photo of the book.
+    const pages = book.pages;
+    const list = seq().map(id => byId.get(id));
     const all = list.length ? list : photos;
-    const years = [all[0], all[all.length - 1]].map(p => p.taken ? new Date(p.taken * 1000).getUTCFullYear() : '').filter(Boolean);
+    const cover = byId.get(book.cover) && list.includes(byId.get(book.cover)) ? byId.get(book.cover) : all[0];
+    const years = [all[0], all[all.length - 1]].map(yearOf).filter(Boolean);
     const span = years.length ? (years[0] === years[1] ? String(years[0]) : years.join('–')) : '';
-    const cover = document.createElement('section');
-    cover.className = 'page cover';
-    cover.innerHTML = '<div class="ph"><img alt=""></div><h2></h2><p></p>';
-    cover.querySelector('img').src = src(all[0]);
-    cover.querySelector('h2').textContent = title || ' ';
-    cover.querySelector('p').textContent = span;
+
+    // The cover: the title, the years and a photo.
+    const cs = document.createElement('section');
+    cs.className = 'page cover';
+    cs.innerHTML = '<div class="ph"><img alt=""></div><h2></h2><p></p>';
+    cs.querySelector('img').src = imgSrc(cover);
+    cs.querySelector('h2').textContent = title || ' ';
+    cs.querySelector('p').textContent = span;
     const cw = document.createElement('div');
     cw.className = 'page-wrap';
     const ctools = document.createElement('div');
     ctools.className = 'page-tools';
-    ctools.append(tool('+ Text page', 'A page of text after this one', () => { book.pages.unshift({n: 0, text: ''}); render(); }));
-    cw.append(ctools, cover);
+    const cb = document.createElement('b');
+    cb.textContent = t('Cover');
+    ctools.append(cb, tool('+ Text page', 'A page of text after this one', () => { book.pages.unshift({n: 0, ids: [], text: ''}); render(); }));
+    cw.append(ctools, cs);
     root.appendChild(cw);
 
-    // Where each page's photos start in the book.
-    const starts = [];
-    pages.reduce((at, pg) => { starts.push(at); return at + (pg.items ? pg.items.length : 0); }, 0);
-    const toPage = im => {
+    const toPage = id => {
       const ans = prompt(t('Move the photo to page number (1–' + pages.length + '):'));
       const p = parseInt(ans, 10);
       if (!p || p < 1 || p > pages.length) return;
       if (!pages[p - 1].n) { alert(t('That is a page of text; choose a page with photos.')); return; }
-      moveTo(im, starts[p - 1]);
+      moveTo(id, pages[p - 1].ids[0]);
     };
+
     pages.forEach((pg, pi) => {
-      const real = book.pages[pi];
       const wrap = document.createElement('div');
       wrap.className = 'page-wrap';
       const tools = document.createElement('div');
@@ -321,168 +586,275 @@
       tools.append(num);
       if (pg.n === 0) {
         sec.className = 'page textpage';
-        sec.append(textBox(real, 'Write here'));
+        sec.append(textBox(pg, 'Write here'));
         tools.append(document.createTextNode(t('Page of text')),
-          tool('Remove page', '', () => { book.pages.splice(pi, 1); render(); }));
+          tool('Remove page', '', () => { book.pages.splice(pi, 1); reflow(); render(); }));
       } else {
-        sec.className = 'page';
+        const full = pg.full && pg.ids.length === 1;
+        sec.className = 'page' + (full ? ' full' : '');
         // Dropped on the page but not on a photo: first place on the page.
         sec.addEventListener('dragover', e => { if (dragged) { e.preventDefault(); sec.classList.add('drop'); } });
         sec.addEventListener('dragleave', e => { if (!sec.contains(e.relatedTarget)) sec.classList.remove('drop'); });
-        sec.addEventListener('drop', e => { e.preventDefault(); if (dragged) moveTo(dragged, starts[pi]); });
+        sec.addEventListener('drop', e => { e.preventDefault(); sec.classList.remove('drop'); if (dragged) moveTo(dragged, pg.ids[0]); });
         const grid = document.createElement('div');
         grid.className = 'grid';
-        const cols = pg.n === 4 || (pg.n === 2 && pageWide()) ? 2 : 1;
-        const rows = pg.n === 4 || (pg.n === 2 && !pageWide()) ? 2 : 1;
-        grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-        grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-        for (const im of pg.items) {
+        const big = layout(grid, pg.ids.length);
+        pg.ids.forEach((id, k) => {
+          const im = byId.get(id);
           const slot = document.createElement('div');
           slot.className = 'slot';
+          if (big && k === 0) slot.style[big === 'row' ? 'gridRow' : 'gridColumn'] = 'span 2';
           slot.innerHTML = '<div class="ph"><img alt="" loading="lazy"></div>';
-          slot.querySelector('img').src = src(im);
-          slot.querySelector('img').draggable = false; // the slot is what drags
-          if (dates) {
+          const img = slot.querySelector('img');
+          img.src = imgSrc(im);
+          img.draggable = false; // the slot is what drags
+          const text = caption(im);
+          if (text || !full) {
             const cap = document.createElement('div');
             cap.className = 'cap';
-            cap.textContent = [im.title, fmtDate(im.taken)].filter(Boolean).join(' · ');
+            cap.textContent = text;
             slot.appendChild(cap);
           }
           const pt = document.createElement('div');
           pt.className = 'photo-tools';
-          const at = () => book.order.indexOf(im.id);
           const swap = d => {
-            // With its neighbour in the book (skipping those left out).
-            const s = shown(), k = s.indexOf(im), other = s[k + d];
-            if (!other) return;
-            const a = at(), b = book.order.indexOf(other.id);
-            [book.order[a], book.order[b]] = [book.order[b], book.order[a]];
+            // With its neighbour in the book.
+            const s = seq(), other = s[s.indexOf(id) + d];
+            if (other == null) return;
+            const [a, ak] = locate(id), [b, bk] = locate(other);
+            book.pages[a].ids[ak] = other;
+            book.pages[b].ids[bk] = id;
             render();
           };
+          const star = tool('★', 'Use it on the cover', () => { book.cover = id; render(); });
+          if (cover && cover.id === id) star.className = 'is-cover';
+          const out = tool('×', 'Leave it out of the book', () => { takeOut(id); book.out.push(id); reflow(); render(); });
+          out.className = 'out';
           pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)),
-            tool('#', 'Move to page…', () => toPage(im)));
+            tool('#', 'Move to page…', () => toPage(id)), star, out);
+          slot.appendChild(pt);
           // Dragged onto another photo, it takes that photo's place.
           slot.draggable = true;
-          slot.addEventListener('dragstart', e => { dragged = im; e.dataTransfer.effectAllowed = 'move'; slot.classList.add('dragging'); });
+          slot.addEventListener('dragstart', e => { dragged = id; e.dataTransfer.effectAllowed = 'move'; slot.classList.add('dragging'); });
           slot.addEventListener('dragend', () => { dragged = null; slot.classList.remove('dragging'); });
-          slot.addEventListener('dragover', e => { if (dragged && dragged !== im) { e.preventDefault(); e.stopPropagation(); slot.classList.add('drop'); } });
+          slot.addEventListener('dragover', e => { if (dragged && dragged !== id) { e.preventDefault(); e.stopPropagation(); slot.classList.add('drop'); } });
           slot.addEventListener('dragleave', () => slot.classList.remove('drop'));
           slot.addEventListener('drop', e => {
             e.preventDefault(); e.stopPropagation();
-            if (dragged && dragged !== im) moveTo(dragged, list.indexOf(im));
+            if (dragged && dragged !== id) moveTo(dragged, id);
           });
-          const out = tool('×', 'Leave it out of the book (it stays in the album)', () => { book.out.push(im.id); render(); });
-          out.className = 'out';
-          pt.append(out);
-          slot.appendChild(pt);
           grid.appendChild(slot);
-        }
+        });
         sec.appendChild(grid);
-        if (real.text != null) sec.appendChild(textBox(real, 'Write a text for the page'));
+        if (pg.text != null) sec.appendChild(textBox(pg, 'Write a text for the page'));
         const seg = document.createElement('span');
         seg.className = 'seg';
-        for (const n of [1, 2, 4]) seg.append(tool(String(n), 'Photos on this page', () => { real.n = n; render(); }, pg.n === n));
-        tools.append(document.createTextNode(t('Photos on this page')), seg,
-          tool(real.text != null ? 'Remove text' : '+ Text', '', () => { real.text = real.text != null ? null : ''; render(); }));
+        for (const n of [1, 2, 3, 4, 6]) seg.append(tool(String(n), 'Photos on this page', () => { pg.n = n; reflow(); render(); }, pg.n === n));
+        tools.append(document.createTextNode(t('Photos on this page')), seg);
+        if (pg.ids.length === 1) tools.append(tool(full ? 'With a margin' : 'Fill the page', '', () => { pg.full = !full; render(); }));
+        tools.append(tool(pg.text != null ? 'Remove text' : '+ Text', '', () => { pg.text = pg.text != null ? null : ''; render(); }));
       }
-      tools.append(tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, text: ''}); render(); }));
+      tools.append(tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: ''}); render(); }));
       wrap.append(tools, sec);
       root.appendChild(wrap);
     });
-    const gone = book.out.filter(id => byId.has(id)).map(id => byId.get(id));
-    if (gone.length) {
-      const tray = document.createElement('div');
-      tray.className = 'left-out';
-      const hd = document.createElement('h3');
-      hd.textContent = t('Left out of the book');
-      const strip = document.createElement('div');
-      strip.className = 'strip';
-      for (const im of gone) {
+
+    if (book.back) {
+      const bw = document.createElement('div');
+      bw.className = 'page-wrap';
+      const bt = document.createElement('div');
+      bt.className = 'page-tools';
+      const bb = document.createElement('b');
+      bb.textContent = t('Back cover');
+      bt.append(bb);
+      const bs = document.createElement('section');
+      bs.className = 'page back';
+      const p = document.createElement('p');
+      p.textContent = [title, span].filter(Boolean).join(' · ');
+      bs.append(textBox(book.back, 'Write a text for the back'), p);
+      bw.append(bt, bs);
+      root.appendChild(bw);
+    }
+
+    // Under the book: the photos left out, and the others not in it.
+    const have = new Set(list.map(im => im.id));
+    const gone = book.out.filter(id => byId.has(id) && !have.has(id)).map(id => byId.get(id));
+    const rest = photos.filter(im => !have.has(im.id) && !book.out.includes(im.id));
+    const tray = document.createElement('div');
+    tray.className = 'left-out';
+    const strip = (items, label, hint) => {
+      const s = document.createElement('div');
+      s.className = 'strip';
+      for (const im of items) {
         const it = document.createElement('div');
         it.className = 'item';
         const img = document.createElement('img');
-        img.src = src(im);
+        img.src = imgSrc(im);
         img.loading = 'lazy';
-        const back = tool('Put back', 'Put it back in the book where it was', () => { book.out = book.out.filter(id => id !== im.id); render(); });
-        back.className = 'btn';
-        it.append(img, back);
-        strip.appendChild(it);
+        img.title = fmtDate(im.taken);
+        const b = tool(label, hint, () => { book.out = book.out.filter(x => x !== im.id); insertByDate(im.id); render(); });
+        b.className = 'btn';
+        it.append(img, b);
+        s.appendChild(it);
       }
-      tray.append(hd, strip);
-      root.appendChild(tray);
+      return s;
+    };
+    if (gone.length) {
+      const hd = document.createElement('h3');
+      hd.textContent = t('Left out of the book');
+      tray.append(hd, strip(gone, 'Put back', 'Put it back in the book by its date'));
     }
-    const left = book.out.length;
-    $('count').textContent = t(list.length + (list.length === 1 ? ' photo' : ' photos') + ' · ' + (pages.length + 1) + ' pages') +
-      (left ? ' · ' + t(left + (left === 1 ? ' left out' : ' left out')) : '');
+    if (rest.length) {
+      const hd = document.createElement('h3');
+      hd.textContent = t(rest.length + (rest.length === 1 ? ' other photo not in the book' : ' other photos not in the book'));
+      tray.append(hd);
+      if (others) tray.append(strip(rest.slice(0, others), 'Add', 'Add it to the book by its date'));
+      if (others < rest.length) {
+        const more = tool(others ? 'Show more' : 'Show them', '', () => { others += 120; render(); });
+        more.className = 'btn more';
+        tray.append(more);
+      }
+    }
+    if (tray.childNodes.length) root.appendChild(tray);
+
+    const left = gone.length;
+    $('count').textContent = t(list.length + (list.length === 1 ? ' photo' : ' photos') + ' · ' + (pages.length + 1 + (book.back ? 1 : 0)) + ' pages') +
+      (left ? ' · ' + t(left + ' left out') : '');
   }
 
-  async function load() {
+  // ---------- loading ----------
+
+  // convert reads a book saved by the earlier page (in the browser): the
+  // order of the photos and how many each page took.
+  function convert(d) {
+    const out = new Set(d.out || []);
+    const list = (d.order || []).filter(id => byId.has(id) && !out.has(id));
+    const pages = [];
+    let i = 0;
+    for (const p of d.pages || []) {
+      if (!p.n) { pages.push({n: 0, ids: [], text: p.text ?? ''}); continue; }
+      const ids = list.slice(i, i + p.n);
+      i += ids.length;
+      if (ids.length) pages.push({n: p.n, ids, text: p.text ?? null});
+    }
+    pages.push(...pack(list.slice(i).map(id => byId.get(id)), book.per));
+    book.pages = pages;
+    book.out = [...out];
+    if (d.theme) book.theme = d.theme;
+  }
+
+  async function open() {
+    let id = +q.get('book');
+    if (!id) {
+      // Opened from an album or a person: their book, or a new one.
+      const s = new URLSearchParams();
+      for (const k of ['album', 'person']) if (q.get(k)) s.set(k, q.get(k));
+      const source = s.toString();
+      const found = (await api('/api/books')).find(b => b.source === source);
+      if (found) id = found.id;
+      else {
+        let data = null;
+        try { data = JSON.parse(localStorage.getItem('book:' + (q.get('album') ? 'album:' + q.get('album') : 'person:' + q.get('person'))) || 'null'); } catch (e) {}
+        id = (await api('/api/books', {method: 'POST', body: JSON.stringify({title: (data && data.title) || q.get('title') || '', source, data})})).id;
+      }
+      history.replaceState(null, '', '?book=' + id);
+    }
+    rec = await api('/api/books/' + id);
+    src = new URLSearchParams(rec.source);
+    $('title').value = rec.title || '';
+    document.title = (rec.title || t('Photo book')) + ' – ImageOrganizer';
+
     const base = new URLSearchParams({sort: 'taken_asc', limit: '2000'});
-    for (const k of ['album', 'person']) if (q.get(k)) base.set(k, q.get(k));
+    for (const k of ['album', 'person', 'people', 'from', 'to', 'near', 'km']) if (src.get(k)) base.set(k, src.get(k));
     for (let off = 0; ; off += 2000) {
       base.set('offset', off);
-      const r = await fetch('/api/images?' + base).then(r => r.json());
+      const r = await api('/api/images?' + base);
       photos = photos.concat((r.items || []).filter(im => !im.video && im.thumb));
       if (!r.items || r.items.length < 2000) break;
     }
     byId = new Map(photos.map(p => [p.id, p]));
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
-    if (saved && Array.isArray(saved.order) && Array.isArray(saved.pages)) {
-      // The book as left, with photos added to the album since at the end.
-      const known = new Set(saved.order);
-      book = {order: saved.order.filter(id => byId.has(id)).concat(photos.filter(p => !known.has(p.id)).map(p => p.id)),
-        out: saved.out || [], pages: saved.pages};
-      if (saved.title) $('title').value = saved.title;
-      $('theme').value = saved.theme || '';
+    if (src.get('person')) person = ((await api('/api/people').catch(() => ({}))).people || []).find(p => p.id === +src.get('person')) || null;
+
+    let old = {};
+    try { old = JSON.parse(localStorage.getItem('bookOptions') || '{}'); } catch (e) {}
+    const d = rec.data;
+    book = {v: 2, pages: [], out: [], theme: '', size: old.size || 'a4l', per: old.per || 'auto',
+      cap: {date: old.dates !== false, place: false, who: false}, back: null, cover: null,
+      pick: src.get('pick') != null ? +src.get('pick') : (photos.length > 150 ? 80 : 0)};
+    if (d && d.v === 2) {
+      book = {...book, ...d, cap: {...book.cap, ...(d.cap || {})}};
+      // Photos gone from the library leave the book; with all photos
+      // chosen, photos new to its source come in by their dates.
+      for (const p of book.pages) p.ids = p.ids.filter(id => byId.has(id));
+      book.out = book.out.filter(id => byId.has(id));
+      reflow();
+      if (!book.pick) {
+        const have = inBook();
+        for (const im of photos) if (!have.has(im.id) && !book.out.includes(im.id)) insertByDate(im.id);
+      }
+    } else if (d && Array.isArray(d.order)) {
+      convert(d);
     } else {
-      fresh();
+      await fresh();
     }
-    document.body.dataset.theme = $('theme').value;
+    if (book.cap.place || book.cap.who) await needInfo();
+    showSettings();
     render();
   }
 
-  try {
-    const o = JSON.parse(localStorage.getItem('bookOptions') || '{}');
-    if (o.size) $('size').value = o.size;
-    if (o.per) $('per').value = o.per;
-    if (o.dates === false) $('dates').checked = false;
-  } catch (e) {}
-  $('title').value = q.get('title') || '';
-
-  $('size').addEventListener('change', render);
-  $('theme').addEventListener('change', () => { document.body.dataset.theme = $('theme').value; save(); });
-  $('dates').addEventListener('change', render);
-  $('per').addEventListener('change', () => {
-    // Every page gets the new number; texts and order stay.
-    const n = $('per').value === 'auto' ? null : +$('per').value;
-    if (n) book.pages.forEach(p => { if (p.n) p.n = n; });
-    else {
-      // As they fit best again; pages of text stay where they were.
-      const texts = book.pages.map((p, i) => [i, p]).filter(([, p]) => p.n === 0);
-      book.pages = pack(shown(), 'auto');
-      for (const [i, p] of texts) book.pages.splice(Math.min(i, book.pages.length), 0, p);
+  function showSettings() {
+    $('size').value = book.size;
+    $('per').value = book.per;
+    $('theme').value = book.theme || '';
+    $('dates').checked = !!book.cap.date;
+    $('place').checked = !!book.cap.place;
+    $('who').checked = !!book.cap.who;
+    $('back').checked = !!book.back;
+    const pick = $('pick');
+    if (![...pick.options].some(o => +o.value === book.pick)) {
+      const o = document.createElement('option');
+      o.value = book.pick;
+      o.textContent = t('The best ' + book.pick);
+      pick.appendChild(o);
     }
+    pick.value = String(book.pick);
+  }
+
+  $('size').addEventListener('change', () => { book.size = $('size').value; if (book.per === 'auto') repack(); render(); });
+  $('theme').addEventListener('change', () => { book.theme = $('theme').value; render(); });
+  $('per').addEventListener('change', () => { book.per = $('per').value; repack(); render(); });
+  $('dates').addEventListener('change', () => { book.cap.date = $('dates').checked; render(); });
+  for (const k of ['place', 'who']) {
+    $(k).addEventListener('change', async () => {
+      book.cap[k] = $(k).checked;
+      if (book.cap[k]) await needInfo().catch(() => {});
+      render();
+    });
+  }
+  $('back').addEventListener('change', () => { book.back = $('back').checked ? (book.back || {text: ''}) : null; render(); });
+  $('pick').addEventListener('change', async () => {
+    if (!confirm(t('Choose the photos again and lay the book out anew? Your texts, order and left-out photos are forgotten.'))) { $('pick').value = String(book.pick); return; }
+    book.pick = +$('pick').value;
+    others = 0;
+    await fresh();
     render();
   });
   $('title').addEventListener('input', () => { const h = document.querySelector('.cover h2'); if (h) h.textContent = $('title').value || ' '; save(); });
-  $('restart').addEventListener('click', () => {
-    if (!confirm(t('Lay the book out again from the album? Your texts, order and left-out photos are forgotten.'))) return;
-    try { localStorage.removeItem(key); } catch (e) {}
-    $('title').value = q.get('title') || '';
-    $('theme').value = document.body.dataset.theme = '';
-    fresh();
+  $('restart').addEventListener('click', async () => {
+    if (!confirm(t('Lay the book out again? Your texts, order and left-out photos are forgotten.'))) return;
+    others = 0;
+    await fresh();
     render();
   });
   $('print').addEventListener('click', async () => {
     // Every photo must be loaded before printing, not only those seen.
     document.activeElement && document.activeElement.blur();
-    const imgs = [...document.querySelectorAll('.pages img')];
+    const imgs = [...document.querySelectorAll('.page img')];
     imgs.forEach(i => { i.loading = 'eager'; });
     await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
     window.print();
   });
-  load().catch(e => { $('pages').innerHTML = '<div class="book-empty"></div>'; $('pages').firstChild.textContent = e.message; });
+  open().catch(e => { $('pages').innerHTML = '<div class="book-empty"></div>'; $('pages').firstChild.textContent = e.message; });
 })();
 </script>
 </body>

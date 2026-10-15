@@ -64,6 +64,7 @@ document.addEventListener('alpine:init', () => {
       {id: 'photos', label: 'Photos', icon: 'photos'},
       {id: 'favorites', label: 'Favorites', icon: 'heart', view: 'photos', fav: true},
       {id: 'albums', label: 'Albums', icon: 'album'},
+      {id: 'books', label: 'Photo books', icon: 'book'},
       {id: 'discover', label: 'Discover', icon: 'discover', badge: true},
       {id: 'people', label: 'People', icon: 'people'},
       {id: 'review', label: 'Review', icon: 'check', badge: true},
@@ -102,6 +103,8 @@ document.addEventListener('alpine:init', () => {
     album: 0,           // photos filtered to this album
     albums: [],         // the Albums page
     albumPick: {open: false, ids: [], name: '', busy: false}, // "Add to album…" for these photos
+    books: [],          // the Photo books page
+    bookNew: {open: false}, // "New photo book" (openBookNew)
     personName: '',
     peopleData: {people: [], groups: []},
     openPersonId: 0,    // person page in the People view
@@ -390,6 +393,7 @@ document.addEventListener('alpine:init', () => {
       if (v === 'discover') this.loadDiscover();
       if (v === 'family') this.loadPeople();
       if (v === 'albums') this.loadAlbums();
+      if (v === 'books') this.loadBooks();
       if (v === 'photos') this.$nextTick(() => this.layout());
     },
     isPhotoView() { return ['photos', 'table', 'map'].includes(this.view); },
@@ -2901,6 +2905,92 @@ document.addEventListener('alpine:init', () => {
       window.open('/static/book.html?' + p, '_blank');
     },
     albumLabel() { const a = this.albums.find(a => a.id === this.album); return a ? a.name : '…'; },
+
+    // ---------- photo books ----------
+    async loadBooks() { this.books = await api('/api/books').catch(() => this.books); },
+    openSavedBook(b) { window.open('/static/book.html?book=' + b.id, '_blank'); },
+    async deleteBook(b) {
+      if (!confirm(`Delete the photo book “${b.title || '…'}”? The photos are not touched.`)) return;
+      await api('/api/books/' + b.id, {method: 'DELETE'}).catch(e => this.notify(`Couldn’t delete: ${e.message}`, 6000));
+      this.loadBooks();
+    },
+    namedPeople() {
+      return (this.peopleData.people || []).filter(p => p.name && !p.picture).slice().sort((a, b) => a.name.localeCompare(b.name));
+    },
+    openBookNew() {
+      const y = new Date().getFullYear() - 1;
+      this.bookNew = {open: true, kind: 'person', person: 0, people: [], album: 0, year: y, from: '', to: '',
+        placeQ: '', places: [], place: null, km: 30, pick: 80, title: '', busy: false, error: ''};
+      Promise.all([this.loadAlbums(), this.peopleData.people.length ? null : this.loadPeople()]).then(() => {
+        const p = this.namedPeople()[0], a = this.albums[0];
+        if (p && !this.bookNew.person) this.bookNew.person = p.id;
+        if (a && !this.bookNew.album) this.bookNew.album = a.id;
+      });
+    },
+    async bookPlaces() {
+      const b = this.bookNew;
+      b.place = null;
+      b.places = b.placeQ.trim() ? await api('/api/places?q=' + encodeURIComponent(b.placeQ.trim())).catch(() => []) : [];
+    },
+    // bookSource is where the new book's photos come from, as book.html
+    // reads it; empty while something is missing.
+    bookSource() {
+      const b = this.bookNew, s = new URLSearchParams();
+      switch (b.kind) {
+        case 'person': if (!b.person) return ''; s.set('person', b.person); break;
+        case 'years': if (!b.person) return ''; s.set('person', b.person); s.set('chapters', 'year'); break;
+        case 'together': if (b.people.length < 2) return ''; s.set('people', b.people.join(',')); break;
+        case 'album': if (!b.album) return ''; s.set('album', b.album); break;
+        case 'year': if (!(b.year > 1800)) return ''; s.set('from', b.year + '-01-01'); s.set('to', b.year + '-12-31'); s.set('chapters', 'month'); break;
+        case 'trip':
+          if (!b.from && !b.to && !b.place) return '';
+          if (b.from) s.set('from', b.from);
+          if (b.to) s.set('to', b.to);
+          if (b.place) { s.set('near', b.place.lat.toFixed(4) + ',' + b.place.lon.toFixed(4)); s.set('km', b.km); }
+          break;
+        default: return '';
+      }
+      s.set('pick', b.pick || 0);
+      return s.toString();
+    },
+    bookTitle() {
+      const b = this.bookNew;
+      const name = id => (this.namedPeople().find(p => p.id === id) || {}).name || '';
+      switch (b.kind) {
+        case 'person': return name(b.person);
+        case 'years': return name(b.person) ? name(b.person) + ' through the years' : '';
+        case 'together': return b.people.map(name).filter(Boolean).join(' & ');
+        case 'album': return (this.albums.find(a => a.id === b.album) || {}).name || '';
+        case 'year': return b.year ? String(b.year) : '';
+        case 'trip': {
+          const y = (b.from || b.to || '').slice(0, 4);
+          return [b.place && b.place.name, y].filter(Boolean).join(' ');
+        }
+      }
+      return '';
+    },
+    async makeBook() {
+      const b = this.bookNew, source = this.bookSource();
+      if (!source) return;
+      b.busy = true;
+      b.error = '';
+      // The tab is opened now, while it is the click's: opened after the
+      // answer, a browser may block it.
+      const tab = window.open('', '_blank');
+      try {
+        const title = b.title.trim() || window.i18n && window.i18n.tr(this.bookTitle()) || this.bookTitle();
+        const made = await api('/api/books', {method: 'POST', body: JSON.stringify({title, source})});
+        b.open = false;
+        if (tab) tab.location = '/static/book.html?book=' + made.id;
+        else this.openSavedBook(made);
+        this.loadBooks();
+      } catch (e) {
+        if (tab) tab.close();
+        b.error = e.message;
+      } finally {
+        b.busy = false;
+      }
+    },
     ask(text, value = '') { return window.prompt(window.i18n ? window.i18n.tr(text) : text, value); },
     async newAlbum(ids = []) {
       const name = (this.ask('Name of the new album') || '').trim();

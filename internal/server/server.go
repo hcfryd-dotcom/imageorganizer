@@ -101,6 +101,7 @@ func (s *Server) Handler() http.Handler {
 	s.tidyRoutes(mux)
 	s.fetchRoutes(mux)
 	s.albumRoutes(mux)
+	s.bookRoutes(mux)
 	s.frameRoutes(mux)
 	s.confidentRoutes(mux)
 	s.deleteRoutes(mux)
@@ -549,6 +550,27 @@ func (s *Server) parseQuery(r *http.Request) (store.Filter, parsedQuery) {
 	if t, err := time.Parse("2006-01", q.Get("month")); err == nil {
 		end := t.AddDate(0, 1, 0)
 		f.From, f.To = &t, &end
+	}
+	// Taken within km of a place: near=lat,lon&km=30 (photo books).
+	if ll := strings.Split(q.Get("near"), ","); len(ll) == 2 {
+		lat, err1 := strconv.ParseFloat(ll[0], 64)
+		lon, err2 := strconv.ParseFloat(ll[1], 64)
+		km, err3 := strconv.ParseFloat(q.Get("km"), 64)
+		if err3 != nil || km <= 0 {
+			km = 30
+		}
+		if err1 == nil && err2 == nil {
+			restrict(s.Store.NearImageIDs(lat, lon, km))
+		}
+	}
+	// A span of days, from and to both counted (photo books).
+	if t, err := time.Parse("2006-01-02", q.Get("from")); err == nil && (f.From == nil || t.After(*f.From)) {
+		f.From = &t
+	}
+	if t, err := time.Parse("2006-01-02", q.Get("to")); err == nil {
+		if end := t.AddDate(0, 0, 1); f.To == nil || end.Before(*f.To) {
+			f.To = &end
+		}
 	}
 	var pq parsedQuery
 	f.Text, pq.Range = extractDates(f.Text)
