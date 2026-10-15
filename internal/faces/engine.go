@@ -32,8 +32,9 @@ import (
 type Engine struct {
 	det, rec, age *ort.DynamicAdvancedSession
 	nsfw          *ort.DynamicAdvancedSession
-	gender        bool   // the age model also gives gender (its "head" output)
-	device        string // "cuda" or "cpu", as actually used
+	lmk           *ort.DynamicAdvancedSession // 106 landmarks, for eyes (eyes.go)
+	gender        bool                        // the age model also gives gender (its "head" output)
+	device        string                      // "cuda" or "cpu", as actually used
 	// gpu feeds model runs to a few dedicated OS threads. ONNX Runtime's
 	// CUDA provider keeps cuBLAS/cuDNN handles and workspaces per calling
 	// OS thread; Go would spread runs over dozens of threads and VRAM grew
@@ -161,6 +162,12 @@ func Open(c Config) (*Engine, error) {
 			return nil, fmt.Errorf("nsfw model: %w", err)
 		}
 	}
+	if c.Landmarks != "" && fileExists(c.Landmarks) {
+		if e.lmk, err = open(c.Landmarks); err != nil {
+			e.Close()
+			return nil, fmt.Errorf("landmark model: %w", err)
+		}
+	}
 	return e, nil
 }
 
@@ -195,7 +202,7 @@ func (e *Engine) Close() {
 	if e.gpu != nil {
 		close(e.gpu)
 	}
-	for _, s := range []*ort.DynamicAdvancedSession{e.det, e.rec, e.age, e.nsfw} {
+	for _, s := range []*ort.DynamicAdvancedSession{e.det, e.rec, e.age, e.nsfw, e.lmk} {
 		if s != nil {
 			s.Destroy()
 		}

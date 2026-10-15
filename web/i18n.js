@@ -329,6 +329,9 @@
     'Move to page…': 'Flyt til side…', 'That is a page of text; choose a page with photos.': 'Det er en tekstside; vælg en side med billeder.',
     'A4 landscape': 'A4 på langs', 'A4 portrait': 'A4 på højkant', 'Square (21 × 21 cm)': 'Kvadratisk (21 × 21 cm)',
     'Photos per page': 'Billeder pr. side', 'As they fit best': 'Som de passer bedst', 'Dates under the photos': 'Datoer under billederne',
+    'Leave out photos with shut eyes (the program can take narrowed eyes, or someone looking down, for shut)':
+      'Spring billeder over med lukkede øjne (programmet kan tage smalle øjne, eller nogen der kigger ned, for lukkede)',
+    'Looking at eyes': 'Ser på øjne', 'Open or shut, for photo books': 'Åbne eller lukkede, til fotobøger',
     'Fill the boxes': 'Fyld rammerne', 'Every photo fills its box, cropped so the faces show': 'Hvert billede fylder sin ramme, beskåret så ansigterne ses',
     'Better light': 'Bedre lys',
     'Dark or flat photos a little lighter and clearer, on the page only: your files are not changed': 'Mørke eller flade billeder lidt lysere og klarere, kun på siden: dine filer ændres ikke',

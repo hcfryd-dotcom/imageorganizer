@@ -719,6 +719,7 @@ type FaceView struct {
 	Taken    *int64     `json:"taken,omitempty"`
 	Group    int64      `json:"group,omitempty"`
 	PersonID int64      `json:"person,omitempty"`
+	Eyes     float32    `json:"eyes,omitempty"` // how open the eyes are; 0 not judged, -1 couldn't be
 	Person   string     `json:"person_name,omitempty"`
 	Odd      bool       `json:"odd,omitempty"`   // among a group's least alike faces, in a sample
 	Bg       bool       `json:"bg,omitempty"`    // a background face (isBackground)
@@ -762,7 +763,7 @@ type GroupView struct {
 }
 
 func (s *Store) faceView(f *faceRec) FaceView {
-	v := FaceView{ID: f.ID, ImageID: f.ImageID, Box: f.Box, Age: f.Age, Group: f.ClusterID, Bg: s.passerBy(f)}
+	v := FaceView{ID: f.ID, ImageID: f.ImageID, Box: f.Box, Age: f.Age, Group: f.ClusterID, Bg: s.passerBy(f), Eyes: f.Eyes}
 	if c := s.clusters[f.ClusterID]; c != nil && c.Hidden {
 		v.Bg = true // a stranger: shown faint, like a passer-by
 	}

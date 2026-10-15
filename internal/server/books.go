@@ -113,6 +113,9 @@ type faceBit struct {
 	// B is the face's box: left, top, right, bottom, as shares of the
 	// photo, for keeping faces in view when a photo is cropped.
 	B [4]float32 `json:"b"`
+	// Eyes is how open the more open eye is (0: not judged yet, -1:
+	// couldn't be); under about 0.16 they are shut or looking down.
+	Eyes float32 `json:"eyes,omitempty"`
 }
 
 type photoLook struct {
@@ -195,7 +198,7 @@ func (s *Server) bookInfo(w http.ResponseWriter, r *http.Request) {
 			pi.BigFace = max(pi.BigFace, f.Box[2]-f.Box[0]) // boxes are shares of the photo
 			b := f.Box
 			pi.List = append(pi.List, faceBit{P: f.PersonID, W: b[2] - b[0],
-				Cut: b[0] < cutEdge || b[1] < cutEdge || b[2] > 1-cutEdge || b[3] > 1-cutEdge, B: round3(b)})
+				Cut: b[0] < cutEdge || b[1] < cutEdge || b[2] > 1-cutEdge || b[3] > 1-cutEdge, B: round3(b), Eyes: f.Eyes})
 		}
 		out = append(out, pi)
 	}

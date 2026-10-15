@@ -51,3 +51,29 @@ func AgeStage(e *Engine, st *store.Store, cropPath func(key string) string, work
 
 // CropKey names the crop of face i of the image with this content hash.
 func CropKey(hash string, i int) string { return hash + "_" + strconv.Itoa(i) }
+
+// EyesStage judges how open each face's eyes are, from its stored crop
+// (EyesFromCrop), so photo books can leave out shut eyes.
+func EyesStage(e *Engine, st *store.Store, cropPath func(key string) string, workers int, log *slog.Logger) pipeline.Stage[store.EyesJob] {
+	return pipeline.Stage[store.EyesJob]{
+		Name:    "eyes",
+		Workers: workers,
+		Next:    st.NeedEyes,
+		Key:     func(j store.EyesJob) int64 { return j.FaceID },
+		Do: func(ctx context.Context, j store.EyesJob) error {
+			crop, err := os.ReadFile(cropPath(CropKey(j.Hash, j.Index)))
+			if err != nil { // no crop: can't judge
+				return st.SetEyes(ctx, j.FaceID, -1)
+			}
+			open, ok, err := e.EyesFromCrop(crop, j.CropBox)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				open = -1
+			}
+			return st.SetEyes(ctx, j.FaceID, open)
+		},
+		Log: log,
+	}
+}

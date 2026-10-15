@@ -24,7 +24,11 @@ func (e *Engine) Analyze(img *image.RGBA) ([]Face, error) { return nil, errNoRun
 func (e *Engine) HasGender() bool                         { return false }
 func (e *Engine) HasAge() bool                            { return false }
 func (e *Engine) HasNSFW() bool                           { return false }
-func (e *Engine) NSFW(img image.Image) (float32, error)   { return 0, errNoRuntime }
+func (e *Engine) HasEyes() bool                           { return false }
+func (e *Engine) EyesFromCrop(crop []byte, box [4]float32) (float32, bool, error) {
+	return 0, false, errNoRuntime
+}
+func (e *Engine) NSFW(img image.Image) (float32, error) { return 0, errNoRuntime }
 func (e *Engine) EstimateFull(img *image.RGBA, box [4]float32) (Estimate, error) {
 	return Estimate{Female: -1}, errNoRuntime
 }

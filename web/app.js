@@ -523,6 +523,8 @@ document.addEventListener('alpine:init', () => {
     // Faces waiting for the age stage (age, and gender with the gender
     // model): new photos' faces, or all faces once after the model arrived.
     facesLeft() { const j = this.jobs; return j && j.ageable ? Math.max(0, j.ageable - (j.aged || 0)) : 0; },
+    eyesLeft() { const j = this.jobs; return j && j.eyeable ? Math.max(0, j.eyeable - (j.eyed || 0)) : 0; },
+    eyesPct() { const j = this.jobs; return j && j.eyeable ? Math.min(100, 100 * (j.eyed || 0) / j.eyeable) : 0; },
     facesPct() { const j = this.jobs; return j && j.ageable ? Math.min(100, 100 * (j.aged || 0) / j.ageable) : 0; },
     facesActive() { const j = this.jobs; return !!(j && j.age && j.age.running); },
     facesNote() { const j = this.jobs; return j && j.age && j.age.paused ? 'Paused' : j && j.gender ? 'Age and gender, from the face crops' : 'Age, from the face crops'; },

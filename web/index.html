@@ -66,6 +66,12 @@
       <div class="bar"><div :style="`width:${facesPct()}%`"></div></div>
       <div class="scan-nums"><span x-text="fmtCount(facesLeft()) + ' faces left'"></span><span x-text="faceEtaLabel()"></span></div>
     </div>
+    <div class="scan-card" x-show="eyesLeft() > 0" x-transition x-cloak>
+      <div class="scan-title"><span class="spinner"></span> Looking at eyes</div>
+      <div class="scan-note">Open or shut, for photo books</div>
+      <div class="bar"><div :style="`width:${eyesPct()}%`"></div></div>
+      <div class="scan-nums"><span x-text="fmtCount(eyesLeft()) + ' faces left'"></span></div>
+    </div>
     <div class="foot-row">
       <div class="conn-pill" :class="conn.online ? 'ok' : 'down'">
         <span class="dot"></span><span x-text="conn.online ? (conn.dev ? 'Live · dev' : 'Live') : 'Offline'"></span>

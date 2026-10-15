@@ -102,6 +102,12 @@ the rest of the repo.
 - Albums (`store/albums.go`, `/api/albums`, sidebar "Album").
 - Daily backups of library.bolt (`internal/backup`), set to
   `E:\ImageOrganizer-backup`, 14 kept; Settings shows the last one.
+- Eyes: `models\2d106det.onnx` (InsightFace buffalo_l 106 landmarks,
+  non-commercial, from the official buffalo_l.zip v0.7 on 2026-10-15;
+  `genderage.onnx` from the same pack is kept, unused, in
+  `E:\ImageOrganizer-download-buffalo`). The "eyes" job judges each face
+  crop once (`faces/eyes.go`: the more open eye's height over width;
+  under 0.16 is shut or looking down); photo books can leave them out.
 - Age model `models\mivolo_v2_age.onnx` (Sam-Apostel/mivolo-v2-age-onnx,
   Apache-2.0; age only, no gender) since 2026-10-15.
 - Review has a slider for the card/face size.

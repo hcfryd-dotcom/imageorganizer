@@ -269,6 +269,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 	})
 
 	var ageRunner *pipeline.Runner[store.AgeJob]
+	var eyesRunner *pipeline.Runner[store.EyesJob]
 	var peopleRunner *pipeline.Runner[int64]
 	if faceEngine != nil {
 		// People matching and clustering run one face at a time so clusters
@@ -291,6 +292,11 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 			// Without an age model faces are grouped as soon as they are found.
 			importer.OnImage = chain(importer.OnImage, func(int64) { peopleRunner.Wake() })
 		}
+		if faceEngine.HasEyes() {
+			eyesRunner = pipeline.New(faces.EyesStage(faceEngine, st, faceCrops.Path, 2, log))
+			importer.OnImage = chain(importer.OnImage, func(int64) { eyesRunner.Wake() })
+			bg.Go(func() { eyesRunner.Run(ctx) })
+		}
 	}
 	// Looking at thumbnails: sharpness, and NSFW with the classifier.
 	st.NsfwModel = faceEngine.HasNSFW()
@@ -312,6 +318,8 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 			return set(importRunner.Pause, importRunner.Resume)
 		case stage == "embed" && embedRunner != nil:
 			return set(embedRunner.Pause, embedRunner.Resume)
+		case stage == "eyes" && eyesRunner != nil:
+			return set(eyesRunner.Pause, eyesRunner.Resume)
 		case stage == "age" && ageRunner != nil:
 			return set(ageRunner.Pause, ageRunner.Resume)
 		case stage == "look":
@@ -454,6 +462,10 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 				j["age"] = ageRunner.Status()
 				j["aged"], j["ageable"] = st.AgeStats()
 				j["gender"] = faceEngine != nil && faceEngine.HasGender()
+			}
+			if eyesRunner != nil {
+				j["eyes"] = eyesRunner.Status()
+				j["eyed"], j["eyeable"] = st.EyesStats()
 			}
 			if peopleRunner != nil {
 				j["people"] = peopleRunner.Status()

@@ -58,6 +58,11 @@ type faceRec struct {
 	// girl's, -1 if it couldn't be judged; FemV is 1 once estimated.
 	Fem  float32 `json:"fem,omitempty"`
 	FemV int     `json:"femv,omitempty"`
+	// Eyes is how open the face's more open eye is (height over width,
+	// faces.EyesFromCrop), -1 if it couldn't be judged; EyesV is 1 once
+	// judged.
+	Eyes  float32 `json:"eyes,omitempty"`
+	EyesV int     `json:"eyesv,omitempty"`
 	// Tagged is the person the user tagged this very face as (in a photo),
 	// as opposed to naming its whole group. It survives regrouping.
 	Tagged int64 `json:"tag,omitempty"`
@@ -454,6 +459,68 @@ func (s *Store) AgeStats() (done, total int) {
 	for _, f := range s.faces {
 		total++
 		if !s.needsEstimate(f) {
+			done++
+		}
+	}
+	return done, total
+}
+
+// EyesJob is a face whose eyes wait to be judged.
+type EyesJob struct {
+	FaceID  int64
+	Hash    string // content hash of the image, names the crop
+	Index   int
+	CropBox [4]float32
+}
+
+// NeedEyes returns up to n faces whose eyes have not been judged yet.
+func (s *Store) NeedEyes(ctx context.Context, n int, skip map[int64]bool) []EyesJob {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []EyesJob
+	for _, f := range s.faces {
+		if f.EyesV != 0 || f.NotFace || skip[f.ID] {
+			continue
+		}
+		im, ok := s.images[f.ImageID]
+		if !ok {
+			continue
+		}
+		out = append(out, EyesJob{FaceID: f.ID, Hash: im.Hash, Index: f.Index, CropBox: f.CropBox})
+		if len(out) == n {
+			break
+		}
+	}
+	return out
+}
+
+// SetEyes records how open a face's eyes are (open < 0: couldn't judge).
+func (s *Store) SetEyes(ctx context.Context, faceID int64, open float32) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, ok := s.faces[faceID]
+	if !ok {
+		return nil // replaced meanwhile
+	}
+	c := *f
+	c.Eyes, c.EyesV = open, 1
+	if err := s.db.Update(func(tx *bolt.Tx) error { return put(tx, bucketFaces, c.ID, &c) }); err != nil {
+		return err
+	}
+	f.Eyes, f.EyesV = c.Eyes, c.EyesV
+	return nil
+}
+
+// EyesStats reports how many faces' eyes have been judged.
+func (s *Store) EyesStats() (done, total int) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, f := range s.faces {
+		if f.NotFace {
+			continue
+		}
+		total++
+		if f.EyesV != 0 {
 			done++
 		}
 	}

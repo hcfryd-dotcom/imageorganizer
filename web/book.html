@@ -326,6 +326,7 @@
   <b>Which photos may be in the book</b>
   <label><input type="checkbox" data-k="blurry"> Leave out blurry photos</label>
   <label><input type="checkbox" data-k="cut"> Leave out photos where a face is cut off by the edge</label>
+  <label><input type="checkbox" data-k="eyes"> Leave out photos with shut eyes (the program can take narrowed eyes, or someone looking down, for shut)</label>
   <label><input type="checkbox" data-k="small"> Leave out photos where the person is only small, far off (books of people)</label>
   <label><input type="checkbox" data-k="shots"> Leave out screenshots</label>
   <label><input type="checkbox" data-k="bursts"> Only the best of photos taken right after each other</label>
@@ -528,7 +529,7 @@
 
   // The choices of which photos may be in the book (book.filters), on by
   // default except dark.
-  const FILTERS = {blurry: true, cut: true, shots: true, bursts: true, small: true, dark: false};
+  const FILTERS = {blurry: true, cut: true, eyes: true, shots: true, bursts: true, small: true, dark: false};
   const filters = () => ({...FILTERS, ...(book.filters || {})});
   // whose are the people the book is of, if any.
   const whose = () => new Set((src.get('person') || src.get('people') || '').split(',').filter(Boolean).map(Number));
@@ -542,6 +543,8 @@
       // A face cut by the photo's edge: theirs in a book of people, else
       // any big one (faces far off in the background don't count).
       if (f.cut && faces.some(x => x.cut && (who.size ? who.has(x.p) : x.w > .08))) return false;
+      // Shut eyes (or looking down), on the same faces; only judged ones.
+      if (f.eyes && faces.some(x => x.eyes > 0 && x.eyes < .16 && (who.size ? who.has(x.p) : x.w > .08))) return false;
       // Only small in the background: their faces all under 4% of the width.
       if (f.small && who.size) {
         const theirs = faces.filter(x => who.has(x.p));

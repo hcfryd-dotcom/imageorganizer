@@ -12,6 +12,7 @@ type Config struct {
 	Recognize string // ArcFace .onnx (112×112 aligned input, 512-d output)
 	Age       string // MiVOLO v2 .onnx (age, and gender when it has a "head" output); empty disables age estimation
 	NSFW      string // an NSFW image classifier .onnx (ViT, 224×224, logits normal/nsfw); empty or missing disables it
+	Landmarks string // InsightFace 2d106det .onnx (106 points), for telling shut eyes; empty or missing disables it
 	Threads   int    // intra-op threads per model run (CPU)
 	// Device is "cpu", "cuda", or "auto" (CUDA if the runtime and a GPU
 	// are available, else CPU). CUDA needs an ONNX Runtime GPU build.
@@ -28,6 +29,7 @@ func DefaultConfig(dir string) Config {
 		Recognize: filepath.Join(dir, "arcface_w600k_r50.onnx"),
 		Age:       ageModel(dir),
 		NSFW:      filepath.Join(dir, "nsfw_vit.onnx"),
+		Landmarks: filepath.Join(dir, "2d106det.onnx"),
 		Threads:   1, // parallelism comes from concurrent workers
 		Device:    "auto",
 	}
