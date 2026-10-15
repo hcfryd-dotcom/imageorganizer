@@ -329,7 +329,8 @@
     'A4 landscape': 'A4 på langs', 'A4 portrait': 'A4 på højkant', 'Square (21 × 21 cm)': 'Kvadratisk (21 × 21 cm)',
     'Photos per page': 'Billeder pr. side', 'As they fit best': 'Som de passer bedst', 'Dates under the photos': 'Datoer under billederne',
     'Design': 'Design', 'None (white)': 'Ingen (hvid)', 'Summer': 'Sommer', 'Winter': 'Vinter', 'Birthday': 'Fødselsdag',
-    'Christmas': 'Jul', 'Girl': 'Pige', 'Boy': 'Dreng', 'Elegant': 'Elegant', 'Sea and travel': 'Hav og rejse',
+    'Left out of the book': 'Fjernet fra bogen', 'Put back': 'Sæt ind igen',
+    'Put it back in the book where it was': 'Sæt billedet ind i bogen igen, hvor det var', 'Christmas': 'Jul','Girl': 'Pige', 'Boy': 'Dreng', 'Elegant': 'Elegant', 'Sea and travel': 'Hav og rejse',
     'Print / save as PDF': 'Udskriv / gem som PDF', 'Loading the photos…': 'Henter billederne…',
     'There are no photos to put in a book here.': 'Der er ingen billeder at lave en bog af her.',
     'In the print window choose “Save as PDF” (or a printer), and under more settings set margins to “None” and turn on background graphics. The PDF can be printed at home or sent to a print shop that takes PDF files.':
