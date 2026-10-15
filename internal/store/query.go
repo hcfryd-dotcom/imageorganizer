@@ -46,6 +46,7 @@ type Image struct {
 	Sharp       float32  `json:"sharp,omitempty"`      // the sharpness measured (media.Sharpness)
 	Path        string   `json:"path"`
 	Score       float32  `json:"score,omitempty"` // search relevance
+	PHash       uint64   `json:"-"`               // how it looks, for telling near copies (photo books)
 }
 
 // view builds the API image; call with s.mu held.
@@ -55,7 +56,7 @@ func (s *Store) view(im *imageRec) Image {
 		TakenAt: im.TakenAt, Lat: im.Lat, Lon: im.Lon, GeoSrc: im.GeoSrc, CameraMake: im.CameraMake, CameraModel: im.CameraModel,
 		Lens: im.Lens, ISO: im.ISO, FNumber: im.FNumber, Exposure: im.Exposure, Focal: im.Focal,
 		HasThumb: im.HasThumb, Video: im.Video, Duration: im.Duration, Favorite: im.Favorite, Rating: im.Rating, Title: im.Title, Notes: im.Notes,
-		Caption: im.Caption, Rot: im.Rotate,
+		Caption: im.Caption, Rot: im.Rotate, PHash: im.PHash,
 		Nsfw: s.isNsfw(im), NsfwScore: max(im.Nsfw, 0), NsfwUser: im.UserNsfw, Blurry: isBlurry(im), Sharp: max(im.Sharp, 0),
 	}
 	if im.UserTaken != nil {

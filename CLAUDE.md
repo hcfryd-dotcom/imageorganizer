@@ -117,6 +117,12 @@ the rest of the repo.
   shop sizes and 3 mm bleed, page overview and spreads, cropping, text
   styles, frames, map pages (Leaflet, OSM tiles from the internet) and
   calendars (`calendar=YEAR`: a page a month, ISO weeks, Danish days off).
+  "Choices…" (book.filters) leave out blurry photos, faces cut by the
+  edge (`/api/books/info` face list), people only small far off,
+  screenshots, near copies (within 2 min and perceptual hash within 10
+  bits) and, if asked, dark ones (thumbnail brightness, `media.Looks`).
+  Automatic straightening was tried (edge directions) and dropped: it
+  was wrong on a third of real photos; photos are turned by hand (✂).
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - macOS-style look: one block at the end of `web/app.css`.

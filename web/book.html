@@ -67,6 +67,16 @@
     font: 600 11px -apple-system, "Segoe UI", sans-serif; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); cursor: help; }
   .lowres.bad { background: #ff3b30; color: #fff; }
   @media print { .lowres, .book-bar .weak { display: none !important; } }
+  /* Which photos may be in the book. */
+  .filters { position: fixed; z-index: 6; top: calc(var(--bar-h, 64px) + 6px); right: 20px; width: min(460px, calc(100vw - 40px));
+    display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: var(--panel); box-shadow: 0 8px 30px rgba(0, 0, 0, .25); font-size: 13px; }
+  .filters[hidden] { display: none; }
+  .filters label { display: flex; gap: 8px; align-items: flex-start; }
+  .filters hr { border: 0; border-top: 1px solid var(--line); width: 100%; margin: 4px 0; }
+  .filters p { margin: 0; }
+  .filter-go { display: flex; gap: 10px; align-items: center; }
+  .crop-bar .deg { color: #fff; background: rgba(0, 0, 0, .65); border-radius: 14px; padding: 5px 9px; font: 600 12px -apple-system, "Segoe UI", sans-serif; }
+  @media print { .filters { display: none !important; } }
   /* A cropped photo fills its place; while cropping it can be dragged. */
   .slot.cropped .ph { overflow: hidden; }
   .slot.cropped .ph img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
@@ -109,8 +119,10 @@
   .crop-bar { position: absolute; left: 50%; bottom: 3mm; transform: translateX(-50%); display: flex; gap: 6px; z-index: 2; }
   .crop-bar button { border: 0; border-radius: 14px; padding: 5px 12px; background: rgba(0, 0, 0, .65); color: #fff; font: 600 12px -apple-system, "Segoe UI", sans-serif; cursor: pointer; white-space: nowrap; }
   .crop-bar button.on { background: var(--accent); }
+  .crop-grid { position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .55) 0 1px, transparent 1px 12.5%), repeating-linear-gradient(90deg, rgba(255, 255, 255, .55) 0 1px, transparent 1px 12.5%); }
   .crop-hint { position: absolute; left: 50%; top: 3mm; transform: translateX(-50%); padding: 3px 10px; border-radius: 10px; background: rgba(0, 0, 0, .55); color: #fff; font: 12px -apple-system, "Segoe UI", sans-serif; pointer-events: none; white-space: nowrap; }
-  @media print { .crop-bar, .crop-hint { display: none !important; } .slot.cropping .ph { outline: 0; } }
+  @media print { .crop-bar, .crop-hint, .crop-grid { display: none !important; } .slot.cropping .ph { outline: 0; } }
   /* The page overview: every page small, in a panel at the side. */
   body.with-overview .pages, body.with-overview .book-note { margin-right: 300px; }
   .overview { position: fixed; top: var(--bar-h, 64px); right: 0; bottom: 0; width: 290px; overflow: auto; z-index: 4; padding: 10px;
@@ -277,6 +289,7 @@
   <span class="small weak" id="weak" title="Marked ⚠ on the pages"></span>
   <span class="small weak" id="odd" hidden title="Print shops mostly want an even number of pages (some a number of 4s). Add or remove a page, e.g. a page of text or the back cover.">Odd number of pages</span>
   <span class="muted small saved" id="saved"></span>
+  <button class="btn" id="filtersBtn" title="Which photos may be in the book">Choices…</button>
   <button class="btn" id="overview" title="All pages small, to find one or move whole pages">Pages</button>
   <label title="Two pages side by side, as they face each other in the printed book"><input type="checkbox" id="spreads"> Spreads</label>
   <button class="btn" id="undo" title="Undo the last change (Ctrl+Z)" disabled>↶ Undo</button>
@@ -285,6 +298,21 @@
   <button class="btn primary" id="print">Print / save as PDF</button>
 </div>
 <p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
+<div class="filters" id="filters" hidden>
+  <b>Which photos may be in the book</b>
+  <label><input type="checkbox" data-k="blurry"> Leave out blurry photos</label>
+  <label><input type="checkbox" data-k="cut"> Leave out photos where a face is cut off by the edge</label>
+  <label><input type="checkbox" data-k="small"> Leave out photos where the person is only small, far off (books of people)</label>
+  <label><input type="checkbox" data-k="shots"> Leave out screenshots</label>
+  <label><input type="checkbox" data-k="bursts"> Only the best of photos taken right after each other</label>
+  <label><input type="checkbox" data-k="dark"> Leave out dark photos</label>
+  <div class="filter-go">
+    <button class="btn primary" id="applyFilters" type="button">Use them on the book</button>
+    <span class="muted small" id="filterNote">Texts and pages stay; photos taken out go under the last page. “Start over” chooses all the photos again with these.</span>
+  </div>
+  <hr>
+  <p class="muted small">A photo that leans: click ✂ on it and turn it with ↺ ↻; lines over it show what is level.</p>
+</div>
 <div class="pages" id="pages"><div class="book-empty muted">Loading the photos…</div></div>
 <script>
 (function () {
@@ -463,11 +491,41 @@
 
   // ---------- choosing the photos ----------
 
-  async function needInfo() {
-    const want = photos.filter(p => !info.has(p.id)).map(p => p.id);
+  // needInfo fetches what is not known yet of the photos (ids, else all of
+  // the book's source); with look, also how light they are and how they
+  // lean, which means reading their thumbnails.
+  async function needInfo(ids, look) {
+    const want = (ids || photos.map(p => p.id)).filter(id => !info.has(id) || look && !info.get(id).look);
     for (let i = 0; i < want.length; i += 1000) {
-      for (const f of await api('/api/books/info', {method: 'POST', body: JSON.stringify({ids: want.slice(i, i + 1000)})})) info.set(f.id, f);
+      const part = await api('/api/books/info', {method: 'POST', body: JSON.stringify({ids: want.slice(i, i + 1000), look: !!look})});
+      for (const f of part) info.set(f.id, f);
     }
+  }
+
+  // The choices of which photos may be in the book (book.filters), on by
+  // default except dark.
+  const FILTERS = {blurry: true, cut: true, shots: true, bursts: true, small: true, dark: false};
+  const filters = () => ({...FILTERS, ...(book.filters || {})});
+  // whose are the people the book is of, if any.
+  const whose = () => new Set((src.get('person') || src.get('people') || '').split(',').filter(Boolean).map(Number));
+  // usable leaves out the photos the choices say no to.
+  function usable(list) {
+    const f = filters(), who = whose();
+    return list.filter(im => {
+      const i = info.get(im.id) || {}, faces = i.list || [];
+      if (f.blurry && im.blurry) return false;
+      if (f.shots && shot(im)) return false;
+      // A face cut by the photo's edge: theirs in a book of people, else
+      // any big one (faces far off in the background don't count).
+      if (f.cut && faces.some(x => x.cut && (who.size ? who.has(x.p) : x.w > .08))) return false;
+      // Only small in the background: their faces all under 4% of the width.
+      if (f.small && who.size) {
+        const theirs = faces.filter(x => who.has(x.p));
+        if (theirs.length && Math.max(...theirs.map(x => x.w)) < .04) return false;
+      }
+      if (f.dark && i.look && i.look.light < .18) return false;
+      return true;
+    });
   }
 
   const shot = im => (im.format || '').toLowerCase() === 'png' && !im.make || /screenshot|skærmbillede|screen shot/i.test(im.path || '');
@@ -506,8 +564,20 @@
   // screenshots, the best of each burst (taken within 30 seconds), then
   // round by round the best left of every chapter, or of every event
   // (photos less than four hours apart), so the whole time is covered.
+  // alike tells photos that look nearly the same by their perceptual
+  // hashes (hex): at most 10 of the 64 bits differ.
+  function alike(a, b) {
+    if (!a || !b) return false;
+    let d = 0;
+    for (const [i, j] of [[0, 8], [8, 16]]) {
+      let x = (parseInt(a.slice(i, j), 16) ^ parseInt(b.slice(i, j), 16)) >>> 0;
+      while (x) { d += x & 1; x >>>= 1; }
+    }
+    return d <= 10;
+  }
+
   function pickBest(list, n) {
-    const ok = list.filter(im => !im.blurry && !shot(im));
+    const ok = list; // usable() has left out what the choices say no to
     const sharp = ok.map(im => im.sharp || 0).sort((a, b) => a - b);
     const rank = v => {
       let lo = 0, hi = sharp.length;
@@ -524,9 +594,15 @@
     const kept = [];
     let burst = [];
     const end = () => { if (burst.length) kept.push(burst.slice().sort(better)[0]); burst = []; };
+    // Near copies: taken within two minutes of the one before, and looking
+    // nearly the same as the first of them (their perceptual hashes
+    // differ in at most 10 of 64 bits). Only the best of them is kept.
+    const bursts = filters().bursts;
+    const ph = im => (info.get(im.id) || {}).ph;
     for (const im of ok) {
       const last = burst[burst.length - 1];
-      if (last && !(im.taken && last.taken && im.taken - last.taken <= 30)) end();
+      const same = bursts && last && im.taken && last.taken && im.taken - last.taken <= 120 && alike(ph(burst[0]), ph(im));
+      if (last && !same) end();
       burst.push(im);
     }
     end();
@@ -559,13 +635,14 @@
 
   // fresh lays the book out anew from its photos, keeping its settings.
   async function fresh() {
-    let list = photos;
-    if (book.pick > 0 && photos.length > book.pick) {
-      $('pages').innerHTML = '<div class="book-empty muted"></div>';
-      $('pages').firstChild.textContent = t('Choosing the best photos…');
-      await needInfo();
-      list = pickBest(photos, book.pick);
-    }
+    $('pages').innerHTML = '<div class="book-empty muted"></div>';
+    $('pages').firstChild.textContent = t('Choosing the photos…');
+    await needInfo(null, filters().dark);
+    // All photos the choices allow, or the best of them (pickBest also
+    // keeps one of each burst).
+    let list = usable(photos);
+    if (book.pick > 0 && list.length > book.pick) list = pickBest(list, book.pick);
+    else if (filters().bursts) list = pickBest(list, 1e9);
     book.pages = [];
     book.out = [];
     book.cover = null;
@@ -573,8 +650,7 @@
       // A calendar: a page a month, each with the best photo taken in
       // that month of some year when there is one.
       book.calendar = +src.get('calendar');
-      await needInfo();
-      const kept = pickBest(photos, 1e9), used = new Set();
+      const kept = pickBest(usable(photos), 1e9), used = new Set();
       for (let m = 0; m < 12; m++) {
         const free = kept.filter(im => !used.has(im.id));
         const best = pickBest(free.filter(im => im.taken && new Date(im.taken * 1000).getUTCMonth() === m), 1)[0] || pickBest(free, 1)[0];
@@ -866,6 +942,7 @@
           const img = slot.querySelector('img');
           img.src = imgSrc(im);
           img.dataset.id = id;
+          if (book.tilt && book.tilt[id]) img.dataset.tilt = book.tilt[id];
           img.draggable = false; // the slot is what drags
           const c = book.crop && book.crop[id];
           if (c || cropping === id) slot.classList.add('cropped');
@@ -895,7 +972,7 @@
           out.className = 'out';
           pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)),
             tool('#', 'Move to page…', () => toPage(id)),
-            tool('✂', 'Crop: choose the part of the photo that shows', () => { cropping = cropping === id ? null : id; render(); }), star, out);
+            tool('✂', 'Crop and straighten: choose the part of the photo that shows, and turn it', () => { cropping = cropping === id ? null : id; render(); }), star, out);
           slot.appendChild(pt);
           // Dragged onto another photo, it takes that photo's place.
           slot.draggable = cropping !== id;
@@ -1006,7 +1083,7 @@
     root.classList.toggle('spreads', !!book.spreads);
     if (book.frame) root.dataset.frame = book.frame; else delete root.dataset.frame;
     renderOverview(cover);
-    requestAnimationFrame(checkPrint);
+    requestAnimationFrame(afterLayout);
   }
 
   // ---------- calendar ----------
@@ -1117,8 +1194,40 @@
   function cropStyle(img, c) {
     img.style.objectPosition = `${c.x}% ${c.y}%`;
     img.style.transformOrigin = `${c.x}% ${c.y}%`;
-    img.style.transform = c.z > 1 ? `scale(${c.z})` : '';
+    img._cz = c.z;
+    turn(img);
   }
+
+  // turn draws a photo turned back by the degrees it leans
+  // (img.dataset.tilt; book.tilt keeps them) and zoomed just enough that
+  // no corner shows. A photo filling its place turns inside it; one shown
+  // whole is clipped to where it lay. Sizes are needed, so turn runs
+  // again once the page is laid out (afterLayout).
+  function turn(img) {
+    const a = +img.dataset.tilt || 0, cz = img._cz || 1, ph = img.parentElement;
+    if (!a) {
+      img.style.transform = cz > 1 ? `scale(${cz})` : '';
+      if (ph) ph.style.clipPath = '';
+      return;
+    }
+    const fill = img.closest('.cropped, .page.full');
+    const w = fill ? ph.clientWidth : img.offsetWidth, h = fill ? ph.clientHeight : img.offsetHeight;
+    if (!w || !h) return;
+    const r = Math.abs(a) * Math.PI / 180, cos = Math.cos(r), sin = Math.sin(r);
+    const zoom = Math.max((w * cos + h * sin) / w, (w * sin + h * cos) / h);
+    img.style.transform = `rotate(${-a}deg) scale(${zoom * cz})`;
+    if (!fill) {
+      const l = img.offsetLeft, t_ = img.offsetTop;
+      ph.style.clipPath = `inset(${t_}px ${ph.clientWidth - l - w}px ${ph.clientHeight - t_ - h}px ${l}px)`;
+    } else ph.style.clipPath = '';
+  }
+
+  // afterLayout runs once a drawn book is laid out.
+  function afterLayout() {
+    for (const img of document.querySelectorAll('.page img[data-tilt]')) turn(img);
+    checkPrint();
+  }
+
   function cropEdit(slot, img, id) {
     slot.classList.add('cropping');
     const box = img.parentElement;
@@ -1153,8 +1262,29 @@
     const bar = document.createElement('div');
     bar.className = 'crop-bar';
     const zoom = d => () => { c.z = clamp(c.z * d, 1, 4); cropStyle(img, c); keep(); };
-    bar.append(tool('−', 'Zoom out', zoom(1 / 1.2)), tool('+', 'Zoom in', zoom(1.2)),
-      tool('Show all of it', '', () => { const cr = {...(book.crop || {})}; delete cr[id]; book.crop = cr; cropping = null; render(); }),
+    // Turning: half a degree a click; the lean is kept in book.tilt.
+    const deg = document.createElement('span');
+    deg.className = 'deg';
+    const showDeg = () => { deg.textContent = (+img.dataset.tilt || 0).toLocaleString(locale) + '°'; };
+    const turnBy = d => () => {
+      const a = Math.round(((+img.dataset.tilt || 0) + d) * 10) / 10;
+      img.dataset.tilt = a;
+      book.tilt = {...(book.tilt || {}), [id]: a};
+      turn(img);
+      showDeg();
+      save();
+    };
+    showDeg();
+    bar.append(tool('↺', 'Turn it left', turnBy(.5)), deg, tool('↻', 'Turn it right', turnBy(-.5)),
+      tool('−', 'Zoom out', zoom(1 / 1.2)), tool('+', 'Zoom in', zoom(1.2)),
+      tool('Show all of it', 'Not cropped and not turned', () => {
+        const cr = {...(book.crop || {})};
+        delete cr[id];
+        book.crop = cr;
+        book.tilt = {...(book.tilt || {}), [id]: 0};
+        cropping = null;
+        render();
+      }),
       tool('Done', '', () => { keep(); cropping = null; render(); }));
     bar.lastChild.className = 'on';
     box.appendChild(bar);
@@ -1162,6 +1292,10 @@
     hint.className = 'crop-hint';
     hint.textContent = t('Drag the photo; the mouse wheel zooms');
     box.appendChild(hint);
+    // Lines to see what is level and plumb while turning.
+    const grid = document.createElement('div');
+    grid.className = 'crop-grid';
+    box.appendChild(grid);
   }
 
   // renderOverview draws every page small in the side panel: a click
@@ -1326,14 +1460,17 @@
       pick: src.get('pick') != null ? +src.get('pick') : (photos.length > 150 ? 80 : 0)};
     if (d && d.v === 2) {
       book = {...book, ...d, cap: {...book.cap, ...(d.cap || {})}};
-      // Photos gone from the library leave the book; with all photos
-      // chosen, photos new to its source come in by their dates.
+      // Photos gone from the library leave the book.
       for (const p of book.pages) p.ids = p.ids.filter(id => byId.has(id));
       book.out = book.out.filter(id => byId.has(id));
       reflow();
-      if (!book.pick) {
+      // With all photos chosen, photos new to its source since (by id)
+      // come in by their dates, if the choices allow them.
+      if (!book.pick && book.lastId) {
+        const fresh = photos.filter(p => p.id > book.lastId);
+        await needInfo(fresh.map(p => p.id));
         const have = inBook();
-        for (const im of photos) if (!have.has(im.id) && !book.out.includes(im.id)) insertByDate(im.id);
+        for (const im of usable(fresh)) if (!have.has(im.id) && !book.out.includes(im.id)) insertByDate(im.id);
       }
     } else if (d && Array.isArray(d.order)) {
       convert(d);
@@ -1341,6 +1478,7 @@
       if (src.get('calendar')) book.size = 'a4p'; // a month under its photo
       await fresh();
     }
+    book.lastId = photos.reduce((m, p) => Math.max(m, p.id), 0);
     if (book.cap.place || book.cap.who) await needInfo();
     showSettings();
     render();
@@ -1357,6 +1495,7 @@
     $('bleed').checked = !!book.bleed;
     $('spreads').checked = !!book.spreads;
     $('frame').value = book.frame || '';
+    for (const box of document.querySelectorAll('#filters input[data-k]')) box.checked = !!filters()[box.dataset.k];
     const pick = $('pick');
     if (![...pick.options].some(o => +o.value === book.pick)) {
       const o = document.createElement('option');
@@ -1393,6 +1532,35 @@
     others = 0;
     await fresh();
     render();
+  });
+  $('filtersBtn').addEventListener('click', () => {
+    document.documentElement.style.setProperty('--bar-h', document.querySelector('.book-bar').offsetHeight + 'px');
+    $('filters').hidden = !$('filters').hidden;
+    $('filtersBtn').classList.toggle('primary', !$('filters').hidden);
+  });
+  for (const box of document.querySelectorAll('#filters input[data-k]')) {
+    box.addEventListener('change', () => {
+      book.filters = {...filters(), [box.dataset.k]: box.checked};
+      save();
+    });
+  }
+  // applyFilters takes out of the book the photos the choices now say no
+  // to; texts and pages stay, and the photos go under the last page.
+  $('applyFilters').addEventListener('click', async () => {
+    const ids = seq();
+    $('applyFilters').disabled = true;
+    try {
+      await needInfo(ids, filters().dark);
+      const list = ids.map(id => byId.get(id));
+      const keep = new Set((filters().bursts ? pickBest(usable(list), 1e9) : usable(list)).map(im => im.id));
+      const drop = ids.filter(id => !keep.has(id));
+      for (const id of drop) takeOut(id);
+      if (!book.calendar) reflow();
+      render();
+      $('filterNote').textContent = t(drop.length + (drop.length === 1 ? ' photo taken out' : ' photos taken out'));
+    } finally {
+      $('applyFilters').disabled = false;
+    }
   });
   $('overview').addEventListener('click', () => { overviewOpen = !overviewOpen; render(); });
   $('spreads').addEventListener('change', () => { book.spreads = $('spreads').checked; render(); });
