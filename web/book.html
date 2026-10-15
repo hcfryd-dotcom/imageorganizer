@@ -47,15 +47,15 @@
   .left-out .strip { display: flex; flex-wrap: wrap; gap: 10px; }
   .left-out .item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .left-out img { height: 90px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
-  .page-text { font: 13pt/1.45 -apple-system, "Segoe UI", sans-serif; text-align: center; outline: none; border-radius: 2mm; padding: 1mm 3mm; min-height: 8mm; white-space: pre-wrap; }
+  .page-text { font: calc(13pt * var(--k, 1))/1.45 -apple-system, "Segoe UI", sans-serif; text-align: center; outline: none; border-radius: 2mm; padding: 1mm 3mm; min-height: 8mm; white-space: pre-wrap; }
   .page-text:empty::before { content: attr(data-ph); color: #a1a1a6; }
   .page-text:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
   .textpage { justify-content: center; align-items: center; }
-  .textpage .page-text { font-size: 22pt; line-height: 1.35; max-width: 80%; }
+  .textpage .page-text { font-size: calc(22pt * var(--k, 1)); line-height: 1.35; max-width: 80%; }
   .cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; padding: 16mm; text-align: center; }
   .cover .ph { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; }
   .cover img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 2mm; }
-  .cover h2 { font: 700 28pt/1.1 -apple-system, "Segoe UI Variable Display", "Segoe UI", sans-serif; margin: 0; letter-spacing: -.02em; }
+  .cover h2 { font: 700 calc(28pt * var(--k, 1))/1.1 -apple-system, "Segoe UI Variable Display", "Segoe UI", sans-serif; margin: 0; letter-spacing: -.02em; }
   .cover p { font: 12pt -apple-system, "Segoe UI", sans-serif; color: #6e6e73; margin: 0; }
   .book-empty { padding: 60px 20px; text-align: center; }
   .book-bar .saved { min-width: 60px; }
@@ -67,6 +67,75 @@
     font: 600 11px -apple-system, "Segoe UI", sans-serif; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); cursor: help; }
   .lowres.bad { background: #ff3b30; color: #fff; }
   @media print { .lowres, .book-bar .weak { display: none !important; } }
+  /* A cropped photo fills its place; while cropping it can be dragged. */
+  .slot.cropped .ph { overflow: hidden; }
+  .slot.cropped .ph img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
+  .slot.cropping .ph { cursor: move; outline: 3px dashed var(--accent); outline-offset: -3px; touch-action: none; }
+  .slot.cropping .photo-tools { display: none; }
+  /* Frames round the photos (not those filling their page). */
+  .pages[data-frame] .page:not(.full) .slot .ph img, .pages[data-frame] .cover img { box-sizing: border-box; }
+  .pages[data-frame="white"] .page:not(.full) .slot .ph img, .pages[data-frame="white"] .cover img { border: 2.5mm solid #fff; box-shadow: 0 .4mm 2mm rgba(0, 0, 0, .3); }
+  .pages[data-frame="round"] .page:not(.full) .slot .ph img, .pages[data-frame="round"] .cover img { border-radius: 5mm; }
+  .pages[data-frame="shadow"] .page:not(.full) .slot .ph img, .pages[data-frame="shadow"] .cover img { box-shadow: 0 1.2mm 4mm rgba(0, 0, 0, .45); }
+  .pages[data-frame="polaroid"] .page:not(.full) .slot .ph img, .pages[data-frame="polaroid"] .cover img { border: 3mm solid #fff; border-bottom-width: 11mm; box-shadow: 0 .6mm 2.5mm rgba(0, 0, 0, .35); }
+  /* Calendar pages: the photo above, the month below. */
+  .calpage .grid { flex: 1.25; }
+  .calpage.wide { flex-direction: row; gap: 8mm; }
+  .calpage.wide .grid { flex: 1.15; min-width: 0; }
+  .calpage.wide .cal { min-width: 0; }
+  .cal { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2mm; font-family: -apple-system, "Segoe UI", sans-serif; }
+  .cal-head { font: 700 18pt/1.1 -apple-system, "Segoe UI Variable Display", "Segoe UI", sans-serif; letter-spacing: -.01em; }
+  .cal-days { flex: 1; display: grid; grid-template-columns: 8mm repeat(7, 1fr); grid-auto-rows: 1fr; border-top: .3mm solid #c7c7cc; }
+  .cal-days > div { border-bottom: .3mm solid #e5e5ea; padding: .8mm 1.2mm; font-size: 10pt; overflow: hidden; }
+  .cal-days .dn { font-size: 8pt; color: #8e8e93; text-transform: uppercase; border-bottom-color: #c7c7cc; }
+  .cal-days .wk { font-size: 7pt; color: #aeaeb2; }
+  .cal-days .day { border-left: .3mm solid #e5e5ea; }
+  .cal-days .red { color: #c0392b; font-weight: 600; }
+  .cal-days small { display: block; font-size: 6pt; font-weight: 400; line-height: 1.1; color: #c0392b; }
+  .empty-slot { display: flex; align-items: center; justify-content: center; border: .5mm dashed #c7c7cc; border-radius: 2mm; color: #8e8e93;
+    font: 12pt -apple-system, "Segoe UI", sans-serif; text-align: center; padding: 6mm; }
+  @media print { .empty-slot { visibility: hidden; } }
+  .mapbox svg { width: auto; height: auto; } /* not app.css's icon size */
+  .mapbox { flex: 1; min-height: 0; border-radius: 2mm; overflow: hidden; background: #e8eef2; }
+  .mapbox.empty { display: flex; align-items: center; justify-content: center; color: #8e8e93; font: 13pt -apple-system, "Segoe UI", sans-serif; }
+  .text-style { padding: 4px 8px; border-radius: 8px; background: var(--panel); box-shadow: 0 1px 4px rgba(0, 0, 0, .15); }
+  .text-style .select { height: 26px; font-size: 12px; }
+  .swatches { display: inline-flex; gap: 3px; }
+  .swatch { width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .25); padding: 0; cursor: pointer; }
+  .swatch.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .cover .subtitle { outline: none; min-width: 40mm; border-radius: 2mm; padding: 0 2mm; }
+  .cover .subtitle:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+  @media print { .text-style { display: none !important; } }
+  .crop-bar { position: absolute; left: 50%; bottom: 3mm; transform: translateX(-50%); display: flex; gap: 6px; z-index: 2; }
+  .crop-bar button { border: 0; border-radius: 14px; padding: 5px 12px; background: rgba(0, 0, 0, .65); color: #fff; font: 600 12px -apple-system, "Segoe UI", sans-serif; cursor: pointer; white-space: nowrap; }
+  .crop-bar button.on { background: var(--accent); }
+  .crop-hint { position: absolute; left: 50%; top: 3mm; transform: translateX(-50%); padding: 3px 10px; border-radius: 10px; background: rgba(0, 0, 0, .55); color: #fff; font: 12px -apple-system, "Segoe UI", sans-serif; pointer-events: none; white-space: nowrap; }
+  @media print { .crop-bar, .crop-hint { display: none !important; } .slot.cropping .ph { outline: 0; } }
+  /* The page overview: every page small, in a panel at the side. */
+  body.with-overview .pages, body.with-overview .book-note { margin-right: 300px; }
+  .overview { position: fixed; top: var(--bar-h, 64px); right: 0; bottom: 0; width: 290px; overflow: auto; z-index: 4; padding: 10px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(16px); border-left: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
+  .overview .mini { display: flex; flex-direction: column; gap: 3px; cursor: pointer; font: 11px -apple-system, "Segoe UI", sans-serif; color: var(--muted); }
+  .overview .sheet { background: #fff; border-radius: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); display: grid; gap: 2px; padding: 4px; overflow: hidden; }
+  .overview .sheet img { width: 100%; height: 100%; object-fit: cover; min-height: 0; display: block; }
+  .overview .sheet .txt { color: #333; font-size: 9px; line-height: 1.2; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; white-space: pre-line; }
+  .overview .mini.drop .sheet { outline: 3px solid var(--accent); }
+  .overview .mini.dragging { opacity: .4; }
+  .overview .mini.here .sheet { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Spreads: the pages two by two, as the open book shows them: the
+     cover alone, page 1 on the right, then 2 and 3 facing, and so on. */
+  .pages.spreads { display: grid; grid-template-columns: auto auto; justify-content: center; column-gap: 0; zoom: .5; }
+  .pages.spreads > .page-wrap:nth-child(-n+2) { grid-column: 2; }
+  .pages.spreads > .page-wrap:nth-child(2n+3) { align-items: flex-end; }
+  .pages.spreads > .page-wrap:nth-child(2n+4) { align-items: flex-start; }
+  .pages.spreads > .left-out { grid-column: 1 / -1; zoom: 2; }
+  .pages.spreads .page-tools { zoom: 1.6; }
+  @media print {
+    .overview { display: none !important; }
+    body.with-overview .pages { margin-right: 0; }
+    .pages.spreads { display: block; zoom: 1; }
+  }
   /* One photo filling the page to its edges. */
   .page.full { padding: 0; }
   .page.full .grid { gap: 0; }
@@ -77,7 +146,7 @@
   .page.full .photo-tools { top: 6mm; right: 6mm; }
   /* The back of the book. */
   .back { justify-content: center; align-items: center; text-align: center; }
-  .back .page-text { font-size: 14pt; max-width: 70%; }
+  .back .page-text { font-size: calc(14pt * var(--k, 1)); max-width: 70%; }
   .back p { font: 10pt -apple-system, "Segoe UI", sans-serif; color: #8e8e93; margin: 0; }
   .left-out .more { margin-top: 10px; }
   .left-out h3 + .muted { margin: -4px 0 8px; }
@@ -147,6 +216,8 @@
   }
 </style>
 <style id="page-size"></style>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<script src="vendor/leaflet.js"></script>
 <script src="i18n.js"></script>
 </head>
 <body>
@@ -181,6 +252,13 @@
     <option value="elegant">Elegant</option>
     <option value="ocean">Sea and travel</option>
   </select></label>
+  <label>Frames <select class="select" id="frame">
+    <option value="">None</option>
+    <option value="white">White border</option>
+    <option value="round">Rounded corners</option>
+    <option value="shadow">Shadow</option>
+    <option value="polaroid">Instant photo</option>
+  </select></label>
   <label title="The program picks the best: sharp, not screenshots, one of each burst, spread over the whole time">Photos <select class="select" id="pick">
     <option value="0">All photos</option>
     <option value="40">The best 40</option>
@@ -199,6 +277,8 @@
   <span class="small weak" id="weak" title="Marked ⚠ on the pages"></span>
   <span class="small weak" id="odd" hidden title="Print shops mostly want an even number of pages (some a number of 4s). Add or remove a page, e.g. a page of text or the back cover.">Odd number of pages</span>
   <span class="muted small saved" id="saved"></span>
+  <button class="btn" id="overview" title="All pages small, to find one or move whole pages">Pages</button>
+  <label title="Two pages side by side, as they face each other in the printed book"><input type="checkbox" id="spreads"> Spreads</label>
   <button class="btn" id="undo" title="Undo the last change (Ctrl+Z)" disabled>↶ Undo</button>
   <button class="btn" id="redo" title="Do it again (Ctrl+Y)" disabled>↷ Redo</button>
   <button class="btn" id="restart" title="Lay the book out again, leaving out your changes">Start over</button>
@@ -287,7 +367,7 @@
       run = [];
     };
     for (const p of book.pages) {
-      if (p.n > 0) run.push(p);
+      if (p.n > 0 && p.month == null) run.push(p); // a calendar month keeps its own photos
       else { flush(); out.push(p); }
     }
     flush();
@@ -314,6 +394,14 @@
   // one on.
   function moveTo(id, anchor) {
     if (id === anchor) return;
+    if (book.calendar) {
+      // Months keep their places: the two photos change months.
+      const [a, ak] = locate(id), [b, bk] = locate(anchor);
+      book.pages[a].ids[ak] = anchor;
+      book.pages[b].ids[bk] = id;
+      render();
+      return;
+    }
     const [spi] = locate(id), [api_] = locate(anchor);
     const s = seq();
     const after = runOf(spi) === runOf(api_) && s.indexOf(id) < s.indexOf(anchor);
@@ -328,6 +416,13 @@
   // insertByDate puts a photo back among the others by when it was taken.
   function insertByDate(id) {
     const im = byId.get(id);
+    if (book.calendar) {
+      // Into the first month without a photo, else the month it was taken in.
+      const m = im.taken ? new Date(im.taken * 1000).getUTCMonth() : 0;
+      const pg = book.pages.find(p => p.month != null && !p.ids.length) || book.pages.find(p => p.month === m) || book.pages[0];
+      if (pg) pg.ids.push(id);
+      return;
+    }
     const s = seq().map(i => byId.get(i));
     let anchor = null;
     for (const o of s) if (im.taken && o.taken && o.taken <= im.taken) anchor = o;
@@ -359,7 +454,7 @@
       run = [];
     };
     for (const p of book.pages) {
-      if (p.n > 0) run.push(p);
+      if (p.n > 0 && p.month == null) run.push(p);
       else { flush(); out.push(p); }
     }
     flush();
@@ -474,6 +569,20 @@
     book.pages = [];
     book.out = [];
     book.cover = null;
+    if (src.get('calendar')) {
+      // A calendar: a page a month, each with the best photo taken in
+      // that month of some year when there is one.
+      book.calendar = +src.get('calendar');
+      await needInfo();
+      const kept = pickBest(photos, 1e9), used = new Set();
+      for (let m = 0; m < 12; m++) {
+        const free = kept.filter(im => !used.has(im.id));
+        const best = pickBest(free.filter(im => im.taken && new Date(im.taken * 1000).getUTCMonth() === m), 1)[0] || pickBest(free, 1)[0];
+        if (best) used.add(best.id);
+        book.pages.push({n: 1, ids: best ? [best.id] : [], text: null, month: m});
+      }
+      return;
+    }
     const ch = src.get('chapters');
     if (ch) {
       for (const [key, group] of chapters(list, ch)) {
@@ -553,7 +662,69 @@
     d.dataset.ph = t(placeholder);
     d.textContent = obj.text || '';
     d.addEventListener('input', () => { obj.text = d.innerText.replace(/\n$/, ''); save(true); });
+    textStyle(d, obj.style);
     return d;
+  }
+
+  // Text styles: a font, a size (times the usual), a colour and where in
+  // the line, kept on the text's object as style.
+  const FONTS = {
+    '': ['Standard', ''],
+    serif: ['Classic', 'Georgia, "Times New Roman", serif'],
+    hand: ['Handwriting', '"Segoe Print", "Bradley Hand", "Comic Sans MS", cursive'],
+    script: ['Script', '"Segoe Script", "Brush Script MT", "Lucida Handwriting", cursive'],
+    round: ['Round', '"Trebuchet MS", "Verdana", sans-serif'],
+    type: ['Typewriter', '"Courier New", Courier, monospace'],
+  };
+  const TSIZES = {s: ['Small', .8], '': ['Normal', 1], l: ['Large', 1.4], xl: ['Very large', 2]};
+  const COLORS = ['', '#6e6e73', '#ffffff', '#c0392b', '#d0457a', '#e67e22', '#b8860b', '#2e7d32', '#1f6fbf', '#5b3c88'];
+  function textStyle(el, st) {
+    st = st || {};
+    el.style.fontFamily = FONTS[st.font] ? FONTS[st.font][1] : '';
+    el.style.setProperty('--k', TSIZES[st.size] ? TSIZES[st.size][1] : 1);
+    el.style.color = st.color || '';
+    el.style.textAlign = st.align || '';
+  }
+  let styling = null; // which text's style row is open: a page index, 'cover' or 'back'
+  function styleButton(key) {
+    return tool('Aa', 'How the text looks: font, size, colour', () => { styling = styling === key ? null : key; render(); }, styling === key);
+  }
+  function styleRow(get) {
+    const row = document.createElement('div');
+    row.className = 'page-tools text-style';
+    const st = () => get().style || {};
+    const set = (k, v) => { const o = get(); o.style = {...(o.style || {}), [k]: v}; render(); };
+    const sel = (opts, k) => {
+      const s = document.createElement('select');
+      s.className = 'select';
+      for (const [v, [label]] of Object.entries(opts)) {
+        const o = document.createElement('option');
+        o.value = v;
+        o.textContent = t(label);
+        if (k === 'font' && FONTS[v][1]) o.style.fontFamily = FONTS[v][1];
+        s.appendChild(o);
+      }
+      s.value = st()[k] || '';
+      s.addEventListener('change', () => set(k, s.value));
+      return s;
+    };
+    row.append(sel(FONTS, 'font'), sel(TSIZES, 'size'));
+    const sw = document.createElement('span');
+    sw.className = 'swatches';
+    for (const c of COLORS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + ((st().color || '') === c ? ' on' : '');
+      b.style.background = c || 'linear-gradient(135deg, #1d1d1f 50%, #fff 50%)';
+      b.title = t(c ? 'This colour' : 'The design’s own colour');
+      b.addEventListener('click', () => set('color', c));
+      sw.appendChild(b);
+    }
+    const seg = document.createElement('span');
+    seg.className = 'seg';
+    for (const [v, label] of [['left', '⯇ Left'], ['', 'Centre'], ['right', 'Right ⯈']]) seg.append(tool(label, '', () => set('align', v), (st().align || '') === v));
+    row.append(sw, seg);
+    return row;
   }
 
   function caption(im) {
@@ -604,7 +775,7 @@
     const all = list.length ? list : photos;
     const cover = byId.get(book.cover) && list.includes(byId.get(book.cover)) ? byId.get(book.cover) : all[0];
     const years = [all[0], all[all.length - 1]].map(yearOf).filter(Boolean);
-    const span = years.length ? (years[0] === years[1] ? String(years[0]) : years.join('–')) : '';
+    const span = book.calendar ? String(book.calendar) : years.length ? (years[0] === years[1] ? String(years[0]) : years.join('–')) : '';
 
     // The cover: the title, the years and a photo.
     const cs = document.createElement('section');
@@ -612,16 +783,27 @@
     cs.innerHTML = '<div class="ph"><img alt=""></div><h2></h2><p></p>';
     cs.querySelector('img').src = imgSrc(cover);
     cs.querySelector('img').dataset.id = cover.id;
-    cs.querySelector('h2').textContent = title || ' ';
-    cs.querySelector('p').textContent = span;
+    const h2 = cs.querySelector('h2');
+    h2.textContent = title || ' ';
+    book.coverText = book.coverText || {};
+    textStyle(h2, book.coverText.style);
+    // Under the title: the years, or a text of one's own.
+    const sub = cs.querySelector('p');
+    sub.className = 'subtitle';
+    sub.contentEditable = 'true';
+    sub.textContent = book.coverText.sub || span;
+    sub.title = t('Click to write your own text under the title');
+    sub.addEventListener('input', () => { book.coverText.sub = sub.innerText.trim(); save(true); });
     const cw = document.createElement('div');
     cw.className = 'page-wrap';
     const ctools = document.createElement('div');
     ctools.className = 'page-tools';
     const cb = document.createElement('b');
     cb.textContent = t('Cover');
-    ctools.append(cb, tool('+ Text page', 'A page of text after this one', () => { book.pages.unshift({n: 0, ids: [], text: ''}); render(); }));
-    cw.append(ctools, cs);
+    ctools.append(cb, styleButton('cover'), tool('+ Text page', 'A page of text after this one', () => { book.pages.unshift({n: 0, ids: [], text: ''}); render(); }));
+    cw.append(ctools);
+    if (styling === 'cover') cw.append(styleRow(() => book.coverText));
+    cw.append(cs);
     root.appendChild(cw);
 
     const toPage = id => {
@@ -632,6 +814,7 @@
       moveTo(id, pages[p - 1].ids[0]);
     };
 
+    const maps = []; // map pages, drawn once they are on the page
     pages.forEach((pg, pi) => {
       const wrap = document.createElement('div');
       wrap.className = 'page-wrap';
@@ -639,20 +822,38 @@
       tools.className = 'page-tools';
       const sec = document.createElement('section');
       const num = document.createElement('b');
-      num.textContent = t('Page ' + (pi + 1));
+      num.textContent = t('Page ' + (pi + 1)) + (pg.month != null ? ' · ' + monthName(book.calendar, pg.month) : '');
       tools.append(num);
-      if (pg.n === 0) {
+      if (pg.map) {
+        // A map of where the book's photos were taken.
+        sec.className = 'page mappage';
+        const box = document.createElement('div');
+        box.className = 'mapbox';
+        sec.append(box);
+        if (pg.text != null) sec.append(textBox(pg, 'Write a text for the page'));
+        maps.push(box);
+        tools.append(document.createTextNode(t('Map of the places')), styleButton(pi),
+          tool(pg.text != null ? 'Remove text' : '+ Text', '', () => { pg.text = pg.text != null ? null : ''; render(); }),
+          tool('Remove page', '', () => { book.pages.splice(pi, 1); reflow(); render(); }));
+      } else if (pg.n === 0) {
         sec.className = 'page textpage';
         sec.append(textBox(pg, 'Write here'));
-        tools.append(document.createTextNode(t('Page of text')),
+        tools.append(document.createTextNode(t('Page of text')), styleButton(pi),
           tool('Remove page', '', () => { book.pages.splice(pi, 1); reflow(); render(); }));
       } else {
-        const full = pg.full && pg.ids.length === 1;
-        sec.className = 'page' + (full ? ' full' : '');
+        const month = pg.month != null;
+        const full = pg.full && pg.ids.length === 1 && !month;
+        sec.className = 'page' + (full ? ' full' : '') + (month ? ' calpage' + (pageWide() ? ' wide' : '') : '');
         // Dropped on the page but not on a photo: first place on the page.
         sec.addEventListener('dragover', e => { if (dragged) { e.preventDefault(); sec.classList.add('drop'); } });
         sec.addEventListener('dragleave', e => { if (!sec.contains(e.relatedTarget)) sec.classList.remove('drop'); });
-        sec.addEventListener('drop', e => { e.preventDefault(); sec.classList.remove('drop'); if (dragged) moveTo(dragged, pg.ids[0]); });
+        sec.addEventListener('drop', e => {
+          e.preventDefault();
+          sec.classList.remove('drop');
+          if (!dragged) return;
+          if (pg.ids.length) moveTo(dragged, pg.ids[0]);
+          else { takeOut(dragged); pg.ids.push(dragged); if (!book.calendar) reflow(); render(); }
+        });
         const grid = document.createElement('div');
         grid.className = 'grid';
         const big = layout(grid, pg.ids.length);
@@ -666,6 +867,10 @@
           img.src = imgSrc(im);
           img.dataset.id = id;
           img.draggable = false; // the slot is what drags
+          const c = book.crop && book.crop[id];
+          if (c || cropping === id) slot.classList.add('cropped');
+          if (c) cropStyle(img, c);
+          if (cropping === id) cropEdit(slot, img, id);
           const text = caption(im);
           if (text || !full) {
             const cap = document.createElement('div');
@@ -689,10 +894,11 @@
           const out = tool('×', 'Leave it out of the book', () => { takeOut(id); book.out.push(id); reflow(); render(); });
           out.className = 'out';
           pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)),
-            tool('#', 'Move to page…', () => toPage(id)), star, out);
+            tool('#', 'Move to page…', () => toPage(id)),
+            tool('✂', 'Crop: choose the part of the photo that shows', () => { cropping = cropping === id ? null : id; render(); }), star, out);
           slot.appendChild(pt);
           // Dragged onto another photo, it takes that photo's place.
-          slot.draggable = true;
+          slot.draggable = cropping !== id;
           slot.addEventListener('dragstart', e => { dragged = id; e.dataTransfer.effectAllowed = 'move'; slot.classList.add('dragging'); });
           slot.addEventListener('dragend', () => { dragged = null; slot.classList.remove('dragging'); });
           slot.addEventListener('dragover', e => { if (dragged && dragged !== id) { e.preventDefault(); e.stopPropagation(); slot.classList.add('drop'); } });
@@ -704,16 +910,29 @@
           grid.appendChild(slot);
         });
         sec.appendChild(grid);
+        if (!pg.ids.length) {
+          const e = document.createElement('div');
+          e.className = 'empty-slot';
+          e.textContent = t('Drag a photo here, or add one from under the last page');
+          grid.appendChild(e);
+        }
+        if (month) sec.appendChild(monthGrid(book.calendar, pg.month));
         if (pg.text != null) sec.appendChild(textBox(pg, 'Write a text for the page'));
         const seg = document.createElement('span');
         seg.className = 'seg';
-        for (const n of [1, 2, 3, 4, 6]) seg.append(tool(String(n), 'Photos on this page', () => { pg.n = n; reflow(); render(); }, pg.n === n));
-        tools.append(document.createTextNode(t('Photos on this page')), seg);
-        if (pg.ids.length === 1) tools.append(tool(full ? 'With a margin' : 'Fill the page', '', () => { pg.full = !full; render(); }));
+        if (!month) {
+          for (const n of [1, 2, 3, 4, 6]) seg.append(tool(String(n), 'Photos on this page', () => { pg.n = n; reflow(); render(); }, pg.n === n));
+          tools.append(document.createTextNode(t('Photos on this page')), seg);
+        }
+        if (pg.ids.length === 1 && !month) tools.append(tool(full ? 'With a margin' : 'Fill the page', '', () => { pg.full = !full; render(); }));
         tools.append(tool(pg.text != null ? 'Remove text' : '+ Text', '', () => { pg.text = pg.text != null ? null : ''; render(); }));
+        if (pg.text != null) tools.append(styleButton(pi));
       }
-      tools.append(tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: ''}); render(); }));
-      wrap.append(tools, sec);
+      tools.append(tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: ''}); render(); }),
+        tool('+ Map', 'A page with a map of where the photos were taken, after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: null, map: true}); render(); }));
+      wrap.append(tools);
+      if (styling === pi) wrap.append(styleRow(() => pg));
+      wrap.append(sec);
       root.appendChild(wrap);
     });
 
@@ -724,13 +943,15 @@
       bt.className = 'page-tools';
       const bb = document.createElement('b');
       bb.textContent = t('Back cover');
-      bt.append(bb);
+      bt.append(bb, styleButton('back'));
       const bs = document.createElement('section');
       bs.className = 'page back';
       const p = document.createElement('p');
       p.textContent = [title, span].filter(Boolean).join(' · ');
       bs.append(textBox(book.back, 'Write a text for the back'), p);
-      bw.append(bt, bs);
+      bw.append(bt);
+      if (styling === 'back') bw.append(styleRow(() => book.back));
+      bw.append(bs);
       root.appendChild(bw);
     }
 
@@ -781,7 +1002,235 @@
     // Print shops bind sheets, so they mostly want an even number of pages.
     const odd = book.bleed && total % 2 === 1;
     $('odd').hidden = !odd;
+    drawMaps(maps, list);
+    root.classList.toggle('spreads', !!book.spreads);
+    if (book.frame) root.dataset.frame = book.frame; else delete root.dataset.frame;
+    renderOverview(cover);
     requestAnimationFrame(checkPrint);
+  }
+
+  // ---------- calendar ----------
+
+  function monthName(year, m) {
+    const s = new Date(Date.UTC(year, m, 1)).toLocaleDateString(locale, {month: 'long', timeZone: 'UTC'});
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  // holidays are the Danish days off (and the evenings people keep) of a
+  // year, by "month-day"; Easter by the Gregorian computus.
+  function holidays(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+    const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const easter = Date.UTC(y, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+    const out = {};
+    const add = (ms, name) => { const d = new Date(ms); out[d.getUTCMonth() + '-' + d.getUTCDate()] = t(name); };
+    const day = 864e5;
+    add(Date.UTC(y, 0, 1), 'New Year’s Day');
+    add(easter - 3 * day, 'Maundy Thursday');
+    add(easter - 2 * day, 'Good Friday');
+    add(easter, 'Easter Sunday');
+    add(easter + day, 'Easter Monday');
+    add(easter + 39 * day, 'Ascension Day');
+    add(easter + 49 * day, 'Whit Sunday');
+    add(easter + 50 * day, 'Whit Monday');
+    add(Date.UTC(y, 5, 5), 'Constitution Day');
+    add(Date.UTC(y, 11, 24), 'Christmas Eve');
+    add(Date.UTC(y, 11, 25), 'Christmas Day');
+    add(Date.UTC(y, 11, 26), 'Boxing Day');
+    add(Date.UTC(y, 11, 31), 'New Year’s Eve');
+    return out;
+  }
+  // isoWeek is the week number as Danish calendars give it.
+  function isoWeek(ms) {
+    const d = new Date(ms);
+    d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7 + 3); // that week's Thursday
+    const thursday = d.valueOf();
+    d.setUTCMonth(0, 1);
+    if (d.getUTCDay() !== 4) d.setUTCMonth(0, 1 + (4 - d.getUTCDay() + 7) % 7); // the year's first Thursday
+    return 1 + Math.ceil((thursday - d) / 6048e5);
+  }
+  // monthGrid draws a month: its name, then a row a week (Monday first)
+  // with the week's number, Sundays and days off in red with their names.
+  function monthGrid(year, m) {
+    const box = document.createElement('div');
+    box.className = 'cal';
+    const h = document.createElement('div');
+    h.className = 'cal-head';
+    h.textContent = monthName(year, m) + ' ' + year;
+    box.appendChild(h);
+    const tbl = document.createElement('div');
+    tbl.className = 'cal-days';
+    const off = holidays(year);
+    const cell = (cls, text) => { const c = document.createElement('div'); c.className = cls; c.textContent = text; tbl.appendChild(c); return c; };
+    cell('wk', '');
+    for (let i = 0; i < 7; i++) cell('dn', new Date(Date.UTC(2024, 0, 1 + i)).toLocaleDateString(locale, {weekday: 'short', timeZone: 'UTC'}).replace('.', ''));
+    const first = Date.UTC(year, m, 1), days = new Date(Date.UTC(year, m + 1, 0)).getUTCDate();
+    const lead = (new Date(first).getUTCDay() + 6) % 7;
+    let col = 0;
+    for (let d = 1 - lead; d <= days; d++) {
+      const ms = Date.UTC(year, m, d);
+      if (col % 7 === 0) cell('wk', String(isoWeek(ms)));
+      if (d < 1) cell('day none', '');
+      else {
+        const name = off[m + '-' + d];
+        const c = cell('day' + (col % 7 === 6 || name ? ' red' : ''), String(d));
+        if (name) { const s = document.createElement('small'); s.textContent = name; c.appendChild(s); }
+      }
+      col++;
+    }
+    while (col % 7) { cell('day none', ''); col++; }
+    box.appendChild(tbl);
+    return box;
+  }
+
+  // drawMaps draws the map pages: a dot for each place the book's photos
+  // were taken (bigger for more photos), and for a trip the way between
+  // them in the order they were taken. The map tiles come from the
+  // internet, as on the program's Map.
+  let tileURL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  function drawMaps(boxes, list) {
+    if (!boxes.length || !window.L) return;
+    const pts = list.filter(im => im.lat != null && im.lon != null).sort((a, b) => (a.taken || 0) - (b.taken || 0)).map(im => [im.lat, im.lon]);
+    const trip = !!(src.get('near') || src.get('from'));
+    for (const box of boxes) {
+      if (!pts.length) {
+        box.classList.add('empty');
+        box.textContent = t('None of the photos in the book has a place.');
+        continue;
+      }
+      const m = L.map(box, {zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
+        keyboard: false, touchZoom: false, zoomSnap: .25, fadeAnimation: false, zoomAnimation: false});
+      L.tileLayer(tileURL, {maxZoom: 18, attribution: '© OpenStreetMap'}).addTo(m);
+      if (trip && pts.length > 1) L.polyline(pts, {color: '#c0392b', weight: 2.5, opacity: .6, dashArray: '5 7'}).addTo(m);
+      const at = new Map();
+      for (const [a, b] of pts) { const k = a.toFixed(2) + ',' + b.toFixed(2); at.set(k, (at.get(k) || 0) + 1); }
+      for (const [k, n] of at) {
+        L.circleMarker(k.split(',').map(Number), {radius: 4 + Math.min(9, Math.sqrt(n) * 1.5), color: '#fff', weight: 1.5, fillColor: '#c0392b', fillOpacity: .9}).addTo(m);
+      }
+      m.fitBounds(L.latLngBounds(pts), {padding: [30, 30], maxZoom: 13});
+    }
+  }
+
+  // Cropping: a photo can fill its place, showing the part chosen (x, y
+  // in percent of what is left over, z the zoom), instead of all of it.
+  let cropping = null; // the id of the photo being cropped
+  function cropStyle(img, c) {
+    img.style.objectPosition = `${c.x}% ${c.y}%`;
+    img.style.transformOrigin = `${c.x}% ${c.y}%`;
+    img.style.transform = c.z > 1 ? `scale(${c.z})` : '';
+  }
+  function cropEdit(slot, img, id) {
+    slot.classList.add('cropping');
+    const box = img.parentElement;
+    const c = {x: 50, y: 50, z: 1, ...(book.crop && book.crop[id])};
+    const keep = () => { book.crop = {...(book.crop || {}), [id]: {...c}}; save(); };
+    cropStyle(img, c);
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    box.addEventListener('pointerdown', e => {
+      if (e.target.closest('button')) return;
+      e.preventDefault();
+      box.setPointerCapture(e.pointerId);
+      let lx = e.clientX, ly = e.clientY;
+      const move = ev => {
+        // Dragging the photo right shows more of its left side.
+        c.x = clamp(c.x - (ev.clientX - lx) / box.clientWidth * 150 / c.z, 0, 100);
+        c.y = clamp(c.y - (ev.clientY - ly) / box.clientHeight * 150 / c.z, 0, 100);
+        lx = ev.clientX;
+        ly = ev.clientY;
+        cropStyle(img, c);
+      };
+      const up = () => { box.removeEventListener('pointermove', move); box.removeEventListener('pointerup', up); keep(); };
+      box.addEventListener('pointermove', move);
+      box.addEventListener('pointerup', up);
+    });
+    box.addEventListener('wheel', e => {
+      e.preventDefault();
+      c.z = clamp(c.z * (e.deltaY < 0 ? 1.1 : 1 / 1.1), 1, 4);
+      cropStyle(img, c);
+      clearTimeout(box._t);
+      box._t = setTimeout(keep, 400);
+    }, {passive: false});
+    const bar = document.createElement('div');
+    bar.className = 'crop-bar';
+    const zoom = d => () => { c.z = clamp(c.z * d, 1, 4); cropStyle(img, c); keep(); };
+    bar.append(tool('−', 'Zoom out', zoom(1 / 1.2)), tool('+', 'Zoom in', zoom(1.2)),
+      tool('Show all of it', '', () => { const cr = {...(book.crop || {})}; delete cr[id]; book.crop = cr; cropping = null; render(); }),
+      tool('Done', '', () => { keep(); cropping = null; render(); }));
+    bar.lastChild.className = 'on';
+    box.appendChild(bar);
+    const hint = document.createElement('div');
+    hint.className = 'crop-hint';
+    hint.textContent = t('Drag the photo; the mouse wheel zooms');
+    box.appendChild(hint);
+  }
+
+  // renderOverview draws every page small in the side panel: a click
+  // goes to the page, and a page dragged onto another moves there.
+  let overviewOpen = false, draggedPage = -1;
+  const thumb = im => '/thumb/' + im.hash + (im.rot ? '?r=' + im.rot : '');
+  function renderOverview(cover) {
+    document.querySelector('.overview')?.remove();
+    document.body.classList.toggle('with-overview', overviewOpen);
+    $('overview').classList.toggle('primary', overviewOpen);
+    if (!overviewOpen) return;
+    document.documentElement.style.setProperty('--bar-h', document.querySelector('.book-bar').offsetHeight + 'px');
+    const [w, h] = SIZES[book.size] || SIZES.a4l;
+    const panel = document.createElement('div');
+    panel.className = 'overview';
+    const wraps = [...document.querySelectorAll('#pages > .page-wrap')];
+    const mini = (label, at, fill, pi) => {
+      const m = document.createElement('div');
+      m.className = 'mini';
+      const sheet = document.createElement('div');
+      sheet.className = 'sheet';
+      sheet.style.aspectRatio = w + ' / ' + h;
+      fill(sheet);
+      const cap = document.createElement('span');
+      cap.textContent = label;
+      m.append(sheet, cap);
+      m.addEventListener('click', () => wraps[at] && wraps[at].scrollIntoView({behavior: 'smooth', block: 'start'}));
+      if (pi >= 0) {
+        m.draggable = true;
+        m.addEventListener('dragstart', e => { draggedPage = pi; e.dataTransfer.effectAllowed = 'move'; m.classList.add('dragging'); });
+        m.addEventListener('dragend', () => { draggedPage = -1; m.classList.remove('dragging'); });
+        m.addEventListener('dragover', e => { if (draggedPage >= 0 && draggedPage !== pi) { e.preventDefault(); m.classList.add('drop'); } });
+        m.addEventListener('dragleave', () => m.classList.remove('drop'));
+        m.addEventListener('drop', e => {
+          e.preventDefault();
+          if (draggedPage < 0 || draggedPage === pi) return;
+          const [p] = book.pages.splice(draggedPage, 1);
+          book.pages.splice(pi, 0, p);
+          draggedPage = -1;
+          reflow();
+          render();
+        });
+      }
+      panel.appendChild(m);
+    };
+    const photosIn = (sheet, ims) => {
+      const n = ims.length;
+      const cols = n <= 1 ? 1 : n <= 4 ? 2 : 3;
+      sheet.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      sheet.style.gridTemplateRows = `repeat(${Math.ceil(n / cols)}, 1fr)`;
+      for (const im of ims) {
+        const i = document.createElement('img');
+        i.src = thumb(im);
+        i.loading = 'lazy';
+        i.draggable = false;
+        sheet.appendChild(i);
+      }
+    };
+    const textIn = (sheet, text) => {
+      const d = document.createElement('div');
+      d.className = 'txt';
+      d.textContent = (text || '').slice(0, 80);
+      sheet.appendChild(d);
+    };
+    mini(t('Cover'), 0, s => photosIn(s, [cover]), -1);
+    book.pages.forEach((pg, pi) => mini(t('Page ' + (pi + 1)), pi + 1,
+      s => pg.n ? photosIn(s, pg.ids.map(id => byId.get(id))) : textIn(s, pg.map ? '🗺 ' + t('Map') : pg.text), pi));
+    if (book.back) mini(t('Back cover'), book.pages.length + 1, s => textIn(s, book.back.text), -1);
+    document.body.appendChild(panel);
   }
 
   // checkPrint marks photos with too few pixels for their size on paper,
@@ -798,8 +1247,9 @@
       const long = Math.max(im.w, im.h), have = NATIVE.test(im.format || '') ? long : Math.min(long, 2560);
       const pxW = im.w * have / long;
       const aspect = im.w / im.h, bw = box.clientWidth, bh = box.clientHeight;
-      const fill = page.classList.contains('full');
-      const shownW = fill ? Math.max(bw, bh * aspect) : Math.min(bw, bh * aspect);
+      const crop = img.closest('.cropped') ? (book.crop && book.crop[im.id]) || {z: 1} : null;
+      const fill = page.classList.contains('full') || crop;
+      const shownW = (fill ? Math.max(bw, bh * aspect) : Math.min(bw, bh * aspect)) * (crop ? crop.z : 1);
       const mm = shownW * pageMM()[0] / page.clientWidth;
       const dpi = Math.round(pxW / (mm / 25.4));
       if (dpi >= 150) continue;
@@ -865,6 +1315,8 @@
     }
     byId = new Map(photos.map(p => [p.id, p]));
     if (src.get('person')) person = ((await api('/api/people').catch(() => ({}))).people || []).find(p => p.id === +src.get('person')) || null;
+    const st = await api('/api/settings').catch(() => null);
+    if (st && st.saved && st.saved.map_tiles) tileURL = st.saved.map_tiles;
 
     let old = {};
     try { old = JSON.parse(localStorage.getItem('bookOptions') || '{}'); } catch (e) {}
@@ -886,6 +1338,7 @@
     } else if (d && Array.isArray(d.order)) {
       convert(d);
     } else {
+      if (src.get('calendar')) book.size = 'a4p'; // a month under its photo
       await fresh();
     }
     if (book.cap.place || book.cap.who) await needInfo();
@@ -902,6 +1355,8 @@
     $('who').checked = !!book.cap.who;
     $('back').checked = !!book.back;
     $('bleed').checked = !!book.bleed;
+    $('spreads').checked = !!book.spreads;
+    $('frame').value = book.frame || '';
     const pick = $('pick');
     if (![...pick.options].some(o => +o.value === book.pick)) {
       const o = document.createElement('option');
@@ -939,6 +1394,9 @@
     await fresh();
     render();
   });
+  $('overview').addEventListener('click', () => { overviewOpen = !overviewOpen; render(); });
+  $('spreads').addEventListener('change', () => { book.spreads = $('spreads').checked; render(); });
+  $('frame').addEventListener('change', () => { book.frame = $('frame').value; render(); });
   $('undo').addEventListener('click', () => step(undo, redo));
   $('redo').addEventListener('click', () => step(redo, undo));
   document.addEventListener('keydown', e => {

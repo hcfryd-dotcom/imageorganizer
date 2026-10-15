@@ -1666,9 +1666,22 @@
           <option value="album">An album</option>
           <option value="year">A year, month by month</option>
           <option value="trip">A trip or a time (and a place)</option>
+          <option value="calendar">A calendar (12 months)</option>
         </select>
       </label>
-      <label x-show="bookNew.kind === 'person' || bookNew.kind === 'years'">Who
+      <div x-show="bookNew.kind === 'calendar'" class="book-trip">
+        <label>The calendar’s year <input class="input" type="number" min="1900" max="2100" x-model.number="bookNew.calYear"></label>
+        <label>Photos of
+          <select class="select" x-model="bookNew.calFrom">
+            <option value="person">One person</option>
+            <option value="album">An album</option>
+            <option value="year">A year</option>
+            <option value="all">All photos</option>
+          </select>
+        </label>
+        <p class="muted small">A page a month with week numbers and the Danish days off. For each month the program picks a good photo taken in that month, of some year.</p>
+      </div>
+      <label x-show="bookNew.kind === 'person' || bookNew.kind === 'years' || bookNew.kind === 'calendar' && bookNew.calFrom === 'person'">Who
         <select class="select" x-model.number="bookNew.person">
           <template x-for="p in namedPeople()" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
         </select>
@@ -1682,12 +1695,12 @@
           </template>
         </div>
       </div>
-      <label x-show="bookNew.kind === 'album'">Album
+      <label x-show="bookNew.kind === 'album' || bookNew.kind === 'calendar' && bookNew.calFrom === 'album'">Album
         <select class="select" x-model.number="bookNew.album">
           <template x-for="a in albums" :key="a.id"><option :value="a.id" x-text="a.name"></option></template>
         </select>
       </label>
-      <label x-show="bookNew.kind === 'year'">Year
+      <label x-show="bookNew.kind === 'year' || bookNew.kind === 'calendar' && bookNew.calFrom === 'year'"><span x-text="bookNew.kind === 'calendar' ? 'Photos from the year' : 'Year'"></span>
         <input class="input" type="number" min="1900" max="2100" x-model.number="bookNew.year">
       </label>
       <div x-show="bookNew.kind === 'trip'" class="book-trip">
@@ -1706,7 +1719,7 @@
           <button type="button" class="btn ghost" @click="bookNew.place = null; bookNew.placeQ = ''">Any place</button>
         </label>
       </div>
-      <label>Photos
+      <label x-show="bookNew.kind !== 'calendar'">Photos
         <select class="select" x-model.number="bookNew.pick">
           <option value="0">All photos</option>
           <option value="40">The best 40</option>
@@ -1715,7 +1728,7 @@
           <option value="300">The best 300</option>
         </select>
       </label>
-      <p class="muted small">With “the best”, the program leaves out blurry photos, screenshots and all but one of each burst, and spreads the rest over the whole time. You can add and remove photos in the book afterwards.</p>
+      <p class="muted small" x-show="bookNew.kind !== 'calendar'">With “the best”, the program leaves out blurry photos, screenshots and all but one of each burst, and spreads the rest over the whole time. You can add and remove photos in the book afterwards.</p>
       <label>Title <input class="input" x-model="bookNew.title" :placeholder="bookTitle() || 'Title'"></label>
       <div class="modal-foot">
         <span class="muted small" x-text="bookNew.error"></span>

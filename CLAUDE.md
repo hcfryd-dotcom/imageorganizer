@@ -113,6 +113,10 @@ the rest of the repo.
   (no blurry, screenshots or bursts; spread over chapters or events).
   `/api/books/info` gives town and names for captions. Books once kept
   in the browser's localStorage are moved into the library when opened.
+  In the page: undo/redo, a dpi warning per photo (checkPrint), print
+  shop sizes and 3 mm bleed, page overview and spreads, cropping, text
+  styles, frames, map pages (Leaflet, OSM tiles from the internet) and
+  calendars (`calendar=YEAR`: a page a month, ISO weeks, Danish days off).
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - macOS-style look: one block at the end of `web/app.css`.

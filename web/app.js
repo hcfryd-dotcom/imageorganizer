@@ -104,7 +104,7 @@ document.addEventListener('alpine:init', () => {
     albums: [],         // the Albums page
     albumPick: {open: false, ids: [], name: '', busy: false}, // "Add to album…" for these photos
     books: [],          // the Photo books page
-    bookNew: {open: false}, // "New photo book" (openBookNew)
+    bookNew: {open: false, kind: 'person', people: [], places: [], place: null, placeQ: '', title: '', calFrom: 'person', error: ''}, // "New photo book" (openBookNew)
     personName: '',
     peopleData: {people: [], groups: []},
     openPersonId: 0,    // person page in the People view
@@ -2920,7 +2920,8 @@ document.addEventListener('alpine:init', () => {
     openBookNew() {
       const y = new Date().getFullYear() - 1;
       this.bookNew = {open: true, kind: 'person', person: 0, people: [], album: 0, year: y, from: '', to: '',
-        placeQ: '', places: [], place: null, km: 30, pick: 80, title: '', busy: false, error: ''};
+        placeQ: '', places: [], place: null, km: 30, pick: 80, title: '', busy: false, error: '',
+        calYear: new Date().getFullYear() + 1, calFrom: 'person'};
       Promise.all([this.loadAlbums(), this.peopleData.people.length ? null : this.loadPeople()]).then(() => {
         const p = this.namedPeople()[0], a = this.albums[0];
         if (p && !this.bookNew.person) this.bookNew.person = p.id;
@@ -2948,6 +2949,13 @@ document.addEventListener('alpine:init', () => {
           if (b.to) s.set('to', b.to);
           if (b.place) { s.set('near', b.place.lat.toFixed(4) + ',' + b.place.lon.toFixed(4)); s.set('km', b.km); }
           break;
+        case 'calendar':
+          if (!(b.calYear > 1800)) return '';
+          s.set('calendar', b.calYear);
+          if (b.calFrom === 'person') { if (!b.person) return ''; s.set('person', b.person); }
+          if (b.calFrom === 'album') { if (!b.album) return ''; s.set('album', b.album); }
+          if (b.calFrom === 'year') { if (!(b.year > 1800)) return ''; s.set('from', b.year + '-01-01'); s.set('to', b.year + '-12-31'); }
+          return s.toString();
         default: return '';
       }
       s.set('pick', b.pick || 0);
@@ -2966,6 +2974,7 @@ document.addEventListener('alpine:init', () => {
           const y = (b.from || b.to || '').slice(0, 4);
           return [b.place && b.place.name, y].filter(Boolean).join(' ');
         }
+        case 'calendar': return b.calYear ? 'Calendar ' + b.calYear : '';
       }
       return '';
     },
