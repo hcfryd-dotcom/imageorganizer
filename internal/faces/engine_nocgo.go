@@ -25,6 +25,7 @@ func (e *Engine) HasGender() bool                         { return false }
 func (e *Engine) HasAge() bool                            { return false }
 func (e *Engine) HasNSFW() bool                           { return false }
 func (e *Engine) HasEyes() bool                           { return false }
+func (e *Engine) GenderVersion() int                      { return 0 }
 func (e *Engine) GenderFromCrop(crop []byte, box [4]float32) (float32, bool, error) {
 	return -1, false, errNoRuntime
 }

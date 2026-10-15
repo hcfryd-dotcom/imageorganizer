@@ -224,7 +224,8 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 	} else {
 		log.Info("face analysis ready", "device", faceEngine.Device(), "gender", faceEngine.HasGender())
 		defer faceEngine.Close()
-		st.Gender = faceEngine.HasGender()   // faces without a gender estimate get one from the age stage
+		st.Gender = faceEngine.HasGender() // faces without a gender estimate get one from the age stage
+		st.GenderVersion = faceEngine.GenderVersion()
 		st.NoAgeModel = !faceEngine.HasAge() // then faces are grouped without waiting for an age
 	}
 	// Images whose original-dependent analysis is out of date (a version in

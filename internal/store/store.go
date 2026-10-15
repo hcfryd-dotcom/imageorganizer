@@ -187,6 +187,10 @@ type Store struct {
 	// Gender: the age model also estimates gender, so faces without an
 	// estimate wait for the age stage. Set before the stages start.
 	Gender bool
+	// GenderVersion is which model gives gender (faces.GenderVersion): a
+	// face judged by an earlier one (or found unknown, FemV 1, by an age
+	// model without gender) is judged again. 0 counts as 1.
+	GenderVersion int
 	// NsfwModel: an NSFW classifier is loaded, so photos without a score
 	// wait for the look stage. Set before the stages start.
 	NsfwModel bool

@@ -384,7 +384,7 @@ type AgeJob struct {
 // needsEstimate reports whether a face still waits for the age stage: for
 // its age, or (with a gender model) its gender.
 func (s *Store) needsEstimate(f *faceRec) bool {
-	return f.AgeVersion == 0 || s.Gender && f.FemV == 0
+	return f.AgeVersion == 0 || s.Gender && f.FemV < max(1, s.GenderVersion)
 }
 
 // NeedAge returns up to n faces whose age (or gender) has not been
@@ -444,7 +444,7 @@ func (s *Store) SetGender(ctx context.Context, faceID int64, female float32) err
 		return nil // replaced meanwhile
 	}
 	c := *f
-	c.Fem, c.FemV = female, 1
+	c.Fem, c.FemV = female, max(1, s.GenderVersion)
 	if err := s.db.Update(func(tx *bolt.Tx) error { return put(tx, bucketFaces, c.ID, &c) }); err != nil {
 		return err
 	}

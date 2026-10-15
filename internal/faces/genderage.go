@@ -91,3 +91,15 @@ func (e *Engine) GenderFromCrop(crop []byte, box [4]float32) (female float32, ok
 	f, err := e.femaleFrom(img, px)
 	return f, err == nil, err
 }
+
+// GenderVersion names the model that gives gender, for the store to judge
+// faces again when it changes: 1 the age model, 2 genderage, 0 none.
+func (e *Engine) GenderVersion() int {
+	switch {
+	case e.age != nil && e.gender:
+		return 1
+	case e.ga != nil:
+		return 2
+	}
+	return 0
+}
