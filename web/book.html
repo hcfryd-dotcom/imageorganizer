@@ -59,6 +59,14 @@
   .cover p { font: 12pt -apple-system, "Segoe UI", sans-serif; color: #6e6e73; margin: 0; }
   .book-empty { padding: 60px 20px; text-align: center; }
   .book-bar .saved { min-width: 60px; }
+  .book-bar .weak { color: #b26a00; font-weight: 600; }
+  .book-bar .btn:disabled { opacity: .45; }
+  /* A photo with too few pixels for its place (checkPrint). */
+  .ph { position: relative; }
+  .lowres { position: absolute; left: 2mm; bottom: 2mm; padding: 2px 7px; border-radius: 10px; background: #ffcc00; color: #3a2a00;
+    font: 600 11px -apple-system, "Segoe UI", sans-serif; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); cursor: help; }
+  .lowres.bad { background: #ff3b30; color: #fff; }
+  @media print { .lowres, .book-bar .weak { display: none !important; } }
   /* One photo filling the page to its edges. */
   .page.full { padding: 0; }
   .page.full .grid { gap: 0; }
@@ -149,6 +157,10 @@
     <option value="a4l">A4 landscape</option>
     <option value="a4p">A4 portrait</option>
     <option value="sq">Square (21 × 21 cm)</option>
+    <option value="sq20">Square (20 × 20 cm)</option>
+    <option value="sq30">Square (30 × 30 cm)</option>
+    <option value="l28">Landscape (28 × 21 cm)</option>
+    <option value="p21">Portrait (21 × 28 cm)</option>
   </select></label>
   <label>Photos per page <select class="select" id="per">
     <option value="auto">As they fit best</option>
@@ -181,9 +193,14 @@
   <label><input type="checkbox" id="place"> Place</label>
   <label><input type="checkbox" id="who"> Who</label>
   <label><input type="checkbox" id="back"> Back cover</label>
+  <label title="Each page 3 mm bigger on every side, which the print shop cuts off, so photos and backgrounds reach the edge. Ask the print shop if they want it."><input type="checkbox" id="bleed"> For a print shop (3 mm bleed)</label>
   <span class="grow"></span>
   <span class="muted small" id="count"></span>
+  <span class="small weak" id="weak" title="Marked ⚠ on the pages"></span>
+  <span class="small weak" id="odd" hidden title="Print shops mostly want an even number of pages (some a number of 4s). Add or remove a page, e.g. a page of text or the back cover.">Odd number of pages</span>
   <span class="muted small saved" id="saved"></span>
+  <button class="btn" id="undo" title="Undo the last change (Ctrl+Z)" disabled>↶ Undo</button>
+  <button class="btn" id="redo" title="Do it again (Ctrl+Y)" disabled>↷ Redo</button>
   <button class="btn" id="restart" title="Lay the book out again, leaving out your changes">Start over</button>
   <button class="btn primary" id="print">Print / save as PDF</button>
 </div>
@@ -194,7 +211,10 @@
   'use strict';
   const q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
-  const SIZES = {a4l: [297, 210], a4p: [210, 297], sq: [210, 210]};
+  const SIZES = {a4l: [297, 210], a4p: [210, 297], sq: [210, 210], sq20: [200, 200], sq30: [300, 300], l28: [280, 210], p21: [210, 280]};
+  const BLEED = 3; // mm a print shop cuts off each edge
+  // pageMM is the page's size on paper, with the bleed when it is for a print shop.
+  const pageMM = () => (SIZES[book.size] || SIZES.a4l).map(v => v + (book.bleed ? 2 * BLEED : 0));
   const lang = (window.i18n && window.i18n.lang()) || 'en';
   const locale = lang === 'da' ? 'da-DK' : 'en-GB';
   const t = s => (window.i18n ? window.i18n.tr(s) ?? s : s); // texts made here, as they change
@@ -465,8 +485,40 @@
 
   // ---------- saving ----------
 
+  // Undo: the book as it was before each change. Typing in a text box
+  // counts as one change until it pauses.
+  const undo = [], redo = [];
+  let last = null, lastTyped = 0;
+  function track(typing) {
+    const s = JSON.stringify(book);
+    if (s === last) return;
+    const now = Date.now();
+    if (last !== null && !(typing && now - lastTyped < 1500)) {
+      undo.push(last);
+      if (undo.length > 200) undo.shift();
+      redo.length = 0;
+    }
+    if (typing) lastTyped = now;
+    last = s;
+    showUndo();
+  }
+  function step(from, to) {
+    if (!from.length) return;
+    to.push(JSON.stringify(book));
+    last = from.pop();
+    book = JSON.parse(last);
+    lastTyped = 0;
+    showSettings();
+    render();
+  }
+  function showUndo() {
+    $('undo').disabled = !undo.length;
+    $('redo').disabled = !redo.length;
+  }
+
   let saveTimer = 0, dirty = false;
-  function save() {
+  function save(typing) {
+    track(typing);
     dirty = true;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flushSave, 700);
@@ -500,7 +552,7 @@
     d.contentEditable = 'true';
     d.dataset.ph = t(placeholder);
     d.textContent = obj.text || '';
-    d.addEventListener('input', () => { obj.text = d.innerText.replace(/\n$/, ''); save(); });
+    d.addEventListener('input', () => { obj.text = d.innerText.replace(/\n$/, ''); save(true); });
     return d;
   }
 
@@ -531,9 +583,13 @@
   }
 
   function render() {
-    const [w, h] = SIZES[book.size] || SIZES.a4l;
+    const [w, h] = pageMM();
     const title = $('title').value.trim();
-    $('page-size').textContent = `@page { size: ${w}mm ${h}mm; margin: 0; } .page { width: ${w}mm; height: ${h}mm; }`;
+    // For a print shop each page is BLEED mm bigger on every side, to be
+    // cut off; what matters stays that much further in.
+    const b = book.bleed ? BLEED : 0;
+    $('page-size').textContent = `@page { size: ${w}mm ${h}mm; margin: 0; } .page { width: ${w}mm; height: ${h}mm; }` +
+      (b ? `.page:not(.full) { padding: ${10 + b}mm; } .page.cover { padding: ${16 + b}mm; } .page.full .slot .cap { bottom: ${4 + b}mm; }` : '');
     document.body.dataset.theme = book.theme || '';
     const root = $('pages');
     root.textContent = '';
@@ -555,6 +611,7 @@
     cs.className = 'page cover';
     cs.innerHTML = '<div class="ph"><img alt=""></div><h2></h2><p></p>';
     cs.querySelector('img').src = imgSrc(cover);
+    cs.querySelector('img').dataset.id = cover.id;
     cs.querySelector('h2').textContent = title || ' ';
     cs.querySelector('p').textContent = span;
     const cw = document.createElement('div');
@@ -607,6 +664,7 @@
           slot.innerHTML = '<div class="ph"><img alt="" loading="lazy"></div>';
           const img = slot.querySelector('img');
           img.src = imgSrc(im);
+          img.dataset.id = id;
           img.draggable = false; // the slot is what drags
           const text = caption(im);
           if (text || !full) {
@@ -717,9 +775,42 @@
     }
     if (tray.childNodes.length) root.appendChild(tray);
 
-    const left = gone.length;
-    $('count').textContent = t(list.length + (list.length === 1 ? ' photo' : ' photos') + ' · ' + (pages.length + 1 + (book.back ? 1 : 0)) + ' pages') +
+    const left = gone.length, total = pages.length + 1 + (book.back ? 1 : 0);
+    $('count').textContent = t(list.length + (list.length === 1 ? ' photo' : ' photos') + ' · ' + total + ' pages') +
       (left ? ' · ' + t(left + ' left out') : '');
+    // Print shops bind sheets, so they mostly want an even number of pages.
+    const odd = book.bleed && total % 2 === 1;
+    $('odd').hidden = !odd;
+    requestAnimationFrame(checkPrint);
+  }
+
+  // checkPrint marks photos with too few pixels for their size on paper,
+  // which print blurry: under 150 dots per inch is weak, under 100 bad.
+  // The page shows the original for formats a browser reads, else a copy
+  // 2560 pixels on its long side (see the server's preview).
+  const NATIVE = /^(jpe?g|jpe|png|gif|webp|avif|bmp)$/i;
+  function checkPrint() {
+    let weak = 0;
+    for (const img of document.querySelectorAll('.page img[data-id]')) {
+      const im = byId.get(+img.dataset.id), box = img.parentElement, page = img.closest('.page');
+      box.querySelector('.lowres')?.remove();
+      if (!im || !im.w || !im.h || !box.clientWidth || !page.clientWidth) continue;
+      const long = Math.max(im.w, im.h), have = NATIVE.test(im.format || '') ? long : Math.min(long, 2560);
+      const pxW = im.w * have / long;
+      const aspect = im.w / im.h, bw = box.clientWidth, bh = box.clientHeight;
+      const fill = page.classList.contains('full');
+      const shownW = fill ? Math.max(bw, bh * aspect) : Math.min(bw, bh * aspect);
+      const mm = shownW * pageMM()[0] / page.clientWidth;
+      const dpi = Math.round(pxW / (mm / 25.4));
+      if (dpi >= 150) continue;
+      weak++;
+      const b = document.createElement('span');
+      b.className = 'lowres' + (dpi < 100 ? ' bad' : '');
+      b.textContent = '⚠ ' + dpi + ' dpi';
+      b.title = t('Too few pixels for its size on paper: it may print blurry. Give it a smaller place on the page, or choose another photo.');
+      box.appendChild(b);
+    }
+    $('weak').textContent = weak ? t(weak + (weak === 1 ? ' photo may print blurry' : ' photos may print blurry')) : '';
   }
 
   // ---------- loading ----------
@@ -765,7 +856,7 @@
     document.title = (rec.title || t('Photo book')) + ' – ImageOrganizer';
 
     const base = new URLSearchParams({sort: 'taken_asc', limit: '2000'});
-    for (const k of ['album', 'person', 'people', 'from', 'to', 'near', 'km']) if (src.get(k)) base.set(k, src.get(k));
+    for (const k of ['album', 'person', 'people', 'ids', 'from', 'to', 'near', 'km']) if (src.get(k)) base.set(k, src.get(k));
     for (let off = 0; ; off += 2000) {
       base.set('offset', off);
       const r = await api('/api/images?' + base);
@@ -810,6 +901,7 @@
     $('place').checked = !!book.cap.place;
     $('who').checked = !!book.cap.who;
     $('back').checked = !!book.back;
+    $('bleed').checked = !!book.bleed;
     const pick = $('pick');
     if (![...pick.options].some(o => +o.value === book.pick)) {
       const o = document.createElement('option');
@@ -832,6 +924,7 @@
     });
   }
   $('back').addEventListener('change', () => { book.back = $('back').checked ? (book.back || {text: ''}) : null; render(); });
+  $('bleed').addEventListener('change', () => { book.bleed = $('bleed').checked; render(); });
   $('pick').addEventListener('change', async () => {
     if (!confirm(t('Choose the photos again and lay the book out anew? Your texts, order and left-out photos are forgotten.'))) { $('pick').value = String(book.pick); return; }
     book.pick = +$('pick').value;
@@ -845,6 +938,16 @@
     others = 0;
     await fresh();
     render();
+  });
+  $('undo').addEventListener('click', () => step(undo, redo));
+  $('redo').addEventListener('click', () => step(redo, undo));
+  document.addEventListener('keydown', e => {
+    // In a text box or field, the browser's own undo is for the text.
+    const el = e.target instanceof Element ? e.target : null;
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || el && el.closest('input, select, [contenteditable="true"]')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); step(undo, redo); }
+    else if (k === 'y' || k === 'z' && e.shiftKey) { e.preventDefault(); step(redo, undo); }
   });
   $('print').addEventListener('click', async () => {
     // Every photo must be loaded before printing, not only those seen.

@@ -329,6 +329,18 @@
     'Move to page…': 'Flyt til side…', 'That is a page of text; choose a page with photos.': 'Det er en tekstside; vælg en side med billeder.',
     'A4 landscape': 'A4 på langs', 'A4 portrait': 'A4 på højkant', 'Square (21 × 21 cm)': 'Kvadratisk (21 × 21 cm)',
     'Photos per page': 'Billeder pr. side', 'As they fit best': 'Som de passer bedst', 'Dates under the photos': 'Datoer under billederne',
+    'Undo the last change (Ctrl+Z)': 'Fortryd den sidste ændring (Ctrl+Z)', 'Do it again (Ctrl+Y)': 'Gør det igen (Ctrl+Y)',
+    '↶ Undo': '↶ Fortryd', '↷ Redo': '↷ Gentag', 'Marked ⚠ on the pages': 'Mærket ⚠ på siderne',
+    'Too few pixels for its size on paper: it may print blurry. Give it a smaller place on the page, or choose another photo.':
+      'For få punkter til sin størrelse på papir: det kan blive uskarpt på tryk. Giv det en mindre plads på siden, eller vælg et andet billede.',
+    'Square (20 × 20 cm)': 'Kvadratisk (20 × 20 cm)', 'Square (30 × 30 cm)': 'Kvadratisk (30 × 30 cm)',
+    'Landscape (28 × 21 cm)': 'Liggende (28 × 21 cm)', 'Portrait (21 × 28 cm)': 'Stående (21 × 28 cm)',
+    'For a print shop (3 mm bleed)': 'Til trykkeri (3 mm ekstra kant)',
+    'Each page 3 mm bigger on every side, which the print shop cuts off, so photos and backgrounds reach the edge. Ask the print shop if they want it.':
+      'Hver side bliver 3 mm større hele vejen rundt, og trykkeriet skærer det af, så billeder og baggrunde går helt ud til kanten. Spørg trykkeriet, om de vil have det.',
+    'Odd number of pages': 'Ulige antal sider',
+    'Print shops mostly want an even number of pages (some a number of 4s). Add or remove a page, e.g. a page of text or the back cover.':
+      'Trykkerier vil oftest have et lige antal sider (nogle et antal der går op i 4). Tilføj eller fjern en side, fx en tekstside eller bagsiden.',
     'Date': 'Dato', 'Place': 'Sted', 'Who': 'Hvem', 'Back cover': 'Bagside', 'Under the photos:': 'Under billederne:',
     'All photos': 'Alle billeder', 'Cover': 'Forside', 'Without a date': 'Uden dato', 'Choosing the best photos…': 'Vælger de bedste billeder…',
     'Not saved; trying again': 'Ikke gemt; prøver igen', 'Use it on the cover': 'Brug det på forsiden', 'Leave it out of the book': 'Tag det ud af bogen',
@@ -510,6 +522,7 @@
     [/^Page (\d+)$/, (m, n) => 'Side ' + n],
     [/^Move the photo to page number \(1–(\d+)\):$/, (m, n) => 'Flyt billedet til side nummer (1–' + n + '):'],
     [/^The best (\d+)$/, (m, n) => 'De bedste ' + n],
+    [/^(\d+) photos? may print blurry$/, (m, n) => n + (n === '1' ? ' billede kan blive uskarpt' : ' billeder kan blive uskarpe') + ' på tryk'],
     [/^(.+) is born$/, (m, n) => n + ' bliver født'],
     [/^(.+) turns (\d+)$/, (m, n, a) => n + ' fylder ' + a + ' år'],
     [/^(.+) through the years$/, (m, n) => n + ' gennem årene'],
