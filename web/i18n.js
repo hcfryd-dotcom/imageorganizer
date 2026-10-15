@@ -354,6 +354,7 @@
     [/^(\d[\d.,\u00a0]*) photos on (\d[\d.,\u00a0]*) days(, .*?)?( · born ~(\d+))?$/, (m, a, b, y, bb, by) => a + ' billeder på ' + b + ' dage' + (y || '') + (by ? ' · født ~' + by : '')],
     [/^Often with (.*) · (\d[\d.,\u00a0]*) days with people you’ve named$/, (m, w, n) => 'Ofte sammen med ' + w.replace(/ and /g, ' og ') + ' · ' + n + ' dage med personer du har navngivet'],
     [/^with (.*) \(([a-z -]+)\) in (\d[\d.,\u00a0]*) of (\d[\d.,\u00a0]*) photos$/, (m, w, r, a, b) => 'med ' + w + ' (' + (DA[r] || r) + ') på ' + a + ' af ' + b + ' billeder'],
+    [/^(with|next to) (.*) \(([a-z -]+)\)$/,(m, w, nm, r) => (w === 'with' ? 'med ' : 'ved siden af ') + nm + ' (' + (DA[r] || r) + ')'],
     [/^with (.*)$/, (m, w) => 'med ' + w.replace(/ and /g, ' og ')],
     [/^(.+)’s ([a-z -]+)$/, (m, nm, k) => DA[k] ? nm + 's ' + DA[k] : null],
     [/^More of (.*)\?$/, (m, nm) => 'Mere af ' + nm + '?'],

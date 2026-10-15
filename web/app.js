@@ -2136,8 +2136,8 @@ document.addEventListener('alpine:init', () => {
       // An object, not a string: a string replaces the whole style
       // attribute, and with it x-show's display:none.
       if (!f) return {};
-      // Below the face, or above it when the face is near the bottom.
-      const below = f.box[3] < 0.6;
+      // Below the face or above it, where the photo has more room for it.
+      const below = 1 - f.box[3] >= f.box[1]; // on the side of the face with more room
       const x = Math.min(Math.max(f.box[0] * 100, 0), 70) + '%';
       // Zoomed, it is scaled back to normal size from the corner at the face.
       return below ? {left: x, top: `calc(${f.box[3] * 100}% + 30px / var(--z))`, bottom: 'auto', transformOrigin: '0 0'}

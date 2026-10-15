@@ -1153,3 +1153,10 @@ body:has(.sel-bar:not([style*="none"])) .toast { bottom: 84px; }
 /* Review cards: the three buttons below a card wrap to fit narrow cards */
 .review-more { display: flex; flex-wrap: wrap; gap: 4px 6px; }
 .review-more .btn { flex: 1 1 auto; height: auto; min-height: 30px; padding: 4px 8px; white-space: normal; line-height: 1.2; text-align: center; }
+/* The viewer's dark popovers: suggestions and fields readable on dark glass */
+.assign-pop .suggestion, .also-pop .suggestion { background: rgba(10, 132, 255, .32); color: #f5f5f7; }
+.assign-pop .suggestion:hover, .also-pop .suggestion:hover { background: rgba(10, 132, 255, .5); }
+.assign-pop .suggestion .sg-note, .also-pop .suggestion .sg-note, .assign-pop .muted, .also-pop .muted { color: rgba(245, 245, 247, .72); }
+.assign-pop .match-pct, .also-pop .match-pct { opacity: .8; }
+.assign-pop .input::placeholder, .also-pop .input::placeholder, .lb-info .input::placeholder { color: rgba(245, 245, 247, .55); }
+.assign-pop .btn.ghost, .also-pop .btn.ghost { color: #f5f5f7; }
