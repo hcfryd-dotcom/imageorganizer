@@ -143,7 +143,12 @@ the rest of the repo.
   edge, and `server/bookpdf.go` prints `book.html?pdf=inner|cover` to
   "<title> - indmad.pdf" / "- omslag.pdf" with headless Edge (its own
   throw-away profile next to the files), default folder `E:\Fotobøger`.
-  "Check the book" lists what may go wrong in print.
+  "Check the book" lists what may go wrong in print. Also: "Find
+  photos…" searches the library and drags photos in (`book.extra`),
+  own captions (`book.captions`), cover layouts (photo, full, collage),
+  page layouts (grid, one big, scattered prints), page backgrounds
+  (`pg.bg`), page numbers and a contents page (both choices), and
+  "Copy" on the Photo books page.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - macOS-style look: one block at the end of `web/app.css`.

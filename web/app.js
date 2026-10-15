@@ -2916,6 +2916,16 @@ document.addEventListener('alpine:init', () => {
       await api('/api/books/' + b.id, {method: 'DELETE'}).catch(e => this.notify(`Couldn’t delete: ${e.message}`, 6000));
       this.loadBooks();
     },
+    async copyBook(b) {
+      try {
+        const full = await api('/api/books/' + b.id);
+        const tr = s => (window.i18n && window.i18n.tr(s)) || s;
+        await api('/api/books', {method: 'POST', body: JSON.stringify({title: (full.title || '…') + ' ' + tr('(copy)'), source: full.source, data: full.data})});
+        this.loadBooks();
+      } catch (e) {
+        this.notify(`Couldn’t copy: ${e.message}`, 6000);
+      }
+    },
     namedPeople() {
       return (this.peopleData.people || []).filter(p => p.name && !p.picture).slice().sort((a, b) => a.name.localeCompare(b.name));
     },

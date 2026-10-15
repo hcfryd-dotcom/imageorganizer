@@ -1182,6 +1182,7 @@
           <small class="muted" x-text="'Changed ' + fmtDateShort(b.updated)"></small>
           <span class="book-card-actions">
             <button class="btn ghost" @click="openSavedBook(b)">Open</button>
+            <button class="btn ghost" @click="copyBook(b)" title="A copy to try something else on, the book itself kept as it is">Copy</button>
             <button class="btn ghost danger" @click="deleteBook(b)">Delete</button>
           </span>
         </div>

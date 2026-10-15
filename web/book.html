@@ -67,6 +67,57 @@
     font: 600 11px -apple-system, "Segoe UI", sans-serif; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); cursor: help; }
   .lowres.bad { background: #ff3b30; color: #fff; }
   @media print { .lowres, .book-bar .weak { display: none !important; } }
+  /* Finding photos in the library for the book. */
+  .filters.find { width: min(560px, calc(100vw - 40px)); }
+  .find-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+  .find-results .hit { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--panel-2); cursor: grab; }
+  .find-results .hit img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .find-results .hit.in { outline: 3px solid #34c759; outline-offset: -3px; }
+  .find-results .hit button { position: absolute; right: 4px; bottom: 4px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .65); color: #fff; font-size: 16px; line-height: 26px; padding: 0; cursor: pointer; }
+  .find-results .hit button:hover { background: var(--accent); }
+  /* A page's own background: colour, and a faint photo behind. */
+  .page.has-bg > *:not(.bgphoto):not(.pnum) { position: relative; z-index: 1; }
+  .page .bgphoto { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .page .bgphoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .page.dark-bg, .page.dark-bg .page-text, .page.dark-bg .cap, .page.dark-bg .cap .own { color: #f2f2f7; }
+  .bg-photos { display: inline-flex; gap: 3px; flex-wrap: wrap; max-width: 520px; }
+  .bg-photo { height: 30px; min-width: 30px; padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); cursor: pointer; font-size: 11px; overflow: hidden; }
+  .bg-photo img { height: 100%; display: block; margin: 0 -4px; }
+  .bg-photo.on { outline: 2px solid var(--accent); }
+  /* Page numbers, and the page of contents. */
+  .pnum { position: absolute; left: 0; right: 0; bottom: calc(5mm + var(--bleed, 0mm)); text-align: center; font: 9pt -apple-system, "Segoe UI", sans-serif; color: #8e8e93; z-index: 2; pointer-events: none; }
+  .page.full .pnum { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .7); }
+  .tocpage { justify-content: flex-start; padding-top: 25mm !important; }
+  .tocpage h2 { font: 700 22pt/1.2 -apple-system, "Segoe UI Variable Display", "Segoe UI", sans-serif; margin: 0 0 8mm; text-align: center; }
+  .toc { display: flex; flex-direction: column; gap: 3mm; width: 75%; margin: 0 auto; font: 12pt/1.3 -apple-system, "Segoe UI", sans-serif; }
+  .toc-row { display: flex; align-items: baseline; gap: 2mm; }
+  .toc-row .dots { flex: 1; border-bottom: .4mm dotted #aeaeb2; transform: translateY(-1mm); }
+  @media print { .toc-none { display: none; } }
+  [data-theme="elegant"] .tocpage h2, [data-theme="elegant"] .toc { font-family: Georgia, "Times New Roman", serif; }
+  /* Cover layouts: the photo over the whole cover, or a collage. */
+  .cover.cover-full, .part.cover-full { position: relative; justify-content: flex-end; padding-bottom: 18mm; }
+  .cover-full .ph { position: absolute; inset: 0; }
+  .cover-full .ph img { width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; object-fit: cover; border-radius: 0 !important; border: 0 !important; box-shadow: none !important; }
+  .cover-full::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 45%; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); pointer-events: none; }
+  .cover-full h2, .cover-full p { position: relative; z-index: 1; color: #fff !important; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
+  .cover-collage .ph { display: grid; gap: 2mm; align-items: stretch; justify-items: stretch; }
+  .cover-collage .ph .cell { position: relative; overflow: hidden; min-width: 0; min-height: 0; border-radius: 1.5mm; }
+  .cover-collage .ph .cell img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; border-radius: 0; }
+  .part { position: relative; }
+  /* Scattered prints: photos lying askew over each other. */
+  .grid.scatter { display: block; position: relative; }
+  .grid.scatter .slot { position: absolute; }
+  .grid.scatter .slot .ph img { box-sizing: border-box; border: 2.5mm solid #fff; border-bottom-width: 8mm; box-shadow: 0 1mm 4mm rgba(0, 0, 0, .35); }
+  .grid.scatter .slot:hover { z-index: 20 !important; }
+  .page-tools .small-select { height: 26px; font-size: 12px; padding: 0 6px; }
+  /* A photo's own text, then the date, place and names. */
+  .cap .own { outline: none; border-radius: 1mm; padding: 0 1mm; color: #3a3a3c; }
+  .cap .own:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .cap .own:empty::before { content: attr(data-ph); color: #b0b0b5; font-style: italic; }
+  .slot:not(:hover) .cap .own:empty:not(:focus)::before { content: ''; }
+  .cap .own:not(:empty) + .auto::before { content: ' · '; }
+  .page.full .slot .cap .own { color: #fff; }
+  @media print { .cap .own:empty { display: none; } .cap .own::before { content: '' !important; } }
   /* The cover in one piece: back, spine, front. */
   .page.spread { display: flex; flex-direction: row; gap: 0; position: relative; box-sizing: border-box; }
   .spread .part { height: 100%; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; padding: 16mm; box-sizing: border-box; text-align: center; }
@@ -338,12 +389,15 @@
   <label><input type="checkbox" id="place"> Place</label>
   <label><input type="checkbox" id="who"> Who</label>
   <label><input type="checkbox" id="back"> Back cover</label>
+  <label title="A number at the foot of each page inside"><input type="checkbox" id="pageNums"> Page numbers</label>
+  <label title="A page after the cover listing the chapters (the pages of text) and their pages"><input type="checkbox" id="toc"> Contents</label>
   <label title="Each page 3 mm bigger on every side, which the print shop cuts off, so photos and backgrounds reach the edge. Ask the print shop if they want it."><input type="checkbox" id="bleed"> For a print shop (3 mm bleed)</label>
   <span class="grow"></span>
   <span class="muted small" id="count"></span>
   <span class="small weak" id="weak" title="Marked ⚠ on the pages"></span>
   <span class="small weak" id="odd" hidden title="Print shops mostly want an even number of pages (some a number of 4s). Add or remove a page, e.g. a page of text or the back cover.">Odd number of pages</span>
   <span class="muted small saved" id="saved"></span>
+  <button class="btn" id="findBtn" title="Search the whole library and drag photos into the book">Find photos…</button>
   <button class="btn" id="checkBtn" title="Look the book through for what may go wrong in print">Check the book</button>
   <button class="btn" id="shopBtn" title="Print files (PDF) for Lasertryk.dk">For Lasertryk.dk…</button>
   <button class="btn" id="filtersBtn" title="Which photos may be in the book">Choices…</button>
@@ -355,6 +409,12 @@
   <button class="btn primary" id="print">Print / save as PDF</button>
 </div>
 <p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
+<div class="filters find" id="find" hidden>
+  <b>Find photos for the book</b>
+  <input class="input" id="findQ" placeholder="A name, a place, a year, or what is in it (“beach”, “cake”)" autocomplete="off">
+  <p class="muted small">Drag a photo onto a photo in the book (it takes its place) or onto a page, or click ＋ to put it in by its date. Photos from anywhere in the library can come in.</p>
+  <div class="find-results" id="findResults"></div>
+</div>
 <div class="filters" id="check" hidden>
   <b>Check before printing</b>
   <div id="checkList" class="check-list"></div>
@@ -519,6 +579,16 @@
   // one on.
   function moveTo(id, anchor) {
     if (id === anchor) return;
+    if (locate(id)[0] < 0) {
+      // A photo new to the book (from "Find photos"): in before the anchor.
+      const [pi, k] = locate(anchor);
+      if (pi < 0) return;
+      book.pages[pi].ids.splice(k, 0, id);
+      book.out = book.out.filter(x => x !== id);
+      if (!book.calendar) reflow();
+      render();
+      return;
+    }
     if (book.calendar) {
       // Months keep their places: the two photos change months.
       const [a, ak] = locate(id), [b, bk] = locate(anchor);
@@ -1001,24 +1071,49 @@
       .filter(Boolean).join(' · ');
   }
 
-  // layout sets the grid for a page of count photos: one big and two
-  // small for three, otherwise rows and columns that suit the page.
-  function layout(grid, count) {
+  // layout sets the grid for a page of count photos, as the page's own
+  // layout says (variant): "grid", rows and columns that suit the page;
+  // "big", the first photo big beside (or above) the rest; "scatter",
+  // photos lying a little askew over each other like prints on a table.
+  // Without a variant, three photos are one big and two small, others a
+  // grid. It returns how far the first photo spans for "big".
+  function layout(grid, count, variant) {
     const w = pageWide();
-    let cols, rows;
-    if (count === 3) {
-      grid.style.gridTemplateColumns = w ? '2fr 1fr' : '1fr 1fr';
-      grid.style.gridTemplateRows = w ? '1fr 1fr' : '2fr 1fr';
-      return w ? 'row' : 'col';
+    variant = variant || (count === 3 ? 'big' : 'grid');
+    if (variant === 'scatter' && count > 1) {
+      grid.classList.add('scatter');
+      return null;
     }
+    if (variant === 'big' && count >= 3) {
+      grid.style.gridTemplateColumns = w ? '2fr 1fr' : `repeat(${count - 1}, 1fr)`;
+      grid.style.gridTemplateRows = w ? `repeat(${count - 1}, 1fr)` : '2fr 1fr';
+      return {dir: w ? 'gridRow' : 'gridColumn', span: count - 1};
+    }
+    let cols, rows;
     if (count === 1) [cols, rows] = [1, 1];
     else if (count === 2) [cols, rows] = w ? [2, 1] : [1, 2];
+    else if (count === 3) [cols, rows] = w ? [3, 1] : [1, 3];
     else if (count === 4) [cols, rows] = [2, 2];
     else if (count <= 6) [cols, rows] = w ? [3, 2] : [2, 3];
     else { cols = Math.ceil(Math.sqrt(count)); rows = Math.ceil(count / cols); }
     grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-    return '';
+    return null;
+  }
+
+  // scatterSlot places photo k of count on a scattered page: in its cell
+  // of a loose grid, nudged and turned a little (the same each time).
+  function scatterSlot(slot, k, count, id) {
+    const w = pageWide();
+    const cols = count <= 2 ? (w ? 2 : 1) : count === 3 ? (w ? 3 : 2) : count <= 4 ? 2 : 3, rows = Math.ceil(count / cols);
+    const c = k % cols, r = Math.floor(k / cols);
+    const wob = n => ((id * n) % 17 - 8) / 8; // -1..1, fixed per photo
+    slot.style.left = ((c + .5) / cols * 100 + wob(31) * 4) + '%';
+    slot.style.top = ((r + .5) / rows * 100 + wob(47) * 4) + '%';
+    slot.style.width = (100 / cols * 1.04) + '%';
+    slot.style.height = (100 / rows * .9) + '%';
+    slot.style.transform = `translate(-50%, -50%) rotate(${wob(13) * 6}deg)`;
+    slot.style.zIndex = 1 + (id % 7);
   }
 
   function render() {
@@ -1028,6 +1123,7 @@
     // cut off; what matters stays that much further in.
     const b = book.bleed ? BLEED : 0;
     $('page-size').textContent = `@page { size: ${w}mm ${h}mm; margin: 0; } .page { width: ${w}mm; height: ${h}mm; }` +
+      `.page { --bleed: ${b}mm; }` +
       (b ? `.page:not(.full) { padding: ${10 + b}mm; } .page.cover { padding: ${16 + b}mm; } .page.full .slot .cap { bottom: ${4 + b}mm; }` : '') +
       // Printing the cover in one piece: its own page size.
       (pdfMode === 'cover' ? `@page { size: ${coverDims().w}mm ${coverDims().h}mm; margin: 0; }` : '');
@@ -1049,10 +1145,34 @@
 
     // The cover: the title, the years and a photo.
     const cs = document.createElement('section');
-    cs.className = 'page cover';
+    // Its layout (book.coverLayout): the photo with the title under it;
+    // "full", the photo over the whole cover with the title on it; or
+    // "collage", the cover photo and the book's next ones in a grid.
+    const coverLayout = book.coverLayout || '';
+    cs.className = 'page cover' + (coverLayout ? ' cover-' + coverLayout : '');
     cs.innerHTML = '<div class="ph"><img alt=""></div><h2></h2><p></p>';
     cs.querySelector('img').src = imgSrc(cover);
     cs.querySelector('img').dataset.id = cover.id;
+    if (coverLayout === 'full') cs.querySelector('img').dataset.auto = '1'; // cropped round the faces
+    if (coverLayout === 'collage') {
+      const ph = cs.querySelector('.ph');
+      ph.textContent = '';
+      const ims = [cover, ...list.filter(im => im !== cover)].slice(0, 9);
+      const n = ims.length >= 9 ? 9 : ims.length >= 6 ? 6 : ims.length >= 4 ? 4 : ims.length;
+      const cols = n === 9 || n === 6 ? 3 : n >= 2 ? 2 : 1;
+      ph.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      ph.style.gridTemplateRows = `repeat(${Math.ceil(n / cols)}, 1fr)`;
+      for (const im of ims.slice(0, n)) {
+        const cell = document.createElement('div');
+        cell.className = 'cell cropped';
+        const img = document.createElement('img');
+        img.src = imgSrc(im);
+        img.dataset.id = im.id;
+        img.dataset.auto = '1';
+        cell.appendChild(img);
+        ph.appendChild(cell);
+      }
+    }
     const h2 = cs.querySelector('h2');
     h2.textContent = title || ' ';
     book.coverText = book.coverText || {};
@@ -1070,17 +1190,29 @@
     ctools.className = 'page-tools';
     const cb = document.createElement('b');
     cb.textContent = t('Cover');
-    ctools.append(cb, styleButton('cover'), tool('+ Text page', 'A page of text after this one', () => { book.pages.unshift({n: 0, ids: [], text: ''}); render(); }));
+    const cl = document.createElement('select');
+    cl.className = 'select small-select';
+    for (const [v, label] of [['', 'Photo and title'], ['full', 'Photo over the whole cover'], ['collage', 'Collage of photos']]) {
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = t(label);
+      cl.appendChild(o);
+    }
+    cl.value = coverLayout;
+    cl.addEventListener('change', () => { book.coverLayout = cl.value; render(); });
+    ctools.append(cb, cl, styleButton('cover'), tool('+ Text page', 'A page of text after this one', () => { book.pages.unshift({n: 0, ids: [], text: ''}); render(); }));
     cw.append(ctools);
     if (styling === 'cover') cw.append(styleRow(() => book.coverText));
     cw.append(cs);
     root.appendChild(cw);
+    if (book.toc) root.appendChild(contents());
 
     // Page numbers: a panorama takes two.
     const isPano = p => p.pano && p.n > 0 && p.ids.length === 1 && p.month == null;
     const numbers = [];
-    pages.reduce((n, p) => { numbers.push(n); return n + (isPano(p) ? 2 : 1); }, 1);
-    const lastNumber = pages.length ? numbers[pages.length - 1] + (isPano(pages[pages.length - 1]) ? 1 : 0) : 0;
+    pages.reduce((n, p) => { numbers.push(n); return n + (isPano(p) ? 2 : 1); }, book.toc ? 2 : 1);
+    const first = book.toc ? 2 : 1; // a page of contents is page 1
+    const lastNumber = pages.length ? numbers[pages.length - 1] + (isPano(pages[pages.length - 1]) ? 1 : 0) : first - 1;
     pageNumbers = numbers;
     innerPages = lastNumber;
     const toPage = id => {
@@ -1136,12 +1268,14 @@
         });
         const grid = document.createElement('div');
         grid.className = 'grid';
-        const big = layout(grid, pg.ids.length);
+        const big = layout(grid, pg.ids.length, pg.layout);
+        const scatter = grid.classList.contains('scatter');
         pg.ids.forEach((id, k) => {
           const im = byId.get(id);
           const slot = document.createElement('div');
           slot.className = 'slot';
-          if (big && k === 0) slot.style[big === 'row' ? 'gridRow' : 'gridColumn'] = 'span 2';
+          if (big && k === 0) slot.style[big.dir] = 'span ' + big.span;
+          if (scatter) scatterSlot(slot, k, pg.ids.length, id);
           slot.innerHTML = '<div class="ph"><img alt="" loading="lazy"></div>';
           const img = slot.querySelector('img');
           img.src = imgSrc(im);
@@ -1154,13 +1288,28 @@
           if (!c && (full || book.fillAll || cropping === id)) img.dataset.auto = '1';
           if (c) cropStyle(img, c);
           if (cropping === id) cropEdit(slot, img, id);
+          // Under the photo: a text of one's own (book.captions), then what
+          // the settings add (date, place, who).
           const text = caption(im);
-          if (text || !full) {
-            const cap = document.createElement('div');
-            cap.className = 'cap';
-            cap.textContent = text;
-            slot.appendChild(cap);
+          const cap = document.createElement('div');
+          cap.className = 'cap';
+          const own = document.createElement('span');
+          own.className = 'own';
+          own.contentEditable = 'true';
+          own.dataset.ph = t('Write a text…');
+          own.textContent = (book.captions || {})[id] || '';
+          own.addEventListener('input', () => { book.captions = {...(book.captions || {}), [id]: own.innerText.trim()}; save(true); });
+          // While writing, the photo is not dragged.
+          own.addEventListener('focus', () => { slot.draggable = false; });
+          own.addEventListener('blur', () => { slot.draggable = cropping !== id; });
+          cap.appendChild(own);
+          if (text) {
+            const auto = document.createElement('span');
+            auto.className = 'auto';
+            auto.textContent = text;
+            cap.appendChild(auto);
           }
+          slot.appendChild(cap);
           const pt = document.createElement('div');
           pt.className = 'photo-tools';
           const swap = d => {
@@ -1207,6 +1356,20 @@
         if (!month) {
           for (const n of [1, 2, 3, 4, 6]) seg.append(tool(String(n), 'Photos on this page', () => { pg.n = n; reflow(); render(); }, pg.n === n));
           tools.append(document.createTextNode(t('Photos on this page')), seg);
+          if (pg.ids.length >= 2) {
+            const sel = document.createElement('select');
+            sel.className = 'select small-select';
+            sel.title = t('How the photos lie on the page');
+            for (const [v, label] of [['', 'Grid'], ['big', 'One big'], ['scatter', 'Scattered prints']]) {
+              const o = document.createElement('option');
+              o.value = v;
+              o.textContent = t(label);
+              sel.appendChild(o);
+            }
+            sel.value = pg.layout === 'grid' ? '' : pg.layout || (pg.ids.length === 3 ? 'big' : '');
+            sel.addEventListener('change', () => { pg.layout = sel.value || 'grid'; render(); });
+            tools.append(sel);
+          }
         }
         if (pg.ids.length === 1 && !month) {
           tools.append(tool(full && !pano ? 'With a margin' : 'Fill the page', '', () => { pg.full = !(full && !pano); pg.pano = false; render(); }),
@@ -1217,10 +1380,14 @@
         tools.append(tool(pg.text != null ? 'Remove text' : '+ Text', '', () => { pg.text = pg.text != null ? null : ''; render(); }));
         if (pg.text != null) tools.append(styleButton(pi));
       }
-      tools.append(tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: ''}); render(); }),
+      tools.append(tool('Background', 'A colour or a faint photo behind the page', () => { bgOpen = bgOpen === pi ? null : pi; render(); }, bgOpen === pi || !!pg.bg),
+        tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: ''}); render(); }),
         tool('+ Map', 'A page with a map of where the photos were taken, after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: null, map: true}); render(); }));
       wrap.append(tools);
       if (styling === pi) wrap.append(styleRow(() => pg));
+      if (book.pageNums) sec.appendChild(pageNum(at));
+      pageBackground(sec, pg);
+      if (bgOpen === pi) wrap.append(backgroundRow(pg));
       wrap.append(sec);
       root.appendChild(wrap);
       if (swapping != null && pg.ids.includes(swapping)) wrap.append(alternatives(swapping));
@@ -1447,6 +1614,61 @@
     } else ph.style.clipPath = '';
   }
 
+  // ---------- finding photos in the whole library ----------
+
+  // addExtra makes a photo from outside the book's source one the book
+  // knows (book.extra keeps them, for the next time it is opened).
+  function addExtra(im) {
+    if (byId.has(im.id)) return;
+    photos.push(im);
+    byId.set(im.id, im);
+    book.extra = [...(book.extra || []), im.id];
+  }
+  let findTimer = 0;
+  async function findPhotos() {
+    const q = $('findQ').value.trim(), box = $('findResults');
+    if (!q) { box.textContent = ''; return; }
+    let r;
+    try {
+      r = await api('/api/images?' + new URLSearchParams({q, limit: '60'}));
+    } catch (e) {
+      box.textContent = e.message;
+      return;
+    }
+    if ($('findQ').value.trim() !== q) return; // typed on meanwhile
+    const have = inBook();
+    box.textContent = '';
+    const items = (r.items || []).filter(im => !im.video && im.thumb);
+    if (!items.length) box.textContent = t('No photos found.');
+    for (const im of items) {
+      const hit = document.createElement('div');
+      hit.className = 'hit' + (have.has(im.id) ? ' in' : '');
+      hit.title = fmtDate(im.taken) + (have.has(im.id) ? ' · ' + t('in the book') : '');
+      const img = document.createElement('img');
+      img.src = thumb(im);
+      img.loading = 'lazy';
+      img.draggable = false;
+      hit.appendChild(img);
+      hit.draggable = true;
+      hit.addEventListener('dragstart', e => { addExtra(im); dragged = im.id; e.dataTransfer.effectAllowed = 'move'; });
+      hit.addEventListener('dragend', () => { dragged = null; setTimeout(findPhotos, 300); });
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.textContent = '＋';
+      add.title = t('Put it in the book by its date');
+      add.addEventListener('click', () => {
+        if (inBook().has(im.id)) return;
+        addExtra(im);
+        book.out = book.out.filter(x => x !== im.id);
+        insertByDate(im.id);
+        render();
+        hit.classList.add('in');
+      });
+      hit.appendChild(add);
+      box.appendChild(hit);
+    }
+  }
+
   // ---------- checking, and print files for Lasertryk.dk ----------
 
   let pageNumbers = [], innerPages = 0; // as drawn last (render)
@@ -1514,10 +1736,10 @@
 
   function panel(id) {
     document.documentElement.style.setProperty('--bar-h', document.querySelector('.book-bar').offsetHeight + 'px');
-    for (const p of ['check', 'shop', 'filters']) {
+    for (const p of ['find', 'check', 'shop', 'filters']) {
       const open = p === id && $(p).hidden;
       $(p).hidden = !open;
-      $({check: 'checkBtn', shop: 'shopBtn', filters: 'filtersBtn'}[p]).classList.toggle('primary', open);
+      $({find: 'findBtn', check: 'checkBtn', shop: 'shopBtn', filters: 'filtersBtn'}[p]).classList.toggle('primary', open);
     }
     return !$(id).hidden;
   }
@@ -1535,6 +1757,136 @@
     $('spineHint').textContent = t('About ' + spineGuess().toLocaleString(locale) + ' mm for ' + innerPages + ' pages on 170 g silk paper. The exact width is in Lasertryk’s price calculator.');
     if (!$('pdfDir').value) $('pdfDir').value = (await api('/api/books/pdf-dir').catch(() => ({}))).dir || '';
     await runChecks($('shopCheck'));
+  }
+
+  // Page backgrounds (pg.bg): a colour, and/or one of the book's photos,
+  // faint, behind what is on the page. Over a design's own background.
+  let bgOpen = null; // the page whose background row is open
+  const BG_COLORS = ['#fdf6e3', '#fef0f0', '#eef6ff', '#eefaf0', '#f5f0ff', '#fff4e0', '#f2f2f2', '#2c2c2e', '#1f3a5f'];
+  function pageBackground(sec, pg) {
+    const bg = pg.bg;
+    if (!bg) return;
+    sec.classList.add('has-bg');
+    if (bg.color) {
+      sec.style.background = bg.color;
+      // Light text on a dark page.
+      if (['#2c2c2e', '#1f3a5f'].includes(bg.color)) sec.classList.add('dark-bg');
+    }
+    const im = bg.photo && byId.get(bg.photo);
+    if (im) {
+      const d = document.createElement('div');
+      d.className = 'bgphoto';
+      const img = document.createElement('img');
+      img.src = imgSrc(im);
+      img.style.opacity = bg.fade != null ? bg.fade : .3;
+      d.appendChild(img);
+      sec.prepend(d);
+    }
+  }
+  function backgroundRow(pg) {
+    const row = document.createElement('div');
+    row.className = 'page-tools text-style';
+    const set = v => { pg.bg = v && (v.color || v.photo) ? v : null; render(); };
+    const cur = pg.bg || {};
+    const sw = document.createElement('span');
+    sw.className = 'swatches';
+    for (const c of ['', ...BG_COLORS]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + ((cur.color || '') === c ? ' on' : '');
+      b.style.background = c || 'linear-gradient(135deg, #fff 45%, #e33 47%, #e33 53%, #fff 55%)';
+      b.title = t(c ? 'This colour' : 'No colour (the design’s)');
+      b.addEventListener('click', () => set({...cur, color: c}));
+      sw.appendChild(b);
+    }
+    row.append(document.createTextNode(t('Colour')), sw);
+    // A photo behind: the page's own, else the book's first ones.
+    const own = pg.ids.length ? pg.ids : seq().slice(0, 24);
+    const strip = document.createElement('span');
+    strip.className = 'bg-photos';
+    for (const id of [0, ...own]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'bg-photo' + ((cur.photo || 0) === id ? ' on' : '');
+      if (id) {
+        const img = document.createElement('img');
+        img.src = thumb(byId.get(id));
+        b.appendChild(img);
+        b.title = t('This photo, faint, behind the page');
+      } else {
+        b.textContent = t('No photo');
+      }
+      b.addEventListener('click', () => set({...cur, photo: id || 0}));
+      strip.appendChild(b);
+    }
+    row.append(document.createTextNode(t('Photo behind')), strip);
+    if (cur.photo) {
+      const fade = document.createElement('input');
+      fade.type = 'range';
+      fade.min = '.1';
+      fade.max = '1';
+      fade.step = '.05';
+      fade.value = cur.fade != null ? cur.fade : .3;
+      fade.title = t('How strong the photo behind is');
+      fade.addEventListener('change', () => set({...cur, fade: +fade.value}));
+      row.append(document.createTextNode(t('Strength')), fade);
+    }
+    return row;
+  }
+
+  // pageNum is a page's number at its foot.
+  function pageNum(n) {
+    const d = document.createElement('div');
+    d.className = 'pnum';
+    d.textContent = n;
+    return d;
+  }
+
+  // contents draws the page of contents (book.toc): each chapter, that is
+  // each page of text, by its first line and the page it is on. It is
+  // page 1, so the book's pages count from 2.
+  function contents() {
+    const wrap = document.createElement('div');
+    wrap.className = 'page-wrap toc-wrap';
+    const tools = document.createElement('div');
+    tools.className = 'page-tools';
+    const b = document.createElement('b');
+    b.textContent = t('Page 1') + ' · ' + t('Contents');
+    tools.appendChild(b);
+    const sec = document.createElement('section');
+    sec.className = 'page tocpage';
+    const h = document.createElement('h2');
+    h.textContent = t('Contents');
+    sec.appendChild(h);
+    const list = document.createElement('div');
+    list.className = 'toc';
+    let n = 2;
+    for (const pg of book.pages) {
+      const first = (pg.text || '').split('\n').map(s => s.trim()).filter(Boolean);
+      if (pg.n === 0 && !pg.map && first.length) {
+        const row = document.createElement('div');
+        row.className = 'toc-row';
+        const name = document.createElement('span');
+        name.textContent = first.slice(0, 2).join(' · ');
+        const dots = document.createElement('span');
+        dots.className = 'dots';
+        const num = document.createElement('span');
+        num.textContent = n;
+        row.append(name, dots, num);
+        list.appendChild(row);
+      }
+      n += pg.pano && pg.n > 0 && pg.ids.length === 1 && pg.month == null ? 2 : 1;
+    }
+    if (!list.childNodes.length) {
+      const none = document.createElement('p');
+      none.className = 'muted toc-none';
+      none.textContent = t('No chapters yet: pages of text (“+ Text page”, or chapters by year, month or event) are listed here.');
+      list.appendChild(none);
+    }
+    sec.appendChild(list);
+    if (book.pageNums) sec.appendChild(pageNum(1));
+    wrap.append(tools, sec);
+    return wrap;
   }
 
   // coverDims is the cover in one piece, in mm: back, spine and front side
@@ -1564,7 +1916,7 @@
     sec.style.padding = d.edge + 'mm';
     const part = (from, cls) => {
       const p = document.createElement('div');
-      p.className = 'part ' + cls;
+      p.className = 'part ' + cls + (from && from.classList.contains('cover-full') ? ' cover-full' : '') + (from && from.classList.contains('cover-collage') ? ' cover-collage' : '');
       p.style.width = d.pw + 'mm';
       if (from) {
         const c = from.cloneNode(true);
@@ -1690,6 +2042,7 @@
     tools.appendChild(b);
     const sec = document.createElement('section');
     sec.className = 'page full pano right';
+    if (book.pageNums) sec.appendChild(pageNum(number));
     const im = byId.get(pg.ids[0]);
     sec.innerHTML = '<div class="grid"><div class="slot"><div class="ph"><img alt=""></div></div></div>';
     sec.querySelector('img').src = imgSrc(im);
@@ -1931,6 +2284,14 @@
     book = {v: 2, pages: [], out: [], theme: '', size: old.size || 'a4l', per: old.per || 'auto',
       cap: {date: old.dates !== false, place: false, who: false}, back: null, cover: null,
       pick: src.get('pick') != null ? +src.get('pick') : (photos.length > 150 ? 80 : 0)};
+    // Photos brought in from outside its source ("Find photos").
+    if (d && Array.isArray(d.extra) && d.extra.length) {
+      const missing = d.extra.filter(id => !byId.has(id));
+      for (let i = 0; i < missing.length; i += 500) {
+        const r = await api('/api/images?' + new URLSearchParams({ids: missing.slice(i, i + 500).join(','), limit: '500'})).catch(() => ({}));
+        for (const im of r.items || []) if (!byId.has(im.id)) { photos.push(im); byId.set(im.id, im); }
+      }
+    }
     if (d && d.v === 2) {
       book = {...book, ...d, cap: {...book.cap, ...(d.cap || {})}};
       // Photos gone from the library leave the book.
@@ -1979,6 +2340,8 @@
     $('place').checked = !!book.cap.place;
     $('who').checked = !!book.cap.who;
     $('back').checked = !!book.back;
+    $('pageNums').checked = !!book.pageNums;
+    $('toc').checked = !!book.toc;
     $('bleed').checked = !!book.bleed;
     $('spreads').checked = !!book.spreads;
     $('frame').value = book.frame || '';
@@ -2008,6 +2371,8 @@
     });
   }
   $('back').addEventListener('change', () => { book.back = $('back').checked ? (book.back || {text: ''}) : null; render(); });
+  $('pageNums').addEventListener('change', () => { book.pageNums = $('pageNums').checked; render(); });
+  $('toc').addEventListener('change', () => { book.toc = $('toc').checked; render(); });
   $('bleed').addEventListener('change', () => { book.bleed = $('bleed').checked; render(); });
   $('pick').addEventListener('change', async () => {
     if (!confirm(t('Choose the photos again and lay the book out anew? Your texts, order and left-out photos are forgotten.'))) { $('pick').value = String(book.pick); return; }
@@ -2025,6 +2390,8 @@
   });
   $('filtersBtn').addEventListener('click', () => panel('filters'));
   $('checkBtn').addEventListener('click', () => { if (panel('check')) runChecks($('checkList')); });
+  $('findBtn').addEventListener('click', () => { if (panel('find')) $('findQ').focus(); });
+  $('findQ').addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(findPhotos, 400); });
   $('shopBtn').addEventListener('click', () => { if (panel('shop')) openShop(); });
   $('shopSize').addEventListener('change', () => {
     if (!$('shopSize').value) return;
