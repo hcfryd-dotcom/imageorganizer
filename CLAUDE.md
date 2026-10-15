@@ -34,8 +34,8 @@ the rest of the repo.
   thumbnails, face crops, `models\`). **Never delete or reset it**: it holds
   his naming of ~23,000 faces.
 - Face models in `models\`: `scrfd_10g.onnx` and `arcface_w600k_r50.onnx`
-  (InsightFace buffalo_l, non-commercial licence). No age model
-  (`mivolo_v2_age.onnx`), so ages and genders are unknown.
+  (InsightFace buffalo_l, non-commercial licence) and `mivolo_v2_age.onnx`
+  (ages; gender stays unknown).
 - Photos: the library's one folder is `E:\Billeder ryddet` (~30,000, made
   on 2026-10-14 by the tidy copy from `E:\Onedrive\Billeder` and
   `E:\Old_Onedrive`; outside OneDrive). The two old folders are still on
@@ -94,6 +94,19 @@ the rest of the repo.
   uploads, into the tidy folder sorted the same way, then rescans.
   Files looked at are remembered in `<data>/fetch-seen-*.json`, so only the
   first run reads everything.
+- Videos (`media/video.go`): indexed only when ffmpeg + ffprobe are found
+  (`dist\ImageOrganizer\ffmpeg\`, BtbN LGPL 8.1 build); a frame near the
+  start is the thumbnail and goes through faces; the viewer plays the
+  original (.mov served as video/mp4) and "Save picture" writes the paused
+  frame next to the video (`server/frame.go`).
+- Albums (`store/albums.go`, `/api/albums`, sidebar "Album").
+- Daily backups of library.bolt (`internal/backup`), set to
+  `E:\ImageOrganizer-backup`, 14 kept; Settings shows the last one.
+- Age model `models\mivolo_v2_age.onnx` (Sam-Apostel/mivolo-v2-age-onnx,
+  Apache-2.0; age only, no gender) since 2026-10-15.
+- Review has a slider for the card/face size.
+- Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
+  the browser if the program already runs.
 - macOS-style look: one block at the end of `web/app.css`.
 - Danish UI: `web/i18n.js` translates the page as it is drawn (exact strings
   plus patterns); English stays the source text. Add a Danish entry there
