@@ -7,7 +7,9 @@
 <link rel="stylesheet" href="app.css">
 <style>
   /* A photo book of an album's (or a person's) photos, laid out page by
-     page for printing or saving as a PDF from the browser. */
+     page for printing or saving as a PDF from the browser. Every page can
+     be changed: how many photos it holds, a text on it, text pages
+     between, and photos moved or left out. The book is remembered. */
   html, body { height: auto; overflow: auto; display: block; background: #e8e8ed; }
   .book-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px;
     background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: saturate(1.8) blur(20px); border-bottom: 1px solid var(--line); }
@@ -16,24 +18,97 @@
   .book-bar .input { width: 240px; }
   .book-bar .grow { flex: 1; }
   .book-note { padding: 10px 20px 0; max-width: 900px; }
-  .pages { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 0 60px; }
+  .pages { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 0 60px; }
+  .page-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 18px; }
+  .page-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .page-tools .seg { margin: 0; }
+  .page-tools .seg button { padding: 3px 10px; font-size: 12px; }
+  .page-tools .btn { height: 26px; padding: 0 10px; font-size: 12px; }
   .page { background: #fff; color: #1d1d1f; box-shadow: 0 2px 14px rgba(0, 0, 0, .18); position: relative; overflow: hidden;
-    display: grid; gap: 4mm; padding: 10mm; box-sizing: border-box; }
-  .slot { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    display: flex; flex-direction: column; gap: 4mm; padding: 10mm; box-sizing: border-box; }
+  .grid { flex: 1; min-height: 0; display: grid; gap: 4mm; }
+  .slot { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   .slot .ph { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
   .slot img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
   .slot .cap { font: 9pt/1.3 -apple-system, "Segoe UI", sans-serif; color: #6e6e73; text-align: center; padding-top: 1.5mm; min-height: 4mm; }
+  .photo-tools { position: absolute; top: 2mm; right: 2mm; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+  .slot:hover .photo-tools { opacity: 1; }
+  .photo-tools button { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .6); color: #fff; cursor: pointer; font-size: 14px; line-height: 28px; padding: 0; }
+  .photo-tools button:hover { background: var(--accent); }
+  .photo-tools button.out:hover { background: var(--danger); }
+  .page-text { font: 13pt/1.45 -apple-system, "Segoe UI", sans-serif; text-align: center; outline: none; border-radius: 2mm; padding: 1mm 3mm; min-height: 8mm; white-space: pre-wrap; }
+  .page-text:empty::before { content: attr(data-ph); color: #a1a1a6; }
+  .page-text:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .textpage { justify-content: center; align-items: center; }
+  .textpage .page-text { font-size: 22pt; line-height: 1.35; max-width: 80%; }
   .cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; padding: 16mm; text-align: center; }
   .cover .ph { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; }
   .cover img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 2mm; }
   .cover h2 { font: 700 28pt/1.1 -apple-system, "Segoe UI Variable Display", "Segoe UI", sans-serif; margin: 0; letter-spacing: -.02em; }
   .cover p { font: 12pt -apple-system, "Segoe UI", sans-serif; color: #6e6e73; margin: 0; }
   .book-empty { padding: 60px 20px; text-align: center; }
+
+  /* Designs: backgrounds drawn here (CSS and small SVG patterns), light
+     enough that photos and text stand out. They print when the print
+     window's "background graphics" is on. */
+  [data-theme="summer"] .page {
+    background:
+      radial-gradient(circle at 92% 8%, rgba(255, 196, 61, .55) 0 9%, rgba(255, 214, 102, .25) 9.5% 14%, transparent 14.5%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='20'%3E%3Cpath d='M0 12 Q20 2 40 12 T80 12' fill='none' stroke='%2363c3e8' stroke-width='3' opacity='.55'/%3E%3C/svg%3E") repeat-x bottom 3mm left 0 / 22mm auto,
+      linear-gradient(180deg, #fff6dc 0%, #fffdf7 55%, #e4f5ff 100%);
+  }
+  [data-theme="winter"] .page {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cg stroke='%2390bde6' stroke-width='1.6' stroke-linecap='round' opacity='.55'%3E%3Cpath d='M15 8v14M8 15h14M10 10l10 10M20 10L10 20'/%3E%3Cpath d='M45 38v10M40 43h10M41.5 39.5l7 7M48.5 39.5l-7 7'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 22mm 22mm,
+      linear-gradient(180deg, #f2f8ff, #e4f0fb);
+  }
+  [data-theme="birthday"] .page {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cg opacity='.85'%3E%3Crect x='8' y='10' width='6' height='3' fill='%23ff5a7a' transform='rotate(25 11 11)'/%3E%3Ccircle cx='40' cy='18' r='3' fill='%23ffc23d'/%3E%3Crect x='66' y='30' width='6' height='3' fill='%234aa3ff' transform='rotate(-30 69 31)'/%3E%3Ccircle cx='20' cy='58' r='2.5' fill='%2334c759'/%3E%3Crect x='50' y='64' width='6' height='3' fill='%23af52de' transform='rotate(50 53 65)'/%3E%3Ccircle cx='78' cy='76' r='3' fill='%23ff9500'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 30mm 30mm,
+      #fffdfa;
+  }
+  [data-theme="christmas"] .page {
+    border: 3mm solid #b3261e; outline: 1.2mm solid #1f6b3a; outline-offset: -5mm;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='70'%3E%3Cpath d='M18 10l2.4 5 5.4.6-4 3.7 1.1 5.3L18 22l-4.9 2.6 1.1-5.3-4-3.7 5.4-.6z' fill='%23d4a017' opacity='.45'/%3E%3Ccircle cx='52' cy='50' r='2.2' fill='%23b3261e' opacity='.35'/%3E%3C/svg%3E") repeat 0 0 / 24mm 24mm,
+      #fffaf0;
+  }
+  [data-theme="girl"] .page {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M15 22c-4-3-8-6-8-10a4 4 0 018-1 4 4 0 018 1c0 4-4 7-8 10z' fill='%23ff8fb1' opacity='.4'/%3E%3Ccircle cx='45' cy='45' r='3' fill='%23ffb3cc' opacity='.6'/%3E%3C/svg%3E") repeat 0 0 / 20mm 20mm,
+      #fff2f6;
+  }
+  [data-theme="boy"] .page {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M15 6l2.6 5.4 6 .8-4.3 4.2 1 5.9L15 19.5l-5.3 2.8 1-5.9-4.3-4.2 6-.8z' fill='%235aa9ff' opacity='.35'/%3E%3Ccircle cx='45' cy='45' r='3' fill='%2382c0ff' opacity='.5'/%3E%3C/svg%3E") repeat 0 0 / 20mm 20mm,
+      #eef6ff;
+  }
+  [data-theme="elegant"] .page {
+    background: #fbf8f1;
+    border: .6mm solid #c8a75a; outline: .3mm solid #c8a75a; outline-offset: -3mm;
+  }
+  [data-theme="elegant"] .cover h2, [data-theme="elegant"] .textpage .page-text { font-family: Georgia, "Times New Roman", serif; font-weight: 400; color: #5a4520; }
+  [data-theme="ocean"] .page {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='24'%3E%3Cpath d='M0 8 Q20 0 40 8 T80 8M0 18 Q20 10 40 18 T80 18' fill='none' stroke='%2334a8a0' stroke-width='2' opacity='.45'/%3E%3C/svg%3E") repeat-x bottom 2mm left 0 / 24mm auto,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='24'%3E%3Cpath d='M0 8 Q20 0 40 8 T80 8' fill='none' stroke='%2334a8a0' stroke-width='2' opacity='.3'/%3E%3C/svg%3E") repeat-x top 2mm left 0 / 24mm auto,
+      linear-gradient(180deg, #effbfa, #e2f4f8);
+  }
+  [data-theme="christmas"] .cover h2 { color: #b3261e; }
+  [data-theme="summer"] .cover h2 { color: #c86b00; }
+  [data-theme="winter"] .cover h2, [data-theme="boy"] .cover h2 { color: #2a6db0; }
+  [data-theme="girl"] .cover h2 { color: #d0457a; }
+  [data-theme="birthday"] .cover h2 { color: #e0365a; }
+  [data-theme="ocean"] .cover h2 { color: #1f7f78; }
+  @media print { .page { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
   @media print {
     html, body { background: #fff; }
-    .book-bar, .book-note { display: none !important; }
+    .book-bar, .book-note, .page-tools, .photo-tools { display: none !important; }
     .pages { padding: 0; gap: 0; display: block; }
+    .page-wrap { display: block; margin: 0; }
     .page { box-shadow: none; break-after: page; page-break-after: always; margin: 0; }
+    .page-text:empty { display: none; }
+    .page-text { box-shadow: none !important; }
   }
 </style>
 <style id="page-size"></style>
@@ -54,12 +129,24 @@
     <option value="2">2</option>
     <option value="4">4</option>
   </select></label>
+  <label>Design <select class="select" id="theme">
+    <option value="">None (white)</option>
+    <option value="summer">Summer</option>
+    <option value="winter">Winter</option>
+    <option value="birthday">Birthday</option>
+    <option value="christmas">Christmas</option>
+    <option value="girl">Girl</option>
+    <option value="boy">Boy</option>
+    <option value="elegant">Elegant</option>
+    <option value="ocean">Sea and travel</option>
+  </select></label>
   <label><input type="checkbox" id="dates" checked> Dates under the photos</label>
   <span class="grow"></span>
   <span class="muted small" id="count"></span>
+  <button class="btn" id="restart" title="Lay the book out again from the album, leaving out your changes">Start over</button>
   <button class="btn primary" id="print">Print / save as PDF</button>
 </div>
-<p class="muted small book-note">In the print window choose “Save as PDF” (or a printer), and under more settings set margins to “None” and turn on background graphics. The PDF can be printed at home or sent to a print shop that takes PDF files.</p>
+<p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Over a photo: ← → move it, × leaves it out of the book (it stays in the album). The book is remembered until you start over. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
 <div class="pages" id="pages"><div class="book-empty muted">Loading the photos…</div></div>
 <script>
 (function () {
@@ -68,49 +155,99 @@
   const $ = id => document.getElementById(id);
   const SIZES = {a4l: [297, 210], a4p: [210, 297], sq: [210, 210]};
   const lang = (window.i18n && window.i18n.lang()) || 'en';
-  const t = s => (window.i18n ? window.i18n.tr(s) : s); // the page's own texts, as they change
-  let photos = [];
+  const t = s => (window.i18n ? window.i18n.tr(s) ?? s : s); // texts made here, as they change
+  const key = 'book:' + (q.get('album') ? 'album:' + q.get('album') : 'person:' + q.get('person'));
+  let photos = [];      // the album's photos, oldest first
+  let byId = new Map();
+  // The book: the photos in their order, those left out, and the pages:
+  // how many photos each takes (0: a page of text) and its text (null:
+  // none). Photos fill the pages in order; any left over get pages of
+  // their own at the end.
+  let book = null;
 
-  try {
-    const saved = JSON.parse(localStorage.getItem('bookOptions') || '{}');
-    if (saved.size) $('size').value = saved.size;
-    if (saved.per) $('per').value = saved.per;
-    if (saved.dates === false) $('dates').checked = false;
-  } catch (e) {}
-  $('title').value = q.get('title') || '';
-
-  function fmtDate(t) {
-    if (!t) return '';
-    return new Date(t * 1000).toLocaleDateString(lang === 'da' ? 'da-DK' : 'en-GB', {day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'});
+  function fmtDate(ts) {
+    if (!ts) return '';
+    return new Date(ts * 1000).toLocaleDateString(lang === 'da' ? 'da-DK' : 'en-GB', {day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'});
   }
   function src(im) { return '/preview/' + im.id + '?h=' + im.hash + (im.rot ? '&r=' + im.rot : ''); }
   const wide = im => (im.w || 4) >= (im.h || 3);
+  const pageWide = () => { const [w, h] = SIZES[$('size').value]; return w >= h; };
 
-  // pack groups the photos into pages: one, two side by side (or one above
-  // the other), or four in a grid, as the setting and their shapes say.
-  function pack(list, per, pageWide) {
-    const pages = [];
+  // pack makes pages for photos: one, two side by side (or one above the
+  // other), or four, as the setting and their shapes say.
+  function pack(list, per) {
+    const out = [];
     for (let i = 0; i < list.length;) {
       const a = list[i], b = list[i + 1];
-      if (per === '4') { pages.push({cols: 2, rows: 2, items: list.slice(i, i + 4)}); i += 4; continue; }
-      if (per === '1') { pages.push({cols: 1, rows: 1, items: [a]}); i++; continue; }
-      if (per === '2') {
-        pages.push(pageWide ? {cols: 2, rows: 1, items: list.slice(i, i + 2)} : {cols: 1, rows: 2, items: list.slice(i, i + 2)});
-        i += 2; continue;
-      }
-      // As they fit best: two of a shape that leaves room for another
-      // (upright ones on a wide page, wide ones on a tall page) share it.
-      if (b && pageWide && !wide(a) && !wide(b)) { pages.push({cols: 2, rows: 1, items: [a, b]}); i += 2; continue; }
-      if (b && !pageWide && wide(a) && wide(b)) { pages.push({cols: 1, rows: 2, items: [a, b]}); i += 2; continue; }
-      pages.push({cols: 1, rows: 1, items: [a]}); i++;
+      let n = 1;
+      if (per === '4' || per === '2') n = +per;
+      else if (b && (pageWide() ? !wide(a) && !wide(b) : wide(a) && wide(b))) n = 2;
+      out.push({n, text: null});
+      i += n;
     }
+    return out;
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(key, JSON.stringify({...book, title: $('title').value, theme: $('theme').value}));
+      localStorage.setItem('bookOptions', JSON.stringify({size: $('size').value, per: $('per').value, dates: $('dates').checked}));
+    } catch (e) {}
+  }
+
+  function fresh() {
+    book = {order: photos.map(p => p.id), out: [], pages: pack(photos, $('per').value)};
+  }
+
+  // shown is the photos in the book, in their order.
+  const shown = () => book.order.filter(id => !book.out.includes(id) && byId.has(id)).map(id => byId.get(id));
+
+  // flow matches the pages to the photos: each page takes its number of
+  // photos; pages left without photos go unless they hold text; photos
+  // left over get pages of their own.
+  function flow() {
+    const list = shown();
+    const pages = [];
+    let i = 0;
+    for (const pg of book.pages) {
+      if (pg.n === 0) { pages.push(pg); continue; }
+      const items = list.slice(i, i + pg.n);
+      i += items.length;
+      if (items.length) pages.push({...pg, n: pg.n, items});
+      else if (pg.text != null) pages.push({n: 0, text: pg.text});
+    }
+    if (i < list.length) {
+      const rest = list.slice(i);
+      let j = 0;
+      for (const pg of pack(rest, $('per').value)) { pages.push({...pg, items: rest.slice(j, j + pg.n)}); j += pg.n; }
+    }
+    book.pages = pages.map(p => ({n: p.n, text: p.text}));
     return pages;
+  }
+
+  function tool(label, title, fn, on) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = t(label);
+    if (title) b.title = t(title);
+    if (on) b.className = 'on';
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  function textBox(pg, placeholder) {
+    const d = document.createElement('div');
+    d.className = 'page-text';
+    d.contentEditable = 'true';
+    d.dataset.ph = t(placeholder);
+    d.textContent = pg.text || '';
+    d.addEventListener('input', () => { pg.text = d.innerText.replace(/\n$/, ''); save(); });
+    return d;
   }
 
   function render() {
     const [w, h] = SIZES[$('size').value];
-    const per = $('per').value, dates = $('dates').checked, title = $('title').value.trim();
-    try { localStorage.setItem('bookOptions', JSON.stringify({size: $('size').value, per, dates})); } catch (e) {}
+    const dates = $('dates').checked, title = $('title').value.trim();
     $('page-size').textContent = `@page { size: ${w}mm ${h}mm; margin: 0; } .page { width: ${w}mm; height: ${h}mm; }`;
     const root = $('pages');
     root.textContent = '';
@@ -119,37 +256,91 @@
       root.firstChild.textContent = t('There are no photos to put in a book here.');
       return;
     }
-    // The cover: the title, the years and the first photo.
-    const years = [photos[0], photos[photos.length - 1]].map(p => p.taken ? new Date(p.taken * 1000).getUTCFullYear() : '').filter(Boolean);
+    const pages = flow();
+    save();
+    const list = shown();
+    // The cover: the title, the years and the first photo of the book.
+    const all = list.length ? list : photos;
+    const years = [all[0], all[all.length - 1]].map(p => p.taken ? new Date(p.taken * 1000).getUTCFullYear() : '').filter(Boolean);
     const span = years.length ? (years[0] === years[1] ? String(years[0]) : years.join('–')) : '';
     const cover = document.createElement('section');
     cover.className = 'page cover';
     cover.innerHTML = '<div class="ph"><img alt=""></div><h2></h2><p></p>';
-    cover.querySelector('img').src = src(photos[0]);
+    cover.querySelector('img').src = src(all[0]);
     cover.querySelector('h2').textContent = title || ' ';
     cover.querySelector('p').textContent = span;
-    root.appendChild(cover);
-    for (const pg of pack(photos, per, w >= h)) {
+    const cw = document.createElement('div');
+    cw.className = 'page-wrap';
+    const ctools = document.createElement('div');
+    ctools.className = 'page-tools';
+    ctools.append(tool('+ Text page', 'A page of text after this one', () => { book.pages.unshift({n: 0, text: ''}); render(); }));
+    cw.append(ctools, cover);
+    root.appendChild(cw);
+
+    pages.forEach((pg, pi) => {
+      const real = book.pages[pi];
+      const wrap = document.createElement('div');
+      wrap.className = 'page-wrap';
+      const tools = document.createElement('div');
+      tools.className = 'page-tools';
       const sec = document.createElement('section');
-      sec.className = 'page';
-      sec.style.gridTemplateColumns = `repeat(${pg.cols}, 1fr)`;
-      sec.style.gridTemplateRows = `repeat(${pg.rows}, 1fr)`;
-      for (const im of pg.items) {
-        const slot = document.createElement('div');
-        slot.className = 'slot';
-        slot.innerHTML = '<div class="ph"><img alt="" loading="lazy"></div>';
-        slot.querySelector('img').src = src(im);
-        if (dates) {
-          const cap = document.createElement('div');
-          cap.className = 'cap';
-          cap.textContent = [im.title, fmtDate(im.taken)].filter(Boolean).join(' · ');
-          slot.appendChild(cap);
+      if (pg.n === 0) {
+        sec.className = 'page textpage';
+        sec.append(textBox(real, 'Write here'));
+        tools.append(document.createTextNode(t('Page of text')),
+          tool('Remove page', '', () => { book.pages.splice(pi, 1); render(); }));
+      } else {
+        sec.className = 'page';
+        const grid = document.createElement('div');
+        grid.className = 'grid';
+        const cols = pg.n === 4 || (pg.n === 2 && pageWide()) ? 2 : 1;
+        const rows = pg.n === 4 || (pg.n === 2 && !pageWide()) ? 2 : 1;
+        grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        for (const im of pg.items) {
+          const slot = document.createElement('div');
+          slot.className = 'slot';
+          slot.innerHTML = '<div class="ph"><img alt="" loading="lazy"></div>';
+          slot.querySelector('img').src = src(im);
+          if (dates) {
+            const cap = document.createElement('div');
+            cap.className = 'cap';
+            cap.textContent = [im.title, fmtDate(im.taken)].filter(Boolean).join(' · ');
+            slot.appendChild(cap);
+          }
+          const pt = document.createElement('div');
+          pt.className = 'photo-tools';
+          const at = () => book.order.indexOf(im.id);
+          const swap = d => {
+            // With its neighbour in the book (skipping those left out).
+            const s = shown(), k = s.indexOf(im), other = s[k + d];
+            if (!other) return;
+            const a = at(), b = book.order.indexOf(other.id);
+            [book.order[a], book.order[b]] = [book.order[b], book.order[a]];
+            render();
+          };
+          pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)));
+          const out = tool('×', 'Leave it out of the book (it stays in the album)', () => { book.out.push(im.id); render(); });
+          out.className = 'out';
+          pt.append(out);
+          slot.appendChild(pt);
+          grid.appendChild(slot);
         }
-        sec.appendChild(slot);
+        sec.appendChild(grid);
+        if (real.text != null) sec.appendChild(textBox(real, 'Write a text for the page'));
+        const seg = document.createElement('span');
+        seg.className = 'seg';
+        for (const n of [1, 2, 4]) seg.append(tool(String(n), 'Photos on this page', () => { real.n = n; render(); }, pg.n === n));
+        tools.append(document.createTextNode(t('Photos on this page')), seg,
+          tool(real.text != null ? 'Remove text' : '+ Text', '', () => { real.text = real.text != null ? null : ''; render(); }));
       }
-      root.appendChild(sec);
-    }
-    $('count').textContent = t(photos.length + (photos.length === 1 ? ' photo' : ' photos') + ' · ' + root.children.length + ' pages');
+      tools.append(tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, text: ''}); render(); }));
+      wrap.append(tools, sec);
+      root.appendChild(wrap);
+    });
+    const left = book.out.length;
+    $('count').textContent = t(list.length + (list.length === 1 ? ' photo' : ' photos') + ' · ' + (pages.length + 1) + ' pages') +
+      (left ? ' · ' + t(left + (left === 1 ? ' left out' : ' left out')) : '');
   }
 
   async function load() {
@@ -161,19 +352,64 @@
       photos = photos.concat((r.items || []).filter(im => !im.video && im.thumb));
       if (!r.items || r.items.length < 2000) break;
     }
+    byId = new Map(photos.map(p => [p.id, p]));
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+    if (saved && Array.isArray(saved.order) && Array.isArray(saved.pages)) {
+      // The book as left, with photos added to the album since at the end.
+      const known = new Set(saved.order);
+      book = {order: saved.order.filter(id => byId.has(id)).concat(photos.filter(p => !known.has(p.id)).map(p => p.id)),
+        out: saved.out || [], pages: saved.pages};
+      if (saved.title) $('title').value = saved.title;
+      $('theme').value = saved.theme || '';
+    } else {
+      fresh();
+    }
+    document.body.dataset.theme = $('theme').value;
     render();
   }
 
-  for (const id of ['size', 'per', 'dates']) $(id).addEventListener('change', render);
-  $('title').addEventListener('input', () => { const h = document.querySelector('.cover h2'); if (h) h.textContent = $('title').value || ' '; });
+  try {
+    const o = JSON.parse(localStorage.getItem('bookOptions') || '{}');
+    if (o.size) $('size').value = o.size;
+    if (o.per) $('per').value = o.per;
+    if (o.dates === false) $('dates').checked = false;
+  } catch (e) {}
+  $('title').value = q.get('title') || '';
+
+  $('size').addEventListener('change', render);
+  $('theme').addEventListener('change', () => { document.body.dataset.theme = $('theme').value; save(); });
+  $('dates').addEventListener('change', render);
+  $('per').addEventListener('change', () => {
+    // Every page gets the new number; texts and order stay.
+    const n = $('per').value === 'auto' ? null : +$('per').value;
+    if (n) book.pages.forEach(p => { if (p.n) p.n = n; });
+    else {
+      // As they fit best again; pages of text stay where they were.
+      const texts = book.pages.map((p, i) => [i, p]).filter(([, p]) => p.n === 0);
+      book.pages = pack(shown(), 'auto');
+      for (const [i, p] of texts) book.pages.splice(Math.min(i, book.pages.length), 0, p);
+    }
+    render();
+  });
+  $('title').addEventListener('input', () => { const h = document.querySelector('.cover h2'); if (h) h.textContent = $('title').value || ' '; save(); });
+  $('restart').addEventListener('click', () => {
+    if (!confirm(t('Lay the book out again from the album? Your texts, order and left-out photos are forgotten.'))) return;
+    try { localStorage.removeItem(key); } catch (e) {}
+    $('title').value = q.get('title') || '';
+    $('theme').value = document.body.dataset.theme = '';
+    fresh();
+    render();
+  });
   $('print').addEventListener('click', async () => {
     // Every photo must be loaded before printing, not only those seen.
+    document.activeElement && document.activeElement.blur();
     const imgs = [...document.querySelectorAll('.pages img')];
     imgs.forEach(i => { i.loading = 'eager'; });
     await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
     window.print();
   });
-  load().catch(e => { $('pages').innerHTML = '<div class="book-empty">' + e.message + '</div>'; });
+  load().catch(e => { $('pages').innerHTML = '<div class="book-empty"></div>'; $('pages').firstChild.textContent = e.message; });
 })();
 </script>
 </body>

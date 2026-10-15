@@ -318,8 +318,18 @@
     // Slideshow and photo book
     'Slideshow: one photo after another, full screen': 'Diasshow: ét billede ad gangen, i fuld skærm', 'Stop the slideshow (Esc)': 'Stop diasshowet (Esc)',
     'Make photo book': 'Lav fotobog', 'Photo book': 'Fotobog', 'Title': 'Titel', 'Page': 'Side',
+    'Start over': 'Start forfra', 'Lay the book out again from the album, leaving out your changes': 'Lav bogen forfra ud fra albummet, uden dine ændringer',
+    'Lay the book out again from the album? Your texts, order and left-out photos are forgotten.': 'Lav bogen forfra ud fra albummet? Dine tekster, rækkefølge og fravalgte billeder glemmes.',
+    'Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Over a photo: ← → move it, × leaves it out of the book (it stays in the album). The book is remembered until you start over. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.':
+      'Hver side kan ændres med knapperne over den: hvor mange billeder den har, en tekst på siden, eller en tekstside efter den. Over et billede: ← → flytter det, × tager det ud af bogen (det bliver i albummet). Bogen huskes, til du starter forfra. Vælg “Gem som PDF” (eller en printer) i udskriftsvinduet, sæt margener til “Ingen” og slå baggrundsgrafik til.',
+    '+ Text page': '+ Tekstside', 'A page of text after this one': 'En side med tekst efter denne', 'Page of text': 'Tekstside', 'Remove page': 'Fjern side',
+    'Write here': 'Skriv her', 'Write a text for the page': 'Skriv en tekst til siden', 'Photos on this page': 'Billeder på siden',
+    '+ Text': '+ Tekst', 'Remove text': 'Fjern tekst', 'Move it back': 'Flyt tidligere i bogen', 'Move it on': 'Flyt senere i bogen',
+    'Leave it out of the book (it stays in the album)': 'Tag det ud af bogen (det bliver i albummet)',
     'A4 landscape': 'A4 på langs', 'A4 portrait': 'A4 på højkant', 'Square (21 × 21 cm)': 'Kvadratisk (21 × 21 cm)',
     'Photos per page': 'Billeder pr. side', 'As they fit best': 'Som de passer bedst', 'Dates under the photos': 'Datoer under billederne',
+    'Design': 'Design', 'None (white)': 'Ingen (hvid)', 'Summer': 'Sommer', 'Winter': 'Vinter', 'Birthday': 'Fødselsdag',
+    'Christmas': 'Jul', 'Girl': 'Pige', 'Boy': 'Dreng', 'Elegant': 'Elegant', 'Sea and travel': 'Hav og rejse',
     'Print / save as PDF': 'Udskriv / gem som PDF', 'Loading the photos…': 'Henter billederne…',
     'There are no photos to put in a book here.': 'Der er ingen billeder at lave en bog af her.',
     'In the print window choose “Save as PDF” (or a printer), and under more settings set margins to “None” and turn on background graphics. The PDF can be printed at home or sent to a print shop that takes PDF files.':
@@ -466,7 +476,8 @@
     [/^Take (.*) out of (\d[\d., ]*) faces in photos taken before (.*)\?\n\nThe photos stay\. The faces become one group in Review, known not to be (.*), to name as who they are\.$/,
       (m, n, c, d, n2) => 'Fjern ' + n + ' fra ' + c + ' ansigter på billeder taget før ' + d + '?\n\nBillederne bliver. Ansigterne bliver samlet i én gruppe under Gennemse, mærket som ikke ' + n2 + ', så du kan sætte de rigtige navne på.'],
     [/^Took (.*) out of (\d[\d., ]*) faces: they wait in Review$/, (m, n, c) => 'Fjernede ' + n + ' fra ' + c + ' ansigter: de venter under Gennemse'],
-    [/^(\d+) (photos?) · (\d+) pages$/, (m, n, p, s) => n + (p === 'photo' ? ' billede' : ' billeder') + ' · ' + s + ' sider'],
+    [/^(\d+) left out$/, (m, n) => n + ' fravalgt'],
+    [/^(\d+) (photos?) · (\d+) pages$/,(m, n, p, s) => n + (p === 'photo' ? ' billede' : ' billeder') + ' · ' + s + ' sider'],
     // Ages, now that faces get one
     [/^· born ~(\d+)$/, (m, y) => '· født ~' + y],
     [/^born ~(\d+) ·$/, (m, y) => 'født ~' + y + ' ·'],
