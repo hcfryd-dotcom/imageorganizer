@@ -56,13 +56,13 @@
     </div>
     <div class="scan-card" x-show="remaining() > 0" x-transition x-cloak>
       <div class="scan-title"><span class="spinner" x-show="processingActive()"></span> Processing photos</div>
-      <div class="scan-folder" x-show="processingNote()" x-text="processingNote()"></div>
+      <div class="scan-note" x-show="processingNote()" x-text="processingNote()"></div>
       <div class="bar"><div :style="`width:${processedPct()}%`"></div></div>
       <div class="scan-nums"><span x-text="fmtCount(remaining()) + ' left'"></span><span x-text="etaLabel()"></span></div>
     </div>
     <div class="scan-card" x-show="facesLeft() > 0" x-transition x-cloak>
       <div class="scan-title"><span class="spinner" x-show="facesActive()"></span> Analysing faces</div>
-      <div class="scan-folder" x-text="facesNote()"></div>
+      <div class="scan-note" x-text="facesNote()"></div>
       <div class="bar"><div :style="`width:${facesPct()}%`"></div></div>
       <div class="scan-nums"><span x-text="fmtCount(facesLeft()) + ' faces left'"></span><span x-text="faceEtaLabel()"></span></div>
     </div>

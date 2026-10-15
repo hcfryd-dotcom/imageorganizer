@@ -1148,3 +1148,8 @@ body:has(.sel-bar:not([style*="none"])) .toast { bottom: 84px; }
 .group-grid { grid-template-columns: repeat(auto-fill, minmax(min(var(--card, 260px), 100%), 1fr)); }
 .review-zoom { margin-left: auto; }
 .review-zoom + .review-order { margin-left: 0; }
+/* Status notes in the sidebar wrap instead of being cut off */
+.scan-note { color: var(--muted); margin: 4px 0 8px; line-height: 1.35; overflow-wrap: anywhere; }
+/* Review cards: the three buttons below a card wrap to fit narrow cards */
+.review-more { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.review-more .btn { flex: 1 1 auto; height: auto; min-height: 30px; padding: 4px 8px; white-space: normal; line-height: 1.2; text-align: center; }

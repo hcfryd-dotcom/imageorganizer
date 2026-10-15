@@ -453,6 +453,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 			if ageRunner != nil {
 				j["age"] = ageRunner.Status()
 				j["aged"], j["ageable"] = st.AgeStats()
+				j["gender"] = faceEngine != nil && faceEngine.HasGender()
 			}
 			if peopleRunner != nil {
 				j["people"] = peopleRunner.Status()

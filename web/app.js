@@ -518,7 +518,7 @@ document.addEventListener('alpine:init', () => {
     facesLeft() { const j = this.jobs; return j && j.ageable ? Math.max(0, j.ageable - (j.aged || 0)) : 0; },
     facesPct() { const j = this.jobs; return j && j.ageable ? Math.min(100, 100 * (j.aged || 0) / j.ageable) : 0; },
     facesActive() { const j = this.jobs; return !!(j && j.age && j.age.running); },
-    facesNote() { const j = this.jobs; return j && j.age && j.age.paused ? 'Paused' : 'Age and gender, from the face crops'; },
+    facesNote() { const j = this.jobs; return j && j.age && j.age.paused ? 'Paused' : j && j.gender ? 'Age and gender, from the face crops' : 'Age, from the face crops'; },
     etaLabel() { return this.eta(this.progress, this.processingActive()); },
     faceEtaLabel() { return this.eta(this.faceProgress, this.facesActive()); },
     // eta estimates the time left from recent {t, left} samples.
