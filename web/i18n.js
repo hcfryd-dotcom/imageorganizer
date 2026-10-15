@@ -320,12 +320,13 @@
     'Make photo book': 'Lav fotobog', 'Photo book': 'Fotobog', 'Title': 'Titel', 'Page': 'Side',
     'Start over': 'Start forfra', 'Lay the book out again from the album, leaving out your changes': 'Lav bogen forfra ud fra albummet, uden dine ændringer',
     'Lay the book out again from the album? Your texts, order and left-out photos are forgotten.': 'Lav bogen forfra ud fra albummet? Dine tekster, rækkefølge og fravalgte billeder glemmes.',
-    'Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Over a photo: ← → move it, × leaves it out of the book (it stays in the album). The book is remembered until you start over. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.':
-      'Hver side kan ændres med knapperne over den: hvor mange billeder den har, en tekst på siden, eller en tekstside efter den. Over et billede: ← → flytter det, × tager det ud af bogen (det bliver i albummet). Bogen huskes, til du starter forfra. Vælg “Gem som PDF” (eller en printer) i udskriftsvinduet, sæt margener til “Ingen” og slå baggrundsgrafik til.',
+    'Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, × leaves it out of the book (it stays in the album). The book is remembered until you start over. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.':
+      'Hver side kan ændres med knapperne over den: hvor mange billeder den har, en tekst på siden, eller en tekstside efter den. Træk et billede hen på et andet billede eller en anden side for at flytte det dertil; over et billede flytter ← → det én plads, # flytter det til et sidenummer, og × tager det ud af bogen (det bliver i albummet). Bogen huskes, til du starter forfra. Vælg “Gem som PDF” (eller en printer) i udskriftsvinduet, sæt margener til “Ingen” og slå baggrundsgrafik til.',
     '+ Text page': '+ Tekstside', 'A page of text after this one': 'En side med tekst efter denne', 'Page of text': 'Tekstside', 'Remove page': 'Fjern side',
     'Write here': 'Skriv her', 'Write a text for the page': 'Skriv en tekst til siden', 'Photos on this page': 'Billeder på siden',
     '+ Text': '+ Tekst', 'Remove text': 'Fjern tekst', 'Move it back': 'Flyt tidligere i bogen', 'Move it on': 'Flyt senere i bogen',
     'Leave it out of the book (it stays in the album)': 'Tag det ud af bogen (det bliver i albummet)',
+    'Move to page…': 'Flyt til side…', 'That is a page of text; choose a page with photos.': 'Det er en tekstside; vælg en side med billeder.',
     'A4 landscape': 'A4 på langs', 'A4 portrait': 'A4 på højkant', 'Square (21 × 21 cm)': 'Kvadratisk (21 × 21 cm)',
     'Photos per page': 'Billeder pr. side', 'As they fit best': 'Som de passer bedst', 'Dates under the photos': 'Datoer under billederne',
     'Design': 'Design', 'None (white)': 'Ingen (hvid)', 'Summer': 'Sommer', 'Winter': 'Vinter', 'Birthday': 'Fødselsdag',
@@ -478,6 +479,8 @@
       (m, n, c, d, n2) => 'Fjern ' + n + ' fra ' + c + ' ansigter på billeder taget før ' + d + '?\n\nBillederne bliver. Ansigterne bliver samlet i én gruppe under Gennemse, mærket som ikke ' + n2 + ', så du kan sætte de rigtige navne på.'],
     [/^Took (.*) out of (\d[\d., ]*) faces: they wait in Review$/, (m, n, c) => 'Fjernede ' + n + ' fra ' + c + ' ansigter: de venter under Gennemse'],
     [/^(\d+) left out$/, (m, n) => n + ' fravalgt'],
+    [/^Page (\d+)$/, (m, n) => 'Side ' + n],
+    [/^Move the photo to page number \(1–(\d+)\):$/, (m, n) => 'Flyt billedet til side nummer (1–' + n + '):'],
     [/^(\d+) (photos?) · (\d+) pages$/,(m, n, p, s) => n + (p === 'photo' ? ' billede' : ' billeder') + ' · ' + s + ' sider'],
     // Ages, now that faces get one
     [/^· born ~(\d+)$/, (m, y) => '· født ~' + y],

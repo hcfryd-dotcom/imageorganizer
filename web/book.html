@@ -36,6 +36,10 @@
   .photo-tools button { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .6); color: #fff; cursor: pointer; font-size: 14px; line-height: 28px; padding: 0; }
   .photo-tools button:hover { background: var(--accent); }
   .photo-tools button.out:hover { background: var(--danger); }
+  .slot[draggable="true"] { cursor: grab; }
+  .slot.dragging { opacity: .4; }
+  .slot.drop { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .page.drop { box-shadow: 0 0 0 4px var(--accent), 0 2px 14px rgba(0, 0, 0, .18); }
   /* Photos left out, under the book, to put back. */
   .left-out { width: 100%; max-width: 1100px; padding: 6px 0 20px; }
   .left-out h3 { font: 600 15px -apple-system, "Segoe UI", sans-serif; margin: 0 0 8px; }
@@ -152,7 +156,7 @@
   <button class="btn" id="restart" title="Lay the book out again from the album, leaving out your changes">Start over</button>
   <button class="btn primary" id="print">Print / save as PDF</button>
 </div>
-<p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Over a photo: ← → move it, × leaves it out of the book (it stays in the album). The book is remembered until you start over. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
+<p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, × leaves it out of the book (it stays in the album). The book is remembered until you start over. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
 <div class="pages" id="pages"><div class="book-empty muted">Loading the photos…</div></div>
 <script>
 (function () {
@@ -207,6 +211,18 @@
 
   // shown is the photos in the book, in their order.
   const shown = () => book.order.filter(id => !book.out.includes(id) && byId.has(id)).map(id => byId.get(id));
+
+  // moveTo puts a photo at place k of the book (counted as shown before
+  // the move), so it lands in the slot that place has on its page.
+  // Photos left out keep their places in the order.
+  function moveTo(im, k) {
+    const list = shown().filter(p => p !== im);
+    list.splice(Math.max(0, Math.min(k, list.length)), 0, im);
+    let j = 0;
+    book.order = book.order.map(id => (!book.out.includes(id) && byId.has(id)) ? list[j++].id : id);
+    render();
+  }
+  let dragged = null; // the photo being dragged to another place
 
   // flow matches the pages to the photos: each page takes its number of
   // photos; pages left without photos go unless they hold text; photos
@@ -283,6 +299,16 @@
     cw.append(ctools, cover);
     root.appendChild(cw);
 
+    // Where each page's photos start in the book.
+    const starts = [];
+    pages.reduce((at, pg) => { starts.push(at); return at + (pg.items ? pg.items.length : 0); }, 0);
+    const toPage = im => {
+      const ans = prompt(t('Move the photo to page number (1–' + pages.length + '):'));
+      const p = parseInt(ans, 10);
+      if (!p || p < 1 || p > pages.length) return;
+      if (!pages[p - 1].n) { alert(t('That is a page of text; choose a page with photos.')); return; }
+      moveTo(im, starts[p - 1]);
+    };
     pages.forEach((pg, pi) => {
       const real = book.pages[pi];
       const wrap = document.createElement('div');
@@ -290,6 +316,9 @@
       const tools = document.createElement('div');
       tools.className = 'page-tools';
       const sec = document.createElement('section');
+      const num = document.createElement('b');
+      num.textContent = t('Page ' + (pi + 1));
+      tools.append(num);
       if (pg.n === 0) {
         sec.className = 'page textpage';
         sec.append(textBox(real, 'Write here'));
@@ -297,6 +326,10 @@
           tool('Remove page', '', () => { book.pages.splice(pi, 1); render(); }));
       } else {
         sec.className = 'page';
+        // Dropped on the page but not on a photo: first place on the page.
+        sec.addEventListener('dragover', e => { if (dragged) { e.preventDefault(); sec.classList.add('drop'); } });
+        sec.addEventListener('dragleave', e => { if (!sec.contains(e.relatedTarget)) sec.classList.remove('drop'); });
+        sec.addEventListener('drop', e => { e.preventDefault(); if (dragged) moveTo(dragged, starts[pi]); });
         const grid = document.createElement('div');
         grid.className = 'grid';
         const cols = pg.n === 4 || (pg.n === 2 && pageWide()) ? 2 : 1;
@@ -308,6 +341,7 @@
           slot.className = 'slot';
           slot.innerHTML = '<div class="ph"><img alt="" loading="lazy"></div>';
           slot.querySelector('img').src = src(im);
+          slot.querySelector('img').draggable = false; // the slot is what drags
           if (dates) {
             const cap = document.createElement('div');
             cap.className = 'cap';
@@ -325,7 +359,18 @@
             [book.order[a], book.order[b]] = [book.order[b], book.order[a]];
             render();
           };
-          pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)));
+          pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)),
+            tool('#', 'Move to page…', () => toPage(im)));
+          // Dragged onto another photo, it takes that photo's place.
+          slot.draggable = true;
+          slot.addEventListener('dragstart', e => { dragged = im; e.dataTransfer.effectAllowed = 'move'; slot.classList.add('dragging'); });
+          slot.addEventListener('dragend', () => { dragged = null; slot.classList.remove('dragging'); });
+          slot.addEventListener('dragover', e => { if (dragged && dragged !== im) { e.preventDefault(); e.stopPropagation(); slot.classList.add('drop'); } });
+          slot.addEventListener('dragleave', () => slot.classList.remove('drop'));
+          slot.addEventListener('drop', e => {
+            e.preventDefault(); e.stopPropagation();
+            if (dragged && dragged !== im) moveTo(dragged, list.indexOf(im));
+          });
           const out = tool('×', 'Leave it out of the book (it stays in the album)', () => { book.out.push(im.id); render(); });
           out.className = 'out';
           pt.append(out);
