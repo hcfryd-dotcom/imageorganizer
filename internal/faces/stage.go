@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/lkarlslund/imageorganizer/internal/pipeline"
 	"github.com/lkarlslund/imageorganizer/internal/store"
@@ -14,6 +16,7 @@ import (
 // from import because the age model is far heavier than detection and
 // recognition, and needs no access to the original photos.
 func AgeStage(e *Engine, st *store.Store, cropPath func(key string) string, workers int, log *slog.Logger) pipeline.Stage[store.AgeJob] {
+	gw := &genderWriter{st: st, log: log}
 	return pipeline.Stage[store.AgeJob]{
 		Name:    "age",
 		Workers: workers,
@@ -38,7 +41,8 @@ func AgeStage(e *Engine, st *store.Store, cropPath func(key string) string, work
 				if !ok {
 					fem = -1
 				}
-				return st.SetGender(ctx, j.FaceID, fem)
+				gw.add(j.FaceID, fem)
+				return nil
 			}
 			est, err := e.EstimateFromCrop(crop, j.CropBox)
 			if err != nil {
@@ -86,4 +90,35 @@ func EyesStage(e *Engine, st *store.Store, cropPath func(key string) string, wor
 		},
 		Log: log,
 	}
+}
+
+// genderWriter notes gender estimates in memory at once and writes them
+// to the library every two seconds, many at a time: judging gender alone
+// takes milliseconds, a write each took far longer.
+type genderWriter struct {
+	st   *store.Store
+	log  *slog.Logger
+	mu   sync.Mutex
+	ids  []int64
+	once sync.Once
+}
+
+func (g *genderWriter) add(id int64, fem float32) {
+	g.st.NoteGender(id, fem)
+	g.mu.Lock()
+	g.ids = append(g.ids, id)
+	g.mu.Unlock()
+	g.once.Do(func() {
+		go func() {
+			for range time.Tick(2 * time.Second) {
+				g.mu.Lock()
+				ids := g.ids
+				g.ids = nil
+				g.mu.Unlock()
+				if err := g.st.SaveFaces(ids); err != nil {
+					g.log.Warn("saving gender estimates", "err", err)
+				}
+			}
+		}()
+	})
 }

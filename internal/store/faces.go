@@ -526,3 +526,33 @@ func (s *Store) EyesStats() (done, total int) {
 	}
 	return done, total
 }
+
+// NoteGender records a gender estimate in memory only; SaveFaces writes it
+// later, with others. Judging gender alone takes milliseconds, and a write
+// each took far longer. Lost before written (a stop), it is judged again.
+func (s *Store) NoteGender(faceID int64, female float32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if f, ok := s.faces[faceID]; ok { // else replaced meanwhile
+		f.Fem, f.FemV = female, max(1, s.GenderVersion)
+	}
+}
+
+// SaveFaces writes the faces as they are now, in one go.
+func (s *Store) SaveFaces(ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.db.Update(func(tx *bolt.Tx) error {
+		for _, id := range ids {
+			if f, ok := s.faces[id]; ok {
+				if err := put(tx, bucketFaces, id, f); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
