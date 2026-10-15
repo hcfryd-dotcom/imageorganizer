@@ -67,6 +67,23 @@
     font: 600 11px -apple-system, "Segoe UI", sans-serif; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); cursor: help; }
   .lowres.bad { background: #ff3b30; color: #fff; }
   @media print { .lowres, .book-bar .weak { display: none !important; } }
+  /* The cover in one piece: back, spine, front. */
+  .page.spread { display: flex; flex-direction: row; gap: 0; position: relative; box-sizing: border-box; }
+  .spread .part { height: 100%; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; padding: 16mm; box-sizing: border-box; text-align: center; }
+  .spread .front-part .ph { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; }
+  .spread .front-part img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 2mm; }
+  .spread .spine { height: 100%; flex: none; writing-mode: vertical-rl; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden;
+    font: 600 12pt -apple-system, "Segoe UI", sans-serif; }
+  .spread .trim { position: absolute; border: 1px dashed rgba(200, 0, 0, .45); pointer-events: none; }
+  @media screen { .spread .spine { outline: 1px dashed rgba(0, 0, 0, .25); } }
+  @media print {
+    .spread .trim, .spread-wrap { display: none !important; }
+    body.pdf-cover .spread-wrap { display: block !important; }
+    body.pdf-cover #pages > .page-wrap:not(.spread-wrap), body.pdf-cover .left-out { display: none !important; }
+    body.pdf-inner #pages > .cover-wrap, body.pdf-inner #pages > .back-wrap { display: none !important; }
+  }
+  body.pdf .book-bar, body.pdf .book-note, body.pdf .filters, body.pdf .overview, body.pdf .left-out { display: none !important; }
+  @media print { .page.last { break-after: auto !important; page-break-after: auto !important; } }
   /* A panorama: one photo over two pages, each showing its half. */
   .page.pano .slot .ph { overflow: hidden; }
   .page.pano .slot .ph img { position: absolute; top: 0; height: 100%; width: 200%; max-width: none; max-height: none; object-fit: cover; }
@@ -88,7 +105,16 @@
   .filters label { display: flex; gap: 8px; align-items: flex-start; }
   .filters hr { border: 0; border-top: 1px solid var(--line); width: 100%; margin: 4px 0; }
   .filters p { margin: 0; }
-  .filter-go { display: flex; gap: 10px; align-items: center; }
+  .filter-go { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .filters { max-height: calc(100vh - var(--bar-h, 64px) - 30px); overflow: auto; }
+  .filters label .input, .filters label .select { margin-left: auto; width: 55%; }
+  .filters label { align-items: center; }
+  .check-list { display: flex; flex-direction: column; gap: 4px; }
+  .check-list .ok { color: #2e7d32; font-weight: 600; }
+  .check-list button { text-align: left; border: 0; background: none; padding: 3px 0; font: inherit; color: var(--text); cursor: pointer; }
+  .check-list button:hover { color: var(--accent); }
+  .check-list .bad::before { content: "⚠ "; color: #b26a00; }
+  .check-list .info::before { content: "ⓘ "; color: var(--muted); }
   .crop-bar .deg { color: #fff; background: rgba(0, 0, 0, .65); border-radius: 14px; padding: 5px 9px; font: 600 12px -apple-system, "Segoe UI", sans-serif; }
   @media print { .filters { display: none !important; } }
   /* A cropped photo fills its place; while cropping it can be dragged. */
@@ -258,6 +284,11 @@
     <option value="sq30">Square (30 × 30 cm)</option>
     <option value="l28">Landscape (28 × 21 cm)</option>
     <option value="p21">Portrait (21 × 28 cm)</option>
+    <option value="a5p">A5 portrait (14.8 × 21 cm)</option>
+    <option value="b5">B5 portrait (17 × 24 cm)</option>
+    <option value="r155">Large novel (15.5 × 23 cm)</option>
+    <option value="r140">Novel (14 × 22 cm)</option>
+    <option value="r125">Small novel (12.5 × 20 cm)</option>
   </select></label>
   <label>Photos per page <select class="select" id="per">
     <option value="auto">As they fit best</option>
@@ -313,6 +344,8 @@
   <span class="small weak" id="weak" title="Marked ⚠ on the pages"></span>
   <span class="small weak" id="odd" hidden title="Print shops mostly want an even number of pages (some a number of 4s). Add or remove a page, e.g. a page of text or the back cover.">Odd number of pages</span>
   <span class="muted small saved" id="saved"></span>
+  <button class="btn" id="checkBtn" title="Look the book through for what may go wrong in print">Check the book</button>
+  <button class="btn" id="shopBtn" title="Print files (PDF) for Lasertryk.dk">For Lasertryk.dk…</button>
   <button class="btn" id="filtersBtn" title="Which photos may be in the book">Choices…</button>
   <button class="btn" id="overview" title="All pages small, to find one or move whole pages">Pages</button>
   <label title="Two pages side by side, as they face each other in the printed book"><input type="checkbox" id="spreads"> Spreads</label>
@@ -322,6 +355,36 @@
   <button class="btn primary" id="print">Print / save as PDF</button>
 </div>
 <p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
+<div class="filters" id="check" hidden>
+  <b>Check before printing</b>
+  <div id="checkList" class="check-list"></div>
+</div>
+<div class="filters" id="shop" hidden>
+  <b>Print files for Lasertryk.dk</b>
+  <p class="muted small">The program makes two PDF files you can send to Lasertryk.dk: the pages inside, and the cover in one piece (back, spine and front). They get the 3 mm bleed Lasertryk asks for all round, and texts and photos keep at least 3 mm from the edge.</p>
+  <label>Format <select class="select" id="shopSize">
+    <option value="a4p">A4 portrait (21 × 29.7 cm)</option>
+    <option value="sq">Square (21 × 21 cm)</option>
+    <option value="b5">B5 portrait (17 × 24 cm)</option>
+    <option value="r155">Large novel (15.5 × 23 cm)</option>
+    <option value="a5p">A5 portrait (14.8 × 21 cm)</option>
+    <option value="r140">Novel (14 × 22 cm)</option>
+    <option value="r125">Small novel (12.5 × 20 cm)</option>
+    <option value="a4l">A4 landscape (29.7 × 21 cm, own size at Lasertryk)</option>
+  </select></label>
+  <label>Spine width in mm <input class="input" type="number" min="0" step="0.1" id="spine"></label>
+  <p class="muted small" id="spineHint"></p>
+  <label>Edge round the cover in mm <input class="input" type="number" min="0" step="0.5" id="coverEdge"></label>
+  <p class="muted small">3 mm for a softcover. A hardcover's cover folds round the boards: take the measures from the cover template Lasertryk makes in its price calculator.</p>
+  <label>Folder for the files <input class="input" id="pdfDir"></label>
+  <div class="check-list" id="shopCheck"></div>
+  <div class="filter-go">
+    <button class="btn primary" id="makePdf" type="button">Make the PDF files</button>
+    <span class="muted small" id="pdfNote"></span>
+    <button class="btn" id="openDir" type="button" hidden>Open the folder</button>
+  </div>
+  <p class="muted small">Order at <a href="https://lasertryk.dk/boeger/standard" target="_blank" rel="noopener">Lasertryk.dk → Bøger</a>: choose the format and pages there, and upload the two files. Lasertryk checks files for free before printing.</p>
+</div>
 <div class="filters" id="filters" hidden>
   <b>Which photos may be in the book</b>
   <label><input type="checkbox" data-k="blurry"> Leave out blurry photos</label>
@@ -343,8 +406,12 @@
 (function () {
   'use strict';
   const q = new URLSearchParams(location.search);
+  // pdf=inner or pdf=cover: the page as the program prints it to a PDF
+  // for a print shop (server/books.go), the pages inside or the cover.
+  const pdfMode = q.get('pdf') || '';
   const $ = id => document.getElementById(id);
-  const SIZES = {a4l: [297, 210], a4p: [210, 297], sq: [210, 210], sq20: [200, 200], sq30: [300, 300], l28: [280, 210], p21: [210, 280]};
+  const SIZES = {a4l: [297, 210], a4p: [210, 297], sq: [210, 210], sq20: [200, 200], sq30: [300, 300], l28: [280, 210], p21: [210, 280],
+    a5p: [148, 210], b5: [170, 240], r155: [155, 230], r140: [140, 220], r125: [125, 200]};
   const BLEED = 3; // mm a print shop cuts off each edge
   // pageMM is the page's size on paper, with the bleed when it is for a print shop.
   const pageMM = () => (SIZES[book.size] || SIZES.a4l).map(v => v + (book.bleed ? 2 * BLEED : 0));
@@ -353,7 +420,12 @@
   const t = s => (window.i18n ? window.i18n.tr(s) ?? s : s); // texts made here, as they change
   const api = async (url, opt) => {
     const r = await fetch(url, opt ? {headers: {'Content-Type': 'application/json'}, ...opt} : undefined);
-    if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
+    if (!r.ok) {
+      const text = (await r.text()).trim();
+      let msg = text;
+      try { msg = JSON.parse(text).error || text; } catch (e) {}
+      throw new Error(msg || r.statusText);
+    }
     return r.json();
   };
 
@@ -671,10 +743,20 @@
       return sharp.length ? lo / sharp.length : 0;
     };
     const one = !!src.get('person');
+    // Eyes: of the faces that count (not far off in the background) and
+    // were judged, a share open is better, a share shut worse; this is
+    // what picks, among photos of a group taken together, the one where
+    // most have their eyes open.
+    const eyes = f => {
+      const judged = (f.list || []).filter(x => x.w > .04 && x.eyes > 0);
+      if (!judged.length) return 0;
+      const shut = judged.filter(x => x.eyes < .16).length;
+      return (judged.length - shut) / judged.length * .4 - shut / judged.length * 1.2;
+    };
     const score = new Map(ok.map(im => {
       const f = info.get(im.id) || {};
       return [im.id, (im.fav ? 3 : 0) + (im.rating || 0) * .6 + rank(im.sharp || 0) + (f.faces ? .5 : 0) - (f.faces > 6 ? .3 : 0) +
-        (one ? Math.min((f.big_face || 0) * 4, 1) * .8 : 0) + Math.min((im.w || 0) * (im.h || 0) / 8e6, 1) * .3];
+        (one ? Math.min((f.big_face || 0) * 4, 1) * .8 : 0) + Math.min((im.w || 0) * (im.h || 0) / 8e6, 1) * .3 + eyes(f)];
     }));
     const better = (a, b) => score.get(b.id) - score.get(a.id);
     const kept = [];
@@ -706,14 +788,37 @@
       }
     }
     groups.forEach(g => g.sort(better));
-    const chosen = new Set(), at = groups.map(() => 0);
+    // Balance: in a book of several people (or of anyone), someone already
+    // in many of the chosen photos counts against a photo, so all are in
+    // it about as often. A book of one person needs none.
+    const who = whose();
+    const peopleIn = im => [...new Set(((info.get(im.id) || {}).list || [])
+      .filter(x => x.p && x.w > .04 && (who.size < 2 || who.has(x.p))).map(x => x.p))];
+    const seen = new Map();
+    const balance = who.size !== 1;
+    const adjusted = im => {
+      if (!balance) return score.get(im.id);
+      const ps = peopleIn(im);
+      if (!ps.length) return score.get(im.id);
+      const fair = (chosen.size + 1) / Math.max(1, seen.size || 1);
+      return score.get(im.id) - .5 * Math.max(...ps.map(p => (seen.get(p) || 0) / fair));
+    };
+    const chosen = new Set();
+    const taken = groups.map(() => new Set());
     while (chosen.size < n) {
-      const round = groups.map((g, i) => [g[at[i]], i]).filter(([im]) => im).sort((a, b) => better(a[0], b[0]));
+      // Each group's best, of its next few, with the balance counted in.
+      const round = [];
+      groups.forEach((g, i) => {
+        const next = g.filter(im => !taken[i].has(im.id)).slice(0, 6);
+        if (next.length) round.push([next.reduce((a, b) => adjusted(b) > adjusted(a) ? b : a), i]);
+      });
       if (!round.length) break;
+      round.sort((a, b) => adjusted(b[0]) - adjusted(a[0]));
       for (const [im, i] of round) {
         if (chosen.size >= n) break;
         chosen.add(im.id);
-        at[i]++;
+        taken[i].add(im.id);
+        for (const p of peopleIn(im)) seen.set(p, (seen.get(p) || 0) + 1);
       }
     }
     return kept.filter(im => chosen.has(im.id));
@@ -789,6 +894,7 @@
 
   let saveTimer = 0, dirty = false;
   function save(typing) {
+    if (pdfMode) return; // printing to a PDF changes nothing
     track(typing);
     dirty = true;
     clearTimeout(saveTimer);
@@ -799,7 +905,7 @@
     if (!dirty || !rec) return;
     dirty = false;
     const body = JSON.stringify({title: $('title').value.trim(), source: rec.source, data: book});
-    fetch('/api/books/' + rec.id, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body, keepalive: !!leaving && body.length < 60000})
+    return fetch('/api/books/' + rec.id, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body, keepalive: !!leaving && body.length < 60000})
       .then(r => { if (!r.ok) throw new Error(r.statusText); $('saved').textContent = t('Saved'); })
       .catch(() => { dirty = true; $('saved').textContent = t('Not saved; trying again'); saveTimer = setTimeout(flushSave, 5000); });
   }
@@ -922,7 +1028,9 @@
     // cut off; what matters stays that much further in.
     const b = book.bleed ? BLEED : 0;
     $('page-size').textContent = `@page { size: ${w}mm ${h}mm; margin: 0; } .page { width: ${w}mm; height: ${h}mm; }` +
-      (b ? `.page:not(.full) { padding: ${10 + b}mm; } .page.cover { padding: ${16 + b}mm; } .page.full .slot .cap { bottom: ${4 + b}mm; }` : '');
+      (b ? `.page:not(.full) { padding: ${10 + b}mm; } .page.cover { padding: ${16 + b}mm; } .page.full .slot .cap { bottom: ${4 + b}mm; }` : '') +
+      // Printing the cover in one piece: its own page size.
+      (pdfMode === 'cover' ? `@page { size: ${coverDims().w}mm ${coverDims().h}mm; margin: 0; }` : '');
     document.body.dataset.theme = book.theme || '';
     const root = $('pages');
     root.textContent = '';
@@ -957,7 +1065,7 @@
     sub.title = t('Click to write your own text under the title');
     sub.addEventListener('input', () => { book.coverText.sub = sub.innerText.trim(); save(true); });
     const cw = document.createElement('div');
-    cw.className = 'page-wrap';
+    cw.className = 'page-wrap cover-wrap';
     const ctools = document.createElement('div');
     ctools.className = 'page-tools';
     const cb = document.createElement('b');
@@ -973,6 +1081,8 @@
     const numbers = [];
     pages.reduce((n, p) => { numbers.push(n); return n + (isPano(p) ? 2 : 1); }, 1);
     const lastNumber = pages.length ? numbers[pages.length - 1] + (isPano(pages[pages.length - 1]) ? 1 : 0) : 0;
+    pageNumbers = numbers;
+    innerPages = lastNumber;
     const toPage = id => {
       const ans = prompt(t('Move the photo to page number (1–' + lastNumber + '):'));
       const p = parseInt(ans, 10);
@@ -991,6 +1101,7 @@
       const sec = document.createElement('section');
       const num = document.createElement('b');
       const pano = isPano(pg), at = numbers[pi];
+      wrap.dataset.pi = pi;
       num.textContent = (pano ? t('Pages ' + at + '–' + (at + 1)) : t('Page ' + at)) + (pg.month != null ? ' · ' + monthName(book.calendar, pg.month) : '');
       tools.append(num);
       if (pg.map) {
@@ -1116,9 +1227,10 @@
       if (pano) root.appendChild(panoRight(pg, at + 1));
     });
 
+    let backSec = null;
     if (book.back) {
       const bw = document.createElement('div');
-      bw.className = 'page-wrap';
+      bw.className = 'page-wrap back-wrap';
       const bt = document.createElement('div');
       bt.className = 'page-tools';
       const bb = document.createElement('b');
@@ -1129,11 +1241,14 @@
       const p = document.createElement('p');
       p.textContent = [title, span].filter(Boolean).join(' · ');
       bs.append(textBox(book.back, 'Write a text for the back'), p);
+      backSec = bs;
       bw.append(bt);
       if (styling === 'back') bw.append(styleRow(() => book.back));
       bw.append(bs);
       root.appendChild(bw);
     }
+    // The cover in one piece for a print shop: back, spine and front.
+    if (book.spine != null) root.appendChild(coverSpread(cs, backSec, title, span));
 
     // Under the book: the photos left out, and the others not in it.
     const have = new Set(list.map(im => im.id));
@@ -1186,6 +1301,13 @@
     root.classList.toggle('spreads', !!book.spreads);
     if (book.frame) root.dataset.frame = book.frame; else delete root.dataset.frame;
     renderOverview(cover);
+    // The last page printed asks for no page break after it, or a blank
+    // page would follow: the cover in one piece, else the last page inside
+    // for the print shop's file, else the last of all.
+    const printed = [...document.querySelectorAll('#pages > .page-wrap')].filter(w =>
+      pdfMode === 'cover' ? w.classList.contains('spread-wrap') : !w.classList.contains('spread-wrap') && !(pdfMode === 'inner' && (w.classList.contains('cover-wrap') || w.classList.contains('back-wrap'))));
+    const lastPage = printed.length ? printed[printed.length - 1].querySelector('section.page') : null;
+    if (lastPage) lastPage.classList.add('last');
     setTimeout(afterLayout); // not requestAnimationFrame: a tab in the background never gets one
   }
 
@@ -1323,6 +1445,150 @@
       const l = img.offsetLeft, t_ = img.offsetTop;
       ph.style.clipPath = `inset(${t_}px ${ph.clientWidth - l - w}px ${ph.clientHeight - t_ - h}px ${l}px)`;
     } else ph.style.clipPath = '';
+  }
+
+  // ---------- checking, and print files for Lasertryk.dk ----------
+
+  let pageNumbers = [], innerPages = 0; // as drawn last (render)
+
+  // checkBook looks the book through for what may go wrong in print: each
+  // finding with the page it is on (-1: the cover; null: the book).
+  function checkBook() {
+    const out = [];
+    const add = (kind, text, pi) => out.push({kind, text, pi});
+    const label = pi => pi === -1 ? t('Cover') : t('Page ' + pageNumbers[pi]);
+    if (!$('title').value.trim()) add('bad', t('The cover has no title'), -1);
+    const who = whose();
+    book.pages.forEach((pg, pi) => {
+      if (pg.n === 0 && !pg.map && !(pg.text || '').trim()) add('bad', label(pi) + ': ' + t('an empty page of text'), pi);
+      if (pg.n > 0 && pg.text === '') add('info', label(pi) + ': ' + t('an empty text box (left out when printed)'), pi);
+      if (pg.month != null && !pg.ids.length) add('bad', label(pi) + ': ' + t('a month without a photo'), pi);
+      for (const id of pg.ids) {
+        const faces = (info.get(id) || {}).list || [];
+        if (faces.some(x => x.eyes > 0 && x.eyes < .16 && (who.size ? who.has(x.p) : x.w > .08))) {
+          add('bad', label(pi) + ': ' + t('shut eyes, perhaps'), pi);
+          break;
+        }
+      }
+    });
+    for (const b of document.querySelectorAll('.page .lowres')) {
+      const w = b.closest('.page-wrap');
+      const pi = w.classList.contains('cover-wrap') ? -1 : w.dataset.pi != null ? +w.dataset.pi : null;
+      add('bad', (pi == null ? t('A photo') : label(pi)) + ': ' + t('a photo may print blurry') + ' (' + b.textContent.replace('⚠ ', '') + ')', pi);
+    }
+    if (innerPages % 2) add('bad', t(innerPages + ' pages inside: print shops want an even number; add or remove a page'), null);
+    if (!book.back) add('info', t('No back cover (“Back cover” at the top)'), null);
+    if (!book.bleed) add('info', t('No bleed: for a print shop, use “For Lasertryk.dk…”'), null);
+    return out;
+  }
+  function showChecks(el, list) {
+    el.textContent = '';
+    if (!list.some(c => c.kind === 'bad')) {
+      const ok = document.createElement('div');
+      ok.className = 'ok';
+      ok.textContent = t('Nothing found that needs fixing.');
+      el.appendChild(ok);
+    }
+    for (const c of list) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = c.kind;
+      b.textContent = c.text;
+      b.addEventListener('click', () => {
+        const w = c.pi === -1 ? document.querySelector('.cover-wrap') : c.pi != null ? document.querySelector(`.page-wrap[data-pi="${c.pi}"]`) : null;
+        if (w) w.scrollIntoView({behavior: 'smooth', block: 'start'});
+      });
+      el.appendChild(b);
+    }
+  }
+  async function runChecks(el) {
+    await needInfo(seq()).catch(() => {});
+    checkPrint();
+    showChecks(el, checkBook());
+  }
+
+  // spineGuess is about how thick the pages inside are: half as many
+  // sheets as pages, about 0.16 mm each on 170 g silk paper, and the
+  // glue; Lasertryk's price calculator gives the exact width.
+  const spineGuess = () => Math.round((innerPages / 2 * .16 + .6) * 10) / 10;
+
+  function panel(id) {
+    document.documentElement.style.setProperty('--bar-h', document.querySelector('.book-bar').offsetHeight + 'px');
+    for (const p of ['check', 'shop', 'filters']) {
+      const open = p === id && $(p).hidden;
+      $(p).hidden = !open;
+      $({check: 'checkBtn', shop: 'shopBtn', filters: 'filtersBtn'}[p]).classList.toggle('primary', open);
+    }
+    return !$(id).hidden;
+  }
+
+  async function openShop() {
+    // A print shop wants bleed, and the cover in one piece.
+    let changed = false;
+    if (!book.bleed) { book.bleed = true; changed = true; }
+    if (book.spine == null) { book.spine = spineGuess(); changed = true; }
+    if (book.coverEdge == null) { book.coverEdge = BLEED; changed = true; }
+    if (changed) { showSettings(); render(); }
+    $('shopSize').value = [...$('shopSize').options].some(o => o.value === book.size) ? book.size : '';
+    $('spine').value = book.spine;
+    $('coverEdge').value = book.coverEdge;
+    $('spineHint').textContent = t('About ' + spineGuess().toLocaleString(locale) + ' mm for ' + innerPages + ' pages on 170 g silk paper. The exact width is in Lasertryk’s price calculator.');
+    if (!$('pdfDir').value) $('pdfDir').value = (await api('/api/books/pdf-dir').catch(() => ({}))).dir || '';
+    await runChecks($('shopCheck'));
+  }
+
+  // coverDims is the cover in one piece, in mm: back, spine and front side
+  // by side, with the edge the print shop asks for (book.coverEdge,
+  // bleed, or more for a hardcover's turn-in) all round.
+  function coverDims() {
+    const [pw, ph] = SIZES[book.size] || SIZES.a4l;
+    const spine = Math.max(0, +book.spine || 0), edge = book.coverEdge != null ? +book.coverEdge : BLEED;
+    return {pw, ph, spine, edge, w: 2 * pw + spine + 2 * edge, h: ph + 2 * edge};
+  }
+
+  // coverSpread draws the cover in one piece from the cover and the back
+  // as drawn (copies, so it follows them), with the title on the spine.
+  function coverSpread(front, back, title, span) {
+    const d = coverDims();
+    const wrap = document.createElement('div');
+    wrap.className = 'page-wrap spread-wrap';
+    const tools = document.createElement('div');
+    tools.className = 'page-tools';
+    const b = document.createElement('b');
+    b.textContent = t('Cover in one piece for the print shop') + ` (${d.w.toLocaleString(locale)} × ${d.h.toLocaleString(locale)} mm)`;
+    tools.appendChild(b);
+    const sec = document.createElement('section');
+    sec.className = 'page spread';
+    sec.style.width = d.w + 'mm';
+    sec.style.height = d.h + 'mm';
+    sec.style.padding = d.edge + 'mm';
+    const part = (from, cls) => {
+      const p = document.createElement('div');
+      p.className = 'part ' + cls;
+      p.style.width = d.pw + 'mm';
+      if (from) {
+        const c = from.cloneNode(true);
+        c.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
+        c.querySelectorAll('.lowres, .page-text:empty').forEach(e => e.remove());
+        p.append(...c.childNodes);
+      }
+      return p;
+    };
+    const spine = document.createElement('div');
+    spine.className = 'spine';
+    spine.style.width = d.spine + 'mm';
+    // The text runs down the spine, as on Danish and English books; it
+    // only fits a spine a few millimetres wide.
+    if (d.spine >= 5) {
+      spine.textContent = [title, span].filter(Boolean).join('  ·  ');
+      spine.style.fontSize = Math.min(14, d.spine * 1.6) + 'pt';
+    }
+    const trim = document.createElement('div');
+    trim.className = 'trim';
+    trim.style.inset = d.edge + 'mm';
+    sec.append(part(back, 'back-part back'), spine, part(front, 'front-part cover'), trim);
+    wrap.append(tools, sec);
+    return wrap;
   }
 
   // afterLayout runs once a drawn book is laid out.
@@ -1687,8 +1953,22 @@
     }
     book.lastId = photos.reduce((m, p) => Math.max(m, p.id), 0);
     if (book.cap.place || book.cap.who) await needInfo();
+    if (pdfMode) {
+      // As it is printed: no tools, pages one after another, every photo
+      // loaded (not only those in view).
+      document.body.classList.add('pdf', 'pdf-' + pdfMode);
+      book.spreads = false;
+      overviewOpen = false;
+    }
     showSettings();
     render();
+    if (pdfMode) {
+      const imgs = [...document.querySelectorAll('.page img')];
+      imgs.forEach(i => { i.loading = 'eager'; });
+      await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
+      await decorate().catch(() => {});
+      document.body.dataset.ready = '1';
+    }
   }
 
   function showSettings() {
@@ -1743,10 +2023,45 @@
     await fresh();
     render();
   });
-  $('filtersBtn').addEventListener('click', () => {
-    document.documentElement.style.setProperty('--bar-h', document.querySelector('.book-bar').offsetHeight + 'px');
-    $('filters').hidden = !$('filters').hidden;
-    $('filtersBtn').classList.toggle('primary', !$('filters').hidden);
+  $('filtersBtn').addEventListener('click', () => panel('filters'));
+  $('checkBtn').addEventListener('click', () => { if (panel('check')) runChecks($('checkList')); });
+  $('shopBtn').addEventListener('click', () => { if (panel('shop')) openShop(); });
+  $('shopSize').addEventListener('change', () => {
+    if (!$('shopSize').value) return;
+    book.size = $('shopSize').value;
+    if (book.per === 'auto') repack();
+    showSettings();
+    render();
+    openShop();
+  });
+  $('spine').addEventListener('change', () => { book.spine = Math.max(0, +$('spine').value || 0); render(); });
+  $('coverEdge').addEventListener('change', () => { book.coverEdge = Math.max(0, +$('coverEdge').value || 0); render(); });
+  $('makePdf').addEventListener('click', async () => {
+    const note = $('pdfNote');
+    $('makePdf').disabled = true;
+    $('openDir').hidden = true;
+    try {
+      // The program prints the book as saved: save first.
+      dirty = true;
+      await flushSave();
+      note.textContent = t('Making the PDF files… (a minute or two)');
+      const dir = $('pdfDir').value.trim();
+      await api('/api/books/' + rec.id + '/pdf', {method: 'POST', body: JSON.stringify({dir, cover: true})});
+      let st;
+      do {
+        await new Promise(r => setTimeout(r, 2000));
+        st = await api('/api/books/' + rec.id + '/pdf');
+        if (st.running) note.textContent = t(st.step === 'cover' ? 'Making the cover…' : 'Making the pages inside…');
+      } while (st.running);
+      if (st.error) throw new Error(st.error);
+      note.textContent = t('Made:') + ' ' + (st.files || []).map(f => f.split(/[\\/]/).pop()).join(', ');
+      $('openDir').hidden = false;
+      $('openDir').onclick = () => api('/api/open-folder', {method: 'POST', body: JSON.stringify({dir: st.dir})}).catch(e => alert(e.message));
+    } catch (e) {
+      note.textContent = t('Could not make the PDF files:') + ' ' + e.message;
+    } finally {
+      $('makePdf').disabled = false;
+    }
   });
   for (const box of document.querySelectorAll('#filters input[data-k]')) {
     box.addEventListener('change', () => {

@@ -135,7 +135,15 @@ the rest of the repo.
   face boxes), ⇄ swaps a photo for one taken near the same time, "Better
   light" lifts dark photos with a CSS filter (files untouched), chapters
   by events (12 h gaps, merged to about one per six photos, titled by
-  town and dates) and panoramas over two pages.
+  town and dates) and panoramas over two pages. Picking the best also
+  weighs open eyes and balances how often each person is in it.
+  He prints at Lasertryk.dk (standard books, from 50 copies; FotoSjov.dk
+  is their own-editor photo-book shop, no PDF upload): "For
+  Lasertryk.dk…" sets 3 mm bleed, their formats, spine width and cover
+  edge, and `server/bookpdf.go` prints `book.html?pdf=inner|cover` to
+  "<title> - indmad.pdf" / "- omslag.pdf" with headless Edge (its own
+  throw-away profile next to the files), default folder `E:\Fotobøger`.
+  "Check the book" lists what may go wrong in print.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - macOS-style look: one block at the end of `web/app.css`.

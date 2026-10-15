@@ -102,6 +102,7 @@ func (s *Server) Handler() http.Handler {
 	s.fetchRoutes(mux)
 	s.albumRoutes(mux)
 	s.bookRoutes(mux)
+	s.bookPDFRoutes(mux)
 	s.frameRoutes(mux)
 	s.confidentRoutes(mux)
 	s.deleteRoutes(mux)
