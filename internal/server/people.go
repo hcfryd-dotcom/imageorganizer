@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lkarlslund/imageorganizer/internal/store"
 )
@@ -19,6 +20,7 @@ import (
 func (s *Server) peopleRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/people", s.listPeople)
 	mux.HandleFunc("PATCH /api/people/{id}", s.updatePerson)
+	mux.HandleFunc("POST /api/people/{id}/not-before", s.notBefore)
 	mux.HandleFunc("GET /api/people/{id}/groups", s.personGroups)
 	mux.HandleFunc("GET /api/people/{id}/faces", s.personFaces)
 	mux.HandleFunc("GET /api/people/{id}/candidates", s.personCandidates)
@@ -125,6 +127,39 @@ func (s *Server) updatePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// notBefore takes the person out of every photo taken before a date
+// (YYYY-MM-DD); with count, it only says how many faces that is.
+func (s *Server) notBefore(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		httpError(w, 400, err)
+		return
+	}
+	var req struct {
+		Date  string `json:"date"`
+		Count bool   `json:"count"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpError(w, 400, err)
+		return
+	}
+	before, err := time.Parse("2006-01-02", req.Date)
+	if err != nil {
+		httpError(w, 400, errors.New("give the date as day-month-year"))
+		return
+	}
+	if req.Count {
+		writeJSON(w, map[string]int{"faces": s.Store.CountBefore(r.Context(), id, before)})
+		return
+	}
+	n, err := s.Store.NotBefore(r.Context(), id, before)
+	if err != nil {
+		storeError(w, err)
+		return
+	}
+	writeJSON(w, map[string]int{"faces": n})
 }
 
 func (s *Server) personGroups(w http.ResponseWriter, r *http.Request) {

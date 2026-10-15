@@ -225,6 +225,7 @@
               <input class="input small-input" type="number" min="1850" max="2100" placeholder="unknown"
                      :value="openedPerson().birth_year || ''" @change="updatePerson({birth_year: +$event.target.value || 0})">
             </label>
+            <button class="btn ghost not-before" x-show="!openedPerson().picture" @click="notBefore()" title="Take this person out of every photo taken before a date, such as their birth: those faces become one group to name in Review">Not in photos before…</button>
             <label class="birth" x-show="!openedPerson().picture" title="Helps tell relatives apart (mother and son), and names relations (“mother”). Faces of adults are compared with it; children’s aren’t.">Gender
               <select class="select" :value="openedPerson().gender || ''" @change="updatePerson({gender: $event.target.value})">
                 <option value="" x-text="openedPerson().est_gender ? 'Not set (looks like a ' + (openedPerson().est_gender === 'female' ? 'woman' : 'man') + ')' : 'Not set'"></option>
