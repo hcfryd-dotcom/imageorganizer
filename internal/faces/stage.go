@@ -30,6 +30,16 @@ func AgeStage(e *Engine, st *store.Store, cropPath func(key string) string, work
 				}
 				return st.SetAge(ctx, j.FaceID, -1)
 			}
+			if j.GenderOnly { // the age is known: just gender, without the age model if possible
+				fem, ok, err := e.GenderFromCrop(crop, j.CropBox)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					fem = -1
+				}
+				return st.SetGender(ctx, j.FaceID, fem)
+			}
 			est, err := e.EstimateFromCrop(crop, j.CropBox)
 			if err != nil {
 				return err

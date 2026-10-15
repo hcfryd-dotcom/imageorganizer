@@ -35,7 +35,7 @@ the rest of the repo.
   his naming of ~23,000 faces.
 - Face models in `models\`: `scrfd_10g.onnx` and `arcface_w600k_r50.onnx`
   (InsightFace buffalo_l, non-commercial licence) and `mivolo_v2_age.onnx`
-  (ages; gender stays unknown).
+  (ages), `genderage.onnx` (gender) and `2d106det.onnx` (eyes).
 - Photos: the library's one folder is `E:\Billeder ryddet` (~30,000, made
   on 2026-10-14 by the tidy copy from `E:\Onedrive\Billeder` and
   `E:\Old_Onedrive`; outside OneDrive). The two old folders are still on
@@ -103,9 +103,11 @@ the rest of the repo.
 - Daily backups of library.bolt (`internal/backup`), set to
   `E:\ImageOrganizer-backup`, 14 kept; Settings shows the last one.
 - Eyes: `models\2d106det.onnx` (InsightFace buffalo_l 106 landmarks,
-  non-commercial, from the official buffalo_l.zip v0.7 on 2026-10-15;
-  `genderage.onnx` from the same pack is kept, unused, in
-  `E:\ImageOrganizer-download-buffalo`). The "eyes" job judges each face
+  non-commercial, from the official buffalo_l.zip v0.7 on 2026-10-15).
+  Gender: `models\genderage.onnx` from the same pack
+  (`faces/genderage.go`), used because MiVOLO here gives age only; its
+  readings are moved by `gaBias` (tested on 120 adult faces of eight
+  known people: 98 right). Gender-only jobs skip MiVOLO. The "eyes" job judges each face
   crop once (`faces/eyes.go`: the more open eye's height over width;
   under 0.16 is shut or looking down); photo books can leave them out.
 - Age model `models\mivolo_v2_age.onnx` (Sam-Apostel/mivolo-v2-age-onnx,

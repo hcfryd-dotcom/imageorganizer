@@ -33,6 +33,7 @@ type Engine struct {
 	det, rec, age *ort.DynamicAdvancedSession
 	nsfw          *ort.DynamicAdvancedSession
 	lmk           *ort.DynamicAdvancedSession // 106 landmarks, for eyes (eyes.go)
+	ga            *ort.DynamicAdvancedSession // gender, when the age model has none (genderage.go)
 	gender        bool                        // the age model also gives gender (its "head" output)
 	device        string                      // "cuda" or "cpu", as actually used
 	// gpu feeds model runs to a few dedicated OS threads. ONNX Runtime's
@@ -162,6 +163,13 @@ func Open(c Config) (*Engine, error) {
 			return nil, fmt.Errorf("nsfw model: %w", err)
 		}
 	}
+	// The gender model is only wanted when the age model gives no gender.
+	if c.GenderAge != "" && fileExists(c.GenderAge) && e.age != nil && !e.gender {
+		if e.ga, err = open(c.GenderAge); err != nil {
+			e.Close()
+			return nil, fmt.Errorf("gender model: %w", err)
+		}
+	}
 	if c.Landmarks != "" && fileExists(c.Landmarks) {
 		if e.lmk, err = open(c.Landmarks); err != nil {
 			e.Close()
@@ -202,7 +210,7 @@ func (e *Engine) Close() {
 	if e.gpu != nil {
 		close(e.gpu)
 	}
-	for _, s := range []*ort.DynamicAdvancedSession{e.det, e.rec, e.age, e.nsfw, e.lmk} {
+	for _, s := range []*ort.DynamicAdvancedSession{e.det, e.rec, e.age, e.nsfw, e.lmk, e.ga} {
 		if s != nil {
 			s.Destroy()
 		}
@@ -426,7 +434,7 @@ func (e *Engine) estimateAge(img *image.RGBA, box [4]float32) (float32, error) {
 }
 
 // HasGender reports whether the age model also estimates gender.
-func (e *Engine) HasGender() bool { return e.age != nil && e.gender }
+func (e *Engine) HasGender() bool { return e.age != nil && (e.gender || e.ga != nil) }
 
 // ageSize is MiVOLO's input size for each of the face and body crops.
 const ageSize = 384
@@ -468,6 +476,10 @@ func (e *Engine) EstimateFull(img *image.RGBA, box [4]float32) (Estimate, error)
 	fem := float32(-1)
 	if f1 >= 0 && f2 >= 0 {
 		fem = (f1 + f2) / 2
+	} else if e.ga != nil {
+		if fem, err = e.femaleFrom(img, box); err != nil {
+			return Estimate{}, err
+		}
 	}
 	return Estimate{Age: (a1 + a2) / 2, Female: fem, OK: true}, nil
 }
@@ -588,5 +600,8 @@ func (e *Engine) EstimateFromCrop(crop []byte, box [4]float32) (Estimate, error)
 		return Estimate{Female: -1}, nil
 	}
 	a, fem, err := e.runAge(letterbox(img, px, ageSize), nil, false)
+	if err == nil && fem < 0 && e.ga != nil {
+		fem, err = e.femaleFrom(img, px)
+	}
 	return Estimate{Age: a, Female: fem, OK: err == nil}, err
 }
