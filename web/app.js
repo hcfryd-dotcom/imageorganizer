@@ -33,6 +33,8 @@ const icons = {
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   strip: '<svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="5" height="10" rx="1.2"/><rect x="9.5" y="5" width="5" height="14" rx="1.2"/><rect x="16.5" y="7" width="5" height="10" rx="1.2"/></svg>',
   pin: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  book: '<svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 004 20.5z"/><path d="M4 20.5A2.5 2.5 0 006.5 23H20v-5"/><path d="M9 8h7"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" class="fill"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>',
   play: '<svg viewBox="0 0 24 24" class="fill"><path d="M8 5.5v13a1 1 0 001.5.86l10.5-6.5a1 1 0 000-1.72L9.5 4.64A1 1 0 008 5.5z"/></svg>',
   album: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="15" height="14" rx="2.5"/><path d="M3 16.5V5.5A2.5 2.5 0 015.5 3H16"/><path d="M21 16l-4-4-7 7"/><circle cx="11" cy="10.5" r="1.5"/></svg>',
 };
@@ -183,6 +185,7 @@ document.addEventListener('alpine:init', () => {
     savingSettings: false,
     backingUp: false,   // "Back up now" in Settings
     savingStill: false, // a video frame being saved as a picture
+    slide: null,        // the slideshow's timer, while one runs
     restarting: false,
     zoom: {s: 1, x: 0, y: 0, drag: null, moved: false}, // lightbox zoom and pan
     dateEdit: null,     // the photo date being corrected (datetime-local value)
@@ -1865,6 +1868,7 @@ document.addEventListener('alpine:init', () => {
     // closeLightbox closes the photo; Back too, when opening it added the
     // history entry. leaving: another page follows (nothing to go back to).
     closeLightbox(leaving) {
+      this.stopShow();
       const changed = touched.ids.size > 0 || touched.all;
       const back = !leaving && !this.restoring && this.lightbox.open && history.state && history.state.photo;
       this.closeAlso();
@@ -1924,6 +1928,35 @@ document.addEventListener('alpine:init', () => {
       await Promise.resolve();
       const t = anchor && el.querySelector(`${sel}[data-id="${anchor}"]`);
       if (t) el.scrollTop += t.getBoundingClientRect().top - top - off;
+    },
+    // A slideshow: the photos one after another, full screen, a few
+    // seconds each (a video plays to its end first), until the last one,
+    // a click on the button, Esc, or leaving full screen.
+    toggleShow() {
+      if (this.slide) return this.stopShow();
+      const el = document.querySelector('.lightbox');
+      if (el && el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {});
+      this.lightbox.info = false;
+      const next = async () => {
+        if (!this.lightbox.open) return this.stopShow();
+        const v = document.querySelector('video.lb-video');
+        if (v && !v.paused && !v.ended) { this.slide = setTimeout(next, 1000); return; } // let a video finish
+        const n = this.lightbox.idx + 1;
+        if (n >= this.lightboxItems().length && (this.lightbox.list || !this.moreLater())) return this.stopShow();
+        await this.step(1);
+        this.slide = setTimeout(next, 4000);
+      };
+      this.slide = setTimeout(next, 4000);
+      if (!this._fsWatch) {
+        this._fsWatch = true;
+        document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && this.slide) this.stopShow(); });
+      }
+    },
+    stopShow() {
+      if (!this.slide) return;
+      clearTimeout(this.slide);
+      this.slide = null;
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     },
     async step(d) {
       const n = this.lightbox.idx + d;
@@ -2860,6 +2893,13 @@ document.addEventListener('alpine:init', () => {
       this.reload();
     },
     clearAlbum() { this.album = 0; this.reload(); },
+    // openBook opens the photo book of an album's or a person's photos in a
+    // tab of its own, to print or save as a PDF.
+    openBook(what) {
+      const p = new URLSearchParams();
+      for (const [k, v] of Object.entries(what)) if (v) p.set(k, v);
+      window.open('/static/book.html?' + p, '_blank');
+    },
     albumLabel() { const a = this.albums.find(a => a.id === this.album); return a ? a.name : '…'; },
     ask(text, value = '') { return window.prompt(window.i18n ? window.i18n.tr(text) : text, value); },
     async newAlbum(ids = []) {

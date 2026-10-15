@@ -115,7 +115,7 @@
       </select>
       <label class="zoom" x-show="view === 'photos'" title="Thumbnail size">
         <span x-html="icons.grid"></span>
-        <input type="range" min="120" max="360" step="10" x-model.number="rowHeight" @input="layout()">
+        <input type="range" min="120" max="760" step="20" x-model.number="rowHeight" @input="layout()">
       </label>
     </div>
   </header>
@@ -132,11 +132,13 @@
   <section class="photos" x-show="view === 'photos' && stats.library.images > 0" x-ref="photos" @scroll.passive="onScroll()">
     <div class="result-line person-line" x-show="person" x-cloak>
       <span class="chip">Photos of <b x-text="personLabel()"></b></span>
+      <button class="btn ghost" @click="openBook({person, title: personLabel()})" x-html="icons.book + '<span>Make photo book</span>'"></button>
       <button class="btn ghost" @click="clearPerson()">Show all photos</button>
     </div>
     <div class="result-line album-line" x-show="album" x-cloak>
       <span class="album-title" x-text="albumLabel()"></span>
       <span class="muted" x-text="fmtCount(total) + (total === 1 ? ' photo' : ' photos')"></span>
+      <button class="btn ghost" @click="openBook({album, title: albumLabel()})" x-html="icons.book + '<span>Make photo book</span>'"></button>
       <button class="btn ghost" @click="renameAlbum()">Rename</button>
       <button class="btn ghost danger" @click="deleteAlbum()">Delete album</button>
       <button class="btn ghost" @click="setView('albums'); album = 0">All albums</button>
@@ -1481,6 +1483,7 @@
     <button class="icon-btn" @click="closeLightbox()" x-html="icons.close" title="Close (Esc)"></button>
     <div class="lb-title" x-text="current() && (current().title || baseName(current().path))"></div>
     <div class="lb-actions">
+      <button class="icon-btn" :class="{active: !!slide}" @click="toggleShow()" :title="slide ? 'Stop the slideshow (Esc)' : 'Slideshow: one photo after another, full screen'" x-html="slide ? icons.pause : icons.play"></button>
       <button class="btn lb-still" x-show="current()?.video" :disabled="savingStill" @click="saveStill()" title="Pause where you want it: the frame is saved as a picture next to the video" x-html="icons.camera + '<span>' + (savingStill ? 'Saving…' : 'Save picture') + '</span>'"></button>
       <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(-90)" x-html="icons.rotateLeft" title="Turn left — for photos the camera saved sideways (Shift+R)"></button>
       <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(90)" x-html="icons.rotate" title="Turn right (R)"></button>

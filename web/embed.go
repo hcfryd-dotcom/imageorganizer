@@ -3,5 +3,5 @@ package web
 
 import "embed"
 
-//go:embed index.html app.js app.css i18n.js vendor
+//go:embed index.html book.html app.js app.css i18n.js vendor
 var FS embed.FS

@@ -313,6 +313,15 @@
       'Kopierer alle billeder fra mapperne ovenfor til én mappe, sorteret efter år, måned og hvad der tog dem (iPhone, Canon, Skærmbilleder …). Hvert billede kommer kun med én gang: kopier af det samme billede springes over. Dine mapper ændres ikke, og kopierer du igen, tilføjes kun det nye.',
     'Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.':
       'Næste skridt: kig den nye mappe igennem. Når du er tilfreds, tilføjer du den ovenfor og fjerner de gamle mapper: billederne bliver genkendt, så navne og steder bliver. De gamle mapper lader programmet være, så du selv kan slette eller gemme dem.',
+    // Slideshow and photo book
+    'Slideshow: one photo after another, full screen': 'Diasshow: ét billede ad gangen, i fuld skærm', 'Stop the slideshow (Esc)': 'Stop diasshowet (Esc)',
+    'Make photo book': 'Lav fotobog', 'Photo book': 'Fotobog', 'Title': 'Titel', 'Page': 'Side',
+    'A4 landscape': 'A4 på langs', 'A4 portrait': 'A4 på højkant', 'Square (21 × 21 cm)': 'Kvadratisk (21 × 21 cm)',
+    'Photos per page': 'Billeder pr. side', 'As they fit best': 'Som de passer bedst', 'Dates under the photos': 'Datoer under billederne',
+    'Print / save as PDF': 'Udskriv / gem som PDF', 'Loading the photos…': 'Henter billederne…',
+    'There are no photos to put in a book here.': 'Der er ingen billeder at lave en bog af her.',
+    'In the print window choose “Save as PDF” (or a printer), and under more settings set margins to “None” and turn on background graphics. The PDF can be printed at home or sent to a print shop that takes PDF files.':
+      'Vælg “Gem som PDF” (eller en printer) i udskriftsvinduet, og sæt under flere indstillinger margener til “Ingen” og slå baggrundsgrafik til. PDF’en kan printes hjemme eller sendes til et trykkeri, der tager imod PDF-filer.',
     // A picture from a video
     'Save picture': 'Gem billede', 'Name of the picture': 'Navn på billedet',
     'Pause where you want it: the frame is saved as a picture next to the video': 'Sæt på pause, hvor du vil have det: billedet gemmes ved siden af videoen',
@@ -449,6 +458,7 @@
     [/^For example: (.*)$/, (m, p) => 'Fx: ' + p],
     [/^Fetch from, e\.g\. (.*)$/, (m, p) => 'Hent fra, fx ' + p],
     [/^Main folder: (.*)$/, (m, p) => 'Hovedmappe: ' + p],
+    [/^(\d+) (photos?) · (\d+) pages$/, (m, n, p, s) => n + (p === 'photo' ? ' billede' : ' billeder') + ' · ' + s + ' sider'],
     // Ages, now that faces get one
     [/^· born ~(\d+)$/, (m, y) => '· født ~' + y],
     [/^born ~(\d+) ·$/, (m, y) => 'født ~' + y + ' ·'],

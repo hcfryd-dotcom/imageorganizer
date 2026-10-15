@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo book</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  /* A photo book of an album's (or a person's) photos, laid out page by
+     page for printing or saving as a PDF from the browser. */
+  html, body { height: auto; overflow: auto; display: block; background: #e8e8ed; }
+  .book-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px;
+    background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: saturate(1.8) blur(20px); border-bottom: 1px solid var(--line); }
+  .book-bar h1 { font-size: 17px; margin: 0 8px 0 0; }
+  .book-bar label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .book-bar .input { width: 240px; }
+  .book-bar .grow { flex: 1; }
+  .book-note { padding: 10px 20px 0; max-width: 900px; }
+  .pages { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 0 60px; }
+  .page { background: #fff; color: #1d1d1f; box-shadow: 0 2px 14px rgba(0, 0, 0, .18); position: relative; overflow: hidden;
+    display: grid; gap: 4mm; padding: 10mm; box-sizing: border-box; }
+  .slot { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .slot .ph { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .slot img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .slot .cap { font: 9pt/1.3 -apple-system, "Segoe UI", sans-serif; color: #6e6e73; text-align: center; padding-top: 1.5mm; min-height: 4mm; }
+  .cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; padding: 16mm; text-align: center; }
+  .cover .ph { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; }
+  .cover img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 2mm; }
+  .cover h2 { font: 700 28pt/1.1 -apple-system, "Segoe UI Variable Display", "Segoe UI", sans-serif; margin: 0; letter-spacing: -.02em; }
+  .cover p { font: 12pt -apple-system, "Segoe UI", sans-serif; color: #6e6e73; margin: 0; }
+  .book-empty { padding: 60px 20px; text-align: center; }
+  @media print {
+    html, body { background: #fff; }
+    .book-bar, .book-note { display: none !important; }
+    .pages { padding: 0; gap: 0; display: block; }
+    .page { box-shadow: none; break-after: page; page-break-after: always; margin: 0; }
+  }
+</style>
+<style id="page-size"></style>
+<script src="i18n.js"></script>
+</head>
+<body>
+<div class="book-bar">
+  <h1>Photo book</h1>
+  <label>Title <input class="input" id="title"></label>
+  <label>Page <select class="select" id="size">
+    <option value="a4l">A4 landscape</option>
+    <option value="a4p">A4 portrait</option>
+    <option value="sq">Square (21 × 21 cm)</option>
+  </select></label>
+  <label>Photos per page <select class="select" id="per">
+    <option value="auto">As they fit best</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="4">4</option>
+  </select></label>
+  <label><input type="checkbox" id="dates" checked> Dates under the photos</label>
+  <span class="grow"></span>
+  <span class="muted small" id="count"></span>
+  <button class="btn primary" id="print">Print / save as PDF</button>
+</div>
+<p class="muted small book-note">In the print window choose “Save as PDF” (or a printer), and under more settings set margins to “None” and turn on background graphics. The PDF can be printed at home or sent to a print shop that takes PDF files.</p>
+<div class="pages" id="pages"><div class="book-empty muted">Loading the photos…</div></div>
+<script>
+(function () {
+  'use strict';
+  const q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  const SIZES = {a4l: [297, 210], a4p: [210, 297], sq: [210, 210]};
+  const lang = (window.i18n && window.i18n.lang()) || 'en';
+  const t = s => (window.i18n ? window.i18n.tr(s) : s); // the page's own texts, as they change
+  let photos = [];
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('bookOptions') || '{}');
+    if (saved.size) $('size').value = saved.size;
+    if (saved.per) $('per').value = saved.per;
+    if (saved.dates === false) $('dates').checked = false;
+  } catch (e) {}
+  $('title').value = q.get('title') || '';
+
+  function fmtDate(t) {
+    if (!t) return '';
+    return new Date(t * 1000).toLocaleDateString(lang === 'da' ? 'da-DK' : 'en-GB', {day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'});
+  }
+  function src(im) { return '/preview/' + im.id + '?h=' + im.hash + (im.rot ? '&r=' + im.rot : ''); }
+  const wide = im => (im.w || 4) >= (im.h || 3);
+
+  // pack groups the photos into pages: one, two side by side (or one above
+  // the other), or four in a grid, as the setting and their shapes say.
+  function pack(list, per, pageWide) {
+    const pages = [];
+    for (let i = 0; i < list.length;) {
+      const a = list[i], b = list[i + 1];
+      if (per === '4') { pages.push({cols: 2, rows: 2, items: list.slice(i, i + 4)}); i += 4; continue; }
+      if (per === '1') { pages.push({cols: 1, rows: 1, items: [a]}); i++; continue; }
+      if (per === '2') {
+        pages.push(pageWide ? {cols: 2, rows: 1, items: list.slice(i, i + 2)} : {cols: 1, rows: 2, items: list.slice(i, i + 2)});
+        i += 2; continue;
+      }
+      // As they fit best: two of a shape that leaves room for another
+      // (upright ones on a wide page, wide ones on a tall page) share it.
+      if (b && pageWide && !wide(a) && !wide(b)) { pages.push({cols: 2, rows: 1, items: [a, b]}); i += 2; continue; }
+      if (b && !pageWide && wide(a) && wide(b)) { pages.push({cols: 1, rows: 2, items: [a, b]}); i += 2; continue; }
+      pages.push({cols: 1, rows: 1, items: [a]}); i++;
+    }
+    return pages;
+  }
+
+  function render() {
+    const [w, h] = SIZES[$('size').value];
+    const per = $('per').value, dates = $('dates').checked, title = $('title').value.trim();
+    try { localStorage.setItem('bookOptions', JSON.stringify({size: $('size').value, per, dates})); } catch (e) {}
+    $('page-size').textContent = `@page { size: ${w}mm ${h}mm; margin: 0; } .page { width: ${w}mm; height: ${h}mm; }`;
+    const root = $('pages');
+    root.textContent = '';
+    if (!photos.length) {
+      root.innerHTML = '<div class="book-empty muted"></div>';
+      root.firstChild.textContent = t('There are no photos to put in a book here.');
+      return;
+    }
+    // The cover: the title, the years and the first photo.
+    const years = [photos[0], photos[photos.length - 1]].map(p => p.taken ? new Date(p.taken * 1000).getUTCFullYear() : '').filter(Boolean);
+    const span = years.length ? (years[0] === years[1] ? String(years[0]) : years.join('–')) : '';
+    const cover = document.createElement('section');
+    cover.className = 'page cover';
+    cover.innerHTML = '<div class="ph"><img alt=""></div><h2></h2><p></p>';
+    cover.querySelector('img').src = src(photos[0]);
+    cover.querySelector('h2').textContent = title || ' ';
+    cover.querySelector('p').textContent = span;
+    root.appendChild(cover);
+    for (const pg of pack(photos, per, w >= h)) {
+      const sec = document.createElement('section');
+      sec.className = 'page';
+      sec.style.gridTemplateColumns = `repeat(${pg.cols}, 1fr)`;
+      sec.style.gridTemplateRows = `repeat(${pg.rows}, 1fr)`;
+      for (const im of pg.items) {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.innerHTML = '<div class="ph"><img alt="" loading="lazy"></div>';
+        slot.querySelector('img').src = src(im);
+        if (dates) {
+          const cap = document.createElement('div');
+          cap.className = 'cap';
+          cap.textContent = [im.title, fmtDate(im.taken)].filter(Boolean).join(' · ');
+          slot.appendChild(cap);
+        }
+        sec.appendChild(slot);
+      }
+      root.appendChild(sec);
+    }
+    $('count').textContent = t(photos.length + (photos.length === 1 ? ' photo' : ' photos') + ' · ' + root.children.length + ' pages');
+  }
+
+  async function load() {
+    const base = new URLSearchParams({sort: 'taken_asc', limit: '2000'});
+    for (const k of ['album', 'person']) if (q.get(k)) base.set(k, q.get(k));
+    for (let off = 0; ; off += 2000) {
+      base.set('offset', off);
+      const r = await fetch('/api/images?' + base).then(r => r.json());
+      photos = photos.concat((r.items || []).filter(im => !im.video && im.thumb));
+      if (!r.items || r.items.length < 2000) break;
+    }
+    render();
+  }
+
+  for (const id of ['size', 'per', 'dates']) $(id).addEventListener('change', render);
+  $('title').addEventListener('input', () => { const h = document.querySelector('.cover h2'); if (h) h.textContent = $('title').value || ' '; });
+  $('print').addEventListener('click', async () => {
+    // Every photo must be loaded before printing, not only those seen.
+    const imgs = [...document.querySelectorAll('.pages img')];
+    imgs.forEach(i => { i.loading = 'eager'; });
+    await Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })));
+    window.print();
+  });
+  load().catch(e => { $('pages').innerHTML = '<div class="book-empty">' + e.message + '</div>'; });
+})();
+</script>
+</body>
+</html>
