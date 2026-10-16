@@ -166,7 +166,9 @@ the rest of the repo.
   own. The cover photo can be placed freely too (`book.coverLayout`
   "free", `book.coverPos`). Each photo's caption can be turned
   off (T on the photo, or "Caption" in the toolbox; `book.noCap`), and
-  its date, place and who shown or not apart from the book (`book.capOwn`).
+  its date, place and who shown or not apart from the book (`book.capOwn`). Texts: a font
+  of 17, a size in points (`style.pt`, typed or − +), bold, italic, a
+  colour of the row or any, and alignment.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - Looks: the macOS-style block in `web/app.css`, and after it the

@@ -346,6 +346,7 @@
     'Double-click to crop and place the photo': 'Dobbeltklik for at beskære og placere billedet', 'Click to write the title': 'Klik for at skrive titlen', 'Page size, design, frames, chapters, captions and more for the whole book': 'Sidestørrelse, design, rammer, kapitler, billedtekster og mere for hele bogen',
     'Click to crop and place the photo': 'Klik for at beskære og placere billedet', 'The photo picked': 'Det valgte billede', 'Turn': 'Drej',
     'Photo boxes': 'Billedkasser', '+ Photo box': '+ Billedkasse', '1 photo': '1 billede', 'Photo placed freely': 'Billede placeret frit',
+    'Font': 'Skrifttype', 'Alignment': 'Justering', 'Bold': 'Fed', 'Italic': 'Kursiv', 'Smaller': 'Mindre', 'Bigger': 'Større', 'Choose any colour': 'Vælg en hvilken som helst farve', 'The size of the letters in points (pt), as printed': 'Bogstavernes størrelse i punkter (pt), som de bliver trykt',
     'Under the photo:': 'Under billedet:', 'Show it under this photo, or not (the book’s choice is in Book settings)': 'Vis det under dette billede eller ej (bogens valg står i Bogens indstillinger)',
     'The page': 'Siden', 'Which photos': 'Udvalg af billeder', 'Find photos': 'Find billeder', 'For Lasertryk.dk': 'Til Lasertryk.dk',
     'Show the caption under this photo': 'Vis billedteksten under dette billede', 'No caption under this photo': 'Ingen billedtekst under dette billede',

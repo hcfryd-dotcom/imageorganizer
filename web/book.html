@@ -214,8 +214,10 @@
     font: calc(13pt * var(--k, 1))/1.25 -apple-system, "Segoe UI", sans-serif; display: flex; align-items: center; justify-content: center; }
   .item-text:empty::before { content: attr(data-ph); color: #a1a1a6; }
   .sticker-item svg { width: 100%; height: 100%; display: block; overflow: visible; }
-  .item-tools { position: absolute; left: 0; top: -8mm; display: none; gap: 3px; white-space: nowrap; }
-  .item:hover .item-tools { display: flex; }
+  /* Above the box, reaching down to it (padding), so the mouse can go
+     from the box to them without them going away. */
+  .item-tools { position: absolute; left: 0; bottom: 100%; padding-bottom: 2.5mm; display: none; gap: 3px; white-space: nowrap; z-index: 6; }
+  .item:hover .item-tools, .item:focus-within .item-tools, .item.moving .item-tools { display: flex; }
   .item-tools button, .item-tools .grip { width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .65); color: #fff; font-size: 12px; line-height: 24px; padding: 0; cursor: pointer; text-align: center; }
   .item-tools .grip { cursor: move; display: inline-block; }
   .sticker-row { flex-wrap: wrap; }
@@ -378,6 +380,19 @@
   .mapbox.empty { display: flex; align-items: center; justify-content: center; color: #8e8e93; font: 13pt -apple-system, "Segoe UI", sans-serif; }
   .text-style { padding: 4px 8px; border-radius: 8px; background: var(--panel); box-shadow: 0 1px 4px rgba(0, 0, 0, .15); }
   .text-style .select { height: 26px; font-size: 12px; }
+  /* The style of a text: a line each for font, size, colour and alignment. */
+  .text-style:has(.style-line) { flex-direction: column; align-items: stretch !important; gap: 8px !important; }
+  .style-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .style-label { width: 70px; flex: none; font-size: 12.5px; color: var(--muted); }
+  .style-line .font-pick { flex: 1; min-width: 160px; height: 32px; font-size: 15px; }
+  .style-line .pt-input { width: 64px; height: 30px; text-align: center; font-size: 14px; }
+  .style-line button { border: 0; border-radius: 999px; min-width: 30px; height: 30px; padding: 0 10px; background: rgba(127, 127, 127, .18); color: inherit; cursor: pointer; font: inherit; font-size: 14px; }
+  .style-line button.on { background: var(--accent); color: #111; }
+  .style-line .seg button { height: auto; min-width: 0; background: none; }
+  .style-line .seg button.on { background: var(--accent); }
+  .style-line .fmt-b { font-weight: 800 !important; } .style-line .fmt-i { font-style: italic !important; font-family: Georgia, serif !important; }
+  .color-pick { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+  .color-pick::-webkit-color-swatch-wrapper { padding: 0; } .color-pick::-webkit-color-swatch { border: 2px solid rgba(127, 127, 127, .5); border-radius: 50%; }
   .swatches { display: inline-flex; gap: 3px; }
   .swatch { width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .25); padding: 0; cursor: pointer; }
   .swatch.on { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -1238,7 +1253,7 @@
     d.dataset.ph = t(placeholder);
     d.textContent = obj.text || '';
     d.addEventListener('input', () => { obj.text = d.innerText.replace(/\n$/, ''); save(true); });
-    textStyle(d, obj.style);
+    textStyle(d, obj.style, obj);
     return d;
   }
 
@@ -1267,10 +1282,18 @@
   };
   const TSIZES = {s: ['Small', .8], '': ['Normal', 1], l: ['Large', 1.4], xl: ['Very large', 2]};
   const COLORS = ['', '#6e6e73', '#ffffff', '#c0392b', '#d0457a', '#e67e22', '#b8860b', '#2e7d32', '#1f6fbf', '#5b3c88'];
-  function textStyle(el, st) {
+  // A size in points (st.pt) wins over the older sizes (st.size, times
+  // the usual); bold and italic; owner is the object the style is kept
+  // on, so its style row can find the text (styled).
+  const styled = new WeakMap();
+  function textStyle(el, st, owner) {
     st = st || {};
+    if (owner) styled.set(owner, el);
     el.style.fontFamily = FONTS[st.font] ? FONTS[st.font][1] : '';
     el.style.setProperty('--k', TSIZES[st.size] ? TSIZES[st.size][1] : 1);
+    el.style.fontSize = st.pt ? st.pt + 'pt' : '';
+    el.style.fontWeight = st.bold ? '700' : st.bold === false ? '400' : '';
+    el.style.fontStyle = st.italic ? 'italic' : '';
     el.style.color = st.color || '';
     el.style.textAlign = st.align || '';
   }
@@ -1297,7 +1320,49 @@
       s.addEventListener('change', () => set(k, s.value));
       return s;
     };
-    row.append(sel(FONTS, 'font'), sel(TSIZES, 'size'));
+    const line = (label, ...els) => {
+      const l = document.createElement('span');
+      l.className = 'style-line';
+      const b = document.createElement('span');
+      b.className = 'style-label';
+      b.textContent = t(label);
+      l.append(b, ...els);
+      return l;
+    };
+    const font = sel(FONTS, 'font');
+    font.classList.add('font-pick');
+    font.style.fontFamily = FONTS[st().font] ? FONTS[st().font][1] : '';
+    // The size in points: typed, or a point at a time with − and +.
+    const pt = document.createElement('input');
+    pt.type = 'number';
+    pt.min = '5';
+    pt.max = '200';
+    pt.step = '1';
+    pt.className = 'input pt-input';
+    pt.title = t('The size of the letters in points (pt), as printed');
+    if (st().pt) pt.value = st().pt;
+    else setTimeout(() => {
+      // Not set: the size the text has now, from the page.
+      const el = styled.get(get());
+      if (el) pt.value = Math.round(parseFloat(getComputedStyle(el).fontSize) * .75); // as laid out, not as zoomed
+    });
+    const setPt = v => {
+      const o = get(), s = {...(o.style || {})};
+      s.pt = Math.min(200, Math.max(5, Math.round(v)));
+      delete s.size;
+      o.style = s;
+      render();
+    };
+    pt.addEventListener('change', () => { if (+pt.value) setPt(+pt.value); });
+    const step = d => () => { const v = +pt.value || 12; setPt(v + d * (v >= 30 ? 2 : 1)); };
+    const unit = document.createElement('span');
+    unit.className = 'muted';
+    unit.textContent = 'pt';
+    const bold = tool('B', 'Bold', () => set('bold', !st().bold), !!st().bold);
+    bold.classList.add('fmt-b');
+    const italic = tool('I', 'Italic', () => set('italic', !st().italic), !!st().italic);
+    italic.classList.add('fmt-i');
+    row.append(line('Font', font), line('Size', tool('−', 'Smaller', step(-1)), pt, unit, tool('+', 'Bigger', step(1)), bold, italic));
     const sw = document.createElement('span');
     sw.className = 'swatches';
     for (const c of COLORS) {
@@ -1309,10 +1374,18 @@
       b.addEventListener('click', () => set('color', c));
       sw.appendChild(b);
     }
+    // Any colour at all.
+    const own = document.createElement('input');
+    own.type = 'color';
+    own.className = 'color-pick';
+    own.title = t('Choose any colour');
+    own.value = /^#[0-9a-f]{6}$/i.test(st().color || '') ? st().color : '#1d1d1f';
+    own.addEventListener('change', () => set('color', own.value));
+    sw.appendChild(own);
     const seg = document.createElement('span');
     seg.className = 'seg';
     for (const [v, label] of [['left', '⯇ Left'], ['', 'Centre'], ['right', 'Right ⯈']]) seg.append(tool(label, '', () => set('align', v), (st().align || '') === v));
-    row.append(sw, seg);
+    row.append(line('Colour', sw), line('Alignment', seg));
     return row;
   }
 
@@ -1667,7 +1740,7 @@
     h2.title = t('Click to write the title');
     h2.addEventListener('input', () => { $('title').value = h2.innerText.trim(); save(true); });
     book.coverText = book.coverText || {};
-    textStyle(h2, book.coverText.style);
+    textStyle(h2, book.coverText.style, book.coverText);
     // The cover's own design, background, text boxes and stickers, as a
     // page's (book.coverPage).
     const cp = book.coverPage = book.coverPage || {n: 0, ids: []};
@@ -2783,7 +2856,7 @@
         tx.contentEditable = 'true';
         tx.dataset.ph = t('Write here');
         tx.textContent = it.text || '';
-        textStyle(tx, it.style);
+        textStyle(tx, it.style, it);
         tx.addEventListener('input', () => { it.text = tx.innerText.replace(/\n$/, ''); save(true); });
         el.appendChild(tx);
       } else {
