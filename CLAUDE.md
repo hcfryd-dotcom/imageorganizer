@@ -153,7 +153,11 @@ the rest of the repo.
   tools of the page clicked, which is shown big. The cover is edited like
   a page (`book.coverPage`: design, background, text boxes, stickers;
   its photo any of the source, cropped under key "c"+id; title typed on
-  it); ⇄ can swap a photo for any photo of the source.
+  it); ⇄ can swap a photo for any photo of the source (bigger with a
+  slider, shown big under the mouse). One click picks a photo: drag in it
+  to move it in its box, eight handles size the box (a grid page becomes
+  free as it lies, `gridHandles` + `resume`), zoom and turn are sliders
+  in the toolbox (`photoRow`); Escape or a click beside it lets go.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - Looks: the macOS-style block in `web/app.css`, and after it the

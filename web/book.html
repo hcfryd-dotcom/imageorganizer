@@ -196,8 +196,27 @@
   .grid.free .slot { position: absolute; cursor: move; touch-action: none; }
   .grid.free .slot.moving { opacity: .85; outline: 2px dashed var(--accent); outline-offset: 2px; }
   .grid.free .slot:hover { outline: 1px dashed rgba(0, 0, 0, .25); outline-offset: 2px; }
-  .resize { position: absolute; right: -2mm; bottom: -2mm; width: 5mm; height: 5mm; border-radius: 50%; background: var(--accent); border: 2px solid #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .35); cursor: nwse-resize; z-index: 3; opacity: 0; transition: opacity .15s; touch-action: none; }
+  /* Handles on every side and corner to size a box; shown on the box
+     under the mouse and on the photo picked. */
+  .resize { position: absolute; width: 4.5mm; height: 4.5mm; margin: -2.25mm 0 0 -2.25mm; border-radius: 50%; background: #fff; border: 2px solid var(--accent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .4); z-index: 4; opacity: 0; transition: opacity .15s; touch-action: none; }
+  .h-nw { left: 0; top: 0; cursor: nwse-resize; } .h-n { left: 50%; top: 0; cursor: ns-resize; } .h-ne { left: 100%; top: 0; cursor: nesw-resize; }
+  .h-e { left: 100%; top: 50%; cursor: ew-resize; } .h-se { left: 100%; top: 100%; cursor: nwse-resize; background: var(--accent); }
+  .h-s { left: 50%; top: 100%; cursor: ns-resize; } .h-sw { left: 0; top: 100%; cursor: nesw-resize; } .h-w { left: 0; top: 50%; cursor: ew-resize; }
+  .cropping > .resize, .cropping > .turn { opacity: 1; }
+  .slot.cropping { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 5; }
+  .grip-move { position: absolute; left: 2mm; top: 2mm; z-index: 4; width: 8mm; height: 8mm; border-radius: 50%; display: none; place-items: center;
+    background: rgba(0, 0, 0, .6); color: #fff; font-size: 4mm; cursor: move; touch-action: none; }
+  .cropping > .grip-move { display: grid; }
+  /* The photo picked, in the toolbox. */
+  .photo-row { display: flex; flex-direction: column; align-items: stretch !important; gap: 8px !important; }
+  .photo-row .muted { font-size: 12.5px; }
+  .photo-slider { display: grid; grid-template-columns: 52px 1fr 56px; align-items: center; gap: 10px; font-size: 13px; }
+  .photo-slider input { width: 100%; accent-color: var(--accent); }
+  .photo-slider .val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .photo-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+  .photo-buttons button { border: 0; border-radius: 999px; padding: 6px 13px; background: rgba(127, 127, 127, .18); color: inherit; cursor: pointer; font: inherit; font-size: 12.5px; }
+  .photo-buttons button.on { background: var(--accent); color: #111; }
   .movable { position: absolute; }
   .movable:hover .resize, .movable.moving .resize, .movable:hover .turn, .movable.moving .turn { opacity: 1; }
   .turn { position: absolute; left: 50%; top: -6mm; width: 4.5mm; height: 4.5mm; margin-left: -2.25mm; border-radius: 50%; background: #fff; border: 2px solid var(--accent);
@@ -206,7 +225,7 @@
   .guide { position: absolute; z-index: 50; pointer-events: none; background: #ff2d92; }
   .guide.v { top: 0; bottom: 0; width: 1px; }
   .guide.h { left: 0; right: 0; height: 1px; }
-  @media print { .resize, .turn, .guide { display: none !important; } .grid.free .slot, .movable { outline: 0 !important; } }
+  @media print { .resize, .turn, .guide, .grip-move { display: none !important; } .grid.free .slot, .movable, .slot.cropping { outline: 0 !important; } }
   /* Scattered prints: photos lying askew over each other. */
   .grid.scatter { display: block; position: relative; }
   .grid.scatter .slot { position: absolute; }
@@ -249,14 +268,23 @@
   .alts-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
   .alts-head button { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; }
   .alts .strip { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--muted); }
-  .alts img { height: 80px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+  .alts img { height: var(--pick-h, 80px); border-radius: 5px; cursor: pointer; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
   .alts img:hover { outline: 3px solid var(--accent); }
   .alts img.was-out { opacity: .55; }
   .alts-tabs { display: flex; gap: 6px; }
   .alts-tabs button { padding: 4px 12px; border-radius: 999px; background: rgba(127, 127, 127, .15) !important; color: inherit !important; }
   .alts-tabs button.on { background: var(--accent) !important; color: #111 !important; }
   .alts .strip.all { max-height: 46vh; overflow: auto; align-content: flex-start; }
-  .alts .strip.all img { height: 64px; }
+  .alts .strip.all img { height: var(--pick-h, 64px); }
+  .pick-size { width: 110px; margin-left: auto; margin-right: 10px; }
+  .toolbox:has(.alts) { width: min(760px, calc(100vw - 36px)); }
+  /* A photo to choose, shown big while the mouse is on it. */
+  .peek { position: fixed; z-index: 70; top: 50%; transform: translateY(-50%); padding: 8px 8px 6px; border-radius: 18px;
+    background: rgba(20, 19, 27, .94); box-shadow: 0 30px 90px rgba(0, 0, 0, .6); pointer-events: none; text-align: center; }
+  .peek[hidden] { display: none; }
+  .peek img { display: block; max-width: 100%; max-height: 78vh; border-radius: 12px; }
+  .peek span { display: block; margin-top: 5px; font-size: 12px; color: #c9c6d8; }
+  @media print { .peek { display: none !important; } }
   .alts-month { flex-basis: 100%; font-weight: 600; color: var(--text); margin-top: 6px; }
   @media print { .alts { display: none !important; } }
   /* Which photos may be in the book. */
@@ -578,7 +606,7 @@
   </section>
 </div>
 <details class="book-note"><summary>How it works</summary>
-<p class="muted small">Click a page and change it in the floating toolbox (move the box by its top bar): how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Double-click a photo to crop it and place it in its box; with the layout “Free placement” photos are moved and sized with the mouse. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
+<p class="muted small">Click a page and change it in the floating toolbox (move the box by its top bar): how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Click a photo to pick it: drag in it to move it in its box, size the box by its round handles, and zoom and turn it in the toolbox. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
 </details>
 <div class="filters find" id="find" hidden>
   <b>Find photos for the book</b>
@@ -1312,6 +1340,7 @@
     const n = pg.ids.length, cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
     const p = (pg.pos && pg.pos[id]) || {x: (k % cols) * 100 / cols + 2, y: Math.floor(k / cols) * 100 / rows + 2, w: 100 / cols - 4, h: 100 / rows - 4};
     movable(slot, p, {
+      id, grip: true,
       skip: () => cropping === id,
       zOf: () => 1 + Math.max(0, ...Object.values(pg.pos || {}).map(o => o.z || 0), ...(pg.items || []).map(o => o.z || 0)),
       keep: () => { pg.pos = {...(pg.pos || {}), [id]: {...p}}; save(); requestAnimationFrame(checkPrint); },
@@ -1336,8 +1365,8 @@
     place();
     el.classList.add('movable');
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-    const drag = (e, how) => {
-      if (opts.skip && opts.skip()) return;
+    const drag = (e, how, force) => {
+      if (how === 'move' && !force && opts.skip && opts.skip()) return;
       e.preventDefault();
       e.stopPropagation();
       const box = el.parentElement, area = box.getBoundingClientRect();
@@ -1384,13 +1413,19 @@
             if (sxv) { p.x += sxv.d; guide('v', sxv.l); }
             if (syv) { p.y += syv.d; guide('h', syv.l); }
           }
-        } else if (how === 'size') {
-          p.w = clamp(start.w + dx, 5, 100 - start.x);
-          p.h = clamp(start.h + dy, 4, 100 - start.y);
+        } else if (how.startsWith('size')) {
+          // From the side or corner held (n, e, s, w and between): that
+          // edge follows the mouse, the one across stays.
+          const d = how.slice(5) || 'se';
+          if (d.includes('e')) p.w = clamp(start.w + dx, 5, 100 - start.x);
+          if (d.includes('s')) p.h = clamp(start.h + dy, 4, 100 - start.y);
+          if (d.includes('w')) { p.x = clamp(start.x + dx, 0, start.x + start.w - 5); p.w = start.x + start.w - p.x; }
+          if (d.includes('n')) { p.y = clamp(start.y + dy, 0, start.y + start.h - 4); p.h = start.y + start.h - p.y; }
           if (!ev.altKey) {
-            const sxv = snap([p.x + p.w], xs), syv = snap([p.y + p.h], ys);
-            if (sxv) { p.w += sxv.d; guide('v', sxv.l); }
-            if (syv) { p.h += syv.d; guide('h', syv.l); }
+            const sxv = d.includes('e') ? snap([p.x + p.w], xs) : d.includes('w') ? snap([p.x], xs) : null;
+            const syv = d.includes('s') ? snap([p.y + p.h], ys) : d.includes('n') ? snap([p.y], ys) : null;
+            if (sxv) { if (d.includes('e')) p.w += sxv.d; else { p.x += sxv.d; p.w -= sxv.d; } guide('v', sxv.l); }
+            if (syv) { if (d.includes('s')) p.h += syv.d; else { p.y += syv.d; p.h -= syv.d; } guide('h', syv.l); }
           }
         } else {
           // Turning: the angle from the box's middle to the mouse, in
@@ -1414,18 +1449,60 @@
       addEventListener('pointerup', up);
     };
     el.addEventListener('pointerdown', e => {
-      if (e.button !== 0 || e.target.closest('button, .cap, .resize, .turn, .crop-bar, .item-text, select, input')) return;
+      if (e.button !== 0 || e.target.closest('button, .cap, .resize, .turn, .grip-move, .crop-bar, .item-text, select, input')) return;
       drag(e, 'move');
     });
-    const handle = document.createElement('div');
-    handle.className = 'resize';
-    handle.title = t('Drag to make it bigger or smaller');
-    handle.addEventListener('pointerdown', e => drag(e, 'size'));
+    for (const d of HANDLES) {
+      const handle = document.createElement('div');
+      handle.className = 'resize h-' + d;
+      handle.title = t('Drag to make it bigger or smaller');
+      handle.addEventListener('pointerdown', e => { if (e.button === 0) drag(e, 'size:' + d); });
+      el.appendChild(handle);
+    }
+    if (opts.grip) {
+      // While the photo in it is cropped (dragging moves the photo), the
+      // box moves by this.
+      const g = document.createElement('div');
+      g.className = 'grip-move';
+      g.textContent = '✥';
+      g.title = t('Drag to move the box');
+      g.addEventListener('pointerdown', e => { if (e.button === 0) drag(e, 'move', true); });
+      el.appendChild(g);
+    }
     const turn = document.createElement('div');
     turn.className = 'turn';
     turn.title = t('Drag to turn it');
     turn.addEventListener('pointerdown', e => drag(e, 'turn'));
-    el.append(handle, turn);
+    el.append(turn);
+    if (resume && opts.id != null && resume.id === opts.id) {
+      const r = resume;
+      resume = null;
+      setTimeout(() => drag({clientX: r.x, clientY: r.y, preventDefault() {}, stopPropagation() {}}, r.how, true));
+    }
+  }
+  const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+  // resume is a drag begun on a page laid out otherwise (a photo sized in
+  // a grid makes the page free); it goes on once the page is drawn again.
+  let resume = null;
+
+  // gridHandles gives the photo picked on a page not laid out freely the
+  // same handles: sizing it makes the page free, as it lies now.
+  function gridHandles(slot, pg, id) {
+    for (const d of HANDLES) {
+      const h = document.createElement('div');
+      h.className = 'resize h-' + d;
+      h.title = t('Drag to make it bigger or smaller');
+      h.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        pg.pos = {...(pg.pos || {}), ...placesNow(slot.closest('.grid'))};
+        pg.layout = 'free';
+        resume = {id, how: 'size:' + d, x: e.clientX, y: e.clientY};
+        render();
+      });
+      slot.appendChild(h);
+    }
   }
 
   // scatterSlot places photo k of count on a scattered page: in its cell
@@ -1510,10 +1587,10 @@
       if (c || cropping === ck) { cs.classList.add('cropped'); delete cimg.dataset.auto; }
       if (c) cropStyle(cimg, c);
       if (cropping === ck) cropEdit(cs, cimg, ck);
-      cs.querySelector('.ph').title = t('Double-click to crop and place the photo');
-      cs.querySelector('.ph').addEventListener('dblclick', e => {
-        if (e.target.closest('button')) return;
-        cropping = cropping === ck ? null : ck;
+      cs.querySelector('.ph').title = t('Click to crop and place the photo');
+      cs.querySelector('.ph').addEventListener('click', e => {
+        if (e.target.closest('button') || cropping === ck) return;
+        cropping = ck;
         render();
       });
     }
@@ -1561,6 +1638,7 @@
       tool('Background', 'A colour or a faint photo behind the page', () => { bgOpen = bgOpen === 'c' ? null : 'c'; render(); }, bgOpen === 'c' || !!cp.bg),
       tool('+ Text page', 'A page of text after this one', () => { book.pages.unshift({n: 0, ids: [], text: ''}); render(); }));
     cw.append(ctools);
+    if (cropping === ck) cw.append(photoRow(ck, null));
     if (styling === 'cover') cw.append(styleRow(() => book.coverText));
     if (coverPicking) cw.append(coverPicker(cover));
     if (stickersOpen === 'c') cw.append(stickerRow(cp));
@@ -1697,12 +1775,14 @@
           slot.appendChild(pt);
           // Dragged onto another photo, it takes that photo's place.
           slot.draggable = cropping !== id && !free;
-          // A double click opens the photo to crop and place it in its box.
-          slot.addEventListener('dblclick', e => {
-            if (e.target.closest('.cap, button, .resize')) return;
-            cropping = cropping === id ? null : id;
+          // A click picks the photo: dragging then moves it in its box, the
+          // handles size the box, and the toolbox zooms and turns it.
+          slot.addEventListener('click', e => {
+            if (e.target.closest('.cap, button, .resize, .turn, .grip-move') || cropping === id) return;
+            cropping = id;
             render();
           });
+          if (cropping === id && !free) gridHandles(slot, pg, id);
           slot.addEventListener('dragstart', e => { dragged = id; e.dataTransfer.effectAllowed = 'move'; slot.classList.add('dragging'); });
           slot.addEventListener('dragend', () => { dragged = null; slot.classList.remove('dragging'); });
           slot.addEventListener('dragover', e => { if (dragged && dragged !== id) { e.preventDefault(); e.stopPropagation(); slot.classList.add('drop'); } });
@@ -1765,6 +1845,7 @@
         tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: ''}); render(); }),
         tool('+ Map', 'A page with a map of where the photos were taken, after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: null, map: true}); render(); }));
       wrap.append(tools);
+      if (cropping != null && pg.ids.includes(cropping)) wrap.append(photoRow(cropping, pg));
       if (styling === pi) wrap.append(styleRow(() => pg));
       if (book.pageNums) sec.appendChild(pageNum(at));
       pageBackground(sec, pg);
@@ -2375,7 +2456,7 @@
       if (sec) {
         const c = sec.cloneNode(true);
         c.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
-        c.querySelectorAll('.photo-tools, .item-tools, .resize, .turn, .lowres, .crop-bar, .crop-hint, .crop-grid, .page-text:empty, .cap .own:empty').forEach(e => e.remove());
+        c.querySelectorAll('.photo-tools, .item-tools, .resize, .turn, .grip-move, .lowres, .crop-bar, .crop-hint, .crop-grid, .page-text:empty, .cap .own:empty').forEach(e => e.remove());
         holder.appendChild(c);
       } else holder.classList.add('blank');
       return holder;
@@ -2843,7 +2924,7 @@
       return tool(label, '', () => { swapAll = all; render(); }, swapAll === all);
     };
     tabs.append(tab(sameTime.length ? 'About the same time' : 'Nearest in time', false), tab('All photos', true));
-    hd.append(tabs, tool('Close', '', () => { swapping = null; render(); }));
+    hd.append(tabs, pickSize(box), tool('Close', '', () => { swapping = null; render(); }));
     box.appendChild(hd);
     const strip = document.createElement('div');
     strip.className = 'strip';
@@ -2860,6 +2941,8 @@
     const pic = p => {
       const i = document.createElement('img');
       i.src = thumb(p);
+      i.dataset.big = imgSrc(p);
+      if (p.w && p.h) i.style.aspectRatio = (p.w / p.h).toFixed(3); // its room before it loads
       i.loading = 'lazy';
       i.title = fmtDate(p.taken) + (book.out.includes(p.id) ? ' · ' + t('left out of the book') : '');
       if (book.out.includes(p.id)) i.className = 'was-out';
@@ -2902,6 +2985,52 @@
     if (here) setTimeout(() => { strip.scrollTop = Math.max(0, here.offsetTop - strip.offsetTop - 40); });
   }
 
+  // pickSize is a slider for how big the photos to choose from are (kept
+  // in this browser); a photo held under the mouse is also shown big.
+  function pickSize(box) {
+    const r = document.createElement('input');
+    r.type = 'range';
+    r.min = '50';
+    r.max = '240';
+    r.className = 'pick-size';
+    r.title = t('How big the photos are');
+    let h = 90;
+    try { h = +localStorage.getItem('pickH') || 90; } catch (e) {}
+    r.value = h;
+    const set = () => box.style.setProperty('--pick-h', r.value + 'px');
+    set();
+    r.addEventListener('input', () => { set(); try { localStorage.setItem('pickH', r.value); } catch (e) {} });
+    return r;
+  }
+  let peekTimer = 0;
+  function peekHide() { clearTimeout(peekTimer); const p = $('peek'); if (p) p.hidden = true; }
+  document.addEventListener('mouseover', e => {
+    const i = e.target.closest && e.target.closest('.alts img[data-big]');
+    if (!i) return;
+    clearTimeout(peekTimer);
+    peekTimer = setTimeout(() => {
+      let p = $('peek');
+      if (!p) {
+        p = document.createElement('div');
+        p.id = 'peek';
+        p.className = 'peek';
+        p.innerHTML = '<img alt=""><span></span>';
+        document.body.appendChild(p);
+      }
+      p.querySelector('img').src = i.dataset.big;
+      p.querySelector('span').textContent = i.title;
+      // Beside the box the photo is in, on the side with the most room.
+      const r = i.closest('.alts').getBoundingClientRect();
+      const right = innerWidth - r.right > r.left;
+      p.style.left = right ? (r.right + 16) + 'px' : 'auto';
+      p.style.right = right ? 'auto' : (innerWidth - r.left + 16) + 'px';
+      p.style.maxWidth = (right ? innerWidth - r.right : r.left) - 40 + 'px';
+      p.hidden = false;
+    }, 250);
+  });
+  document.addEventListener('mouseout', e => { if (e.target.closest && e.target.closest('.alts img[data-big]')) peekHide(); });
+  document.addEventListener('click', peekHide, true);
+
   // coverPicker shows all the source's photos to choose the cover's from.
   let coverPicking = false;
   function coverPicker(cover) {
@@ -2911,12 +3040,14 @@
     hd.className = 'alts-head';
     const b = document.createElement('b');
     b.textContent = t('Choose the cover photo');
-    hd.append(b, tool('Close', '', () => { coverPicking = false; render(); }));
+    hd.append(b, pickSize(box), tool('Close', '', () => { coverPicking = false; render(); }));
     const strip = document.createElement('div');
     strip.className = 'strip';
     monthStrip(strip, photos, cover.taken, p => {
       const i = document.createElement('img');
       i.src = thumb(p);
+      i.dataset.big = imgSrc(p);
+      if (p.w && p.h) i.style.aspectRatio = (p.w / p.h).toFixed(3); // its room before it loads
       i.loading = 'lazy';
       i.title = fmtDate(p.taken);
       if (p.id === cover.id) i.className = 'is-now';
@@ -2982,36 +3113,16 @@
       e.preventDefault();
       c.z = clamp(c.z * (e.deltaY < 0 ? 1.1 : 1 / 1.1), 1, 4);
       cropStyle(img, c);
+      const zr = document.querySelector('.photo-row .zoom-range');
+      if (zr) zr.value = Math.round(c.z * 100);
       clearTimeout(box._t);
       box._t = setTimeout(keep, 400);
     }, {passive: false});
+    // The toolbox has the rest (photoRow): zoom, turning, all of it.
+    img._crop = {c, keep};
     const bar = document.createElement('div');
     bar.className = 'crop-bar';
-    const zoom = d => () => { c.z = clamp(c.z * d, 1, 4); cropStyle(img, c); keep(); };
-    // Turning: half a degree a click; the lean is kept in book.tilt.
-    const deg = document.createElement('span');
-    deg.className = 'deg';
-    const showDeg = () => { deg.textContent = (+img.dataset.tilt || 0).toLocaleString(locale) + '°'; };
-    const turnBy = d => () => {
-      const a = Math.round(((+img.dataset.tilt || 0) + d) * 10) / 10;
-      img.dataset.tilt = a;
-      book.tilt = {...(book.tilt || {}), [id]: a};
-      turn(img);
-      showDeg();
-      save();
-    };
-    showDeg();
-    bar.append(tool('↺', 'Turn it left', turnBy(.5)), deg, tool('↻', 'Turn it right', turnBy(-.5)),
-      tool('−', 'Zoom out', zoom(1 / 1.2)), tool('+', 'Zoom in', zoom(1.2)),
-      tool('Show all of it', 'Not cropped and not turned', () => {
-        const cr = {...(book.crop || {})};
-        delete cr[id];
-        book.crop = cr;
-        book.tilt = {...(book.tilt || {}), [id]: 0};
-        cropping = null;
-        render();
-      }),
-      tool('Done', '', () => { keep(); cropping = null; render(); }));
+    bar.append(tool('Done', '', () => { keep(); cropping = null; render(); }));
     bar.lastChild.className = 'on';
     box.appendChild(bar);
     const hint = document.createElement('div');
@@ -3023,6 +3134,98 @@
     grid.className = 'crop-grid';
     box.appendChild(grid);
   }
+
+  // photoRow is the toolbox's part for the photo picked (key: its id, or
+  // "c" + id for the cover's): zoom and turning with big sliders, the
+  // box bigger or smaller (a page's photo; the page becomes free), all of
+  // the photo again, and done.
+  function photoRow(key, pg) {
+    const row = document.createElement('div');
+    row.className = 'page-tools text-style photo-row';
+    const live = () => document.querySelector('.cropping img[data-id]');
+    const b = document.createElement('b');
+    b.textContent = t('The photo picked');
+    const hint = document.createElement('span');
+    hint.className = 'muted small';
+    hint.textContent = t(pg ? 'Drag in the photo to move it in its box; the round handles size the box.' : 'Drag in the photo to move it in its box.');
+    const slider = (label, min, max, step, value, cls, fn) => {
+      const l = document.createElement('label');
+      l.className = 'photo-slider';
+      const r = document.createElement('input');
+      r.type = 'range';
+      r.min = min; r.max = max; r.step = step; r.value = value;
+      r.className = cls;
+      const out = document.createElement('span');
+      out.className = 'val';
+      const show = () => { out.textContent = cls === 'zoom-range' ? r.value + ' %' : (+r.value).toLocaleString(locale) + '°'; };
+      show();
+      r.addEventListener('input', () => { show(); fn(+r.value); });
+      l.append(document.createTextNode(t(label)), r, out);
+      return l;
+    };
+    let tm = 0;
+    const later = f => { clearTimeout(tm); tm = setTimeout(f, 400); };
+    const c0 = {z: 1, ...(book.crop && book.crop[key])};
+    const zoom = slider('Zoom', 100, 400, 5, Math.round(c0.z * 100), 'zoom-range', v => {
+      const img = live();
+      if (!img || !img._crop) return;
+      img._crop.c.z = v / 100;
+      cropStyle(img, img._crop.c);
+      img._crop.keep(); // at once: the page may be drawn again any moment
+    });
+    const tilt = slider('Turn', -20, 20, .5, (book.tilt && book.tilt[key]) || 0, 'tilt-range', v => {
+      const img = live();
+      if (!img) return;
+      img.dataset.tilt = v;
+      book.tilt = {...(book.tilt || {}), [key]: v};
+      turn(img);
+      later(save);
+    });
+    const tools = document.createElement('span');
+    tools.className = 'photo-buttons';
+    if (pg) {
+      // Bigger or smaller round its middle, kept on the page.
+      const scale = f => () => {
+        const slot = document.querySelector('.slot.cropping');
+        if (!slot) return;
+        if (pg.layout !== 'free') { pg.pos = {...(pg.pos || {}), ...placesNow(slot.closest('.grid'))}; pg.layout = 'free'; }
+        const p = pg.pos && pg.pos[key];
+        if (!p) return;
+        const w = Math.min(100, Math.max(5, p.w * f)), h = Math.min(100, Math.max(4, p.h * f));
+        p.x = Math.min(100 - w, Math.max(0, p.x + (p.w - w) / 2));
+        p.y = Math.min(100 - h, Math.max(0, p.y + (p.h - h) / 2));
+        p.w = w;
+        p.h = h;
+        render();
+      };
+      tools.append(tool('− Smaller box', 'The box smaller, round its middle', scale(1 / 1.1)), tool('+ Bigger box', 'The box bigger, round its middle', scale(1.1)));
+    }
+    tools.append(tool('Show all of it', 'Not cropped and not turned', () => {
+      const cr = {...(book.crop || {})};
+      delete cr[key];
+      book.crop = cr;
+      book.tilt = {...(book.tilt || {}), [key]: 0};
+      cropping = null;
+      render();
+    }), tool('Done', '', () => { const img = live(); if (img && img._crop) img._crop.keep(); cropping = null; render(); }, true));
+    row.append(b, hint, zoom, tilt, tools);
+    return row;
+  }
+  // Escape, or a click on the page beside the photo, lets the photo go.
+  addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || cropping == null || (e.target.closest && e.target.closest('input, textarea, [contenteditable="true"]'))) return;
+    const img = document.querySelector('.cropping img[data-id]');
+    if (img && img._crop) img._crop.keep();
+    cropping = null;
+    render();
+  });
+  document.addEventListener('click', e => {
+    if (cropping == null || !e.target.closest('#pages section.page') || e.target.closest('.cropping, .item, .page-text, button')) return;
+    const img = document.querySelector('.cropping img[data-id]');
+    if (img && img._crop) img._crop.keep();
+    cropping = null;
+    render();
+  });
 
   // renderOverview draws every page small in the side panel: a click
   // goes to the page, and a page dragged onto another moves there.
