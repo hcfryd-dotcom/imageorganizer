@@ -232,6 +232,13 @@
   .alts .strip { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--muted); }
   .alts img { height: 80px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
   .alts img:hover { outline: 3px solid var(--accent); }
+  .alts img.was-out { opacity: .55; }
+  .alts-tabs { display: flex; gap: 6px; }
+  .alts-tabs button { padding: 4px 12px; border-radius: 999px; background: rgba(127, 127, 127, .15) !important; color: inherit !important; }
+  .alts-tabs button.on { background: var(--accent) !important; color: #111 !important; }
+  .alts .strip.all { max-height: 46vh; overflow: auto; align-content: flex-start; }
+  .alts .strip.all img { height: 64px; }
+  .alts-month { flex-basis: 100%; font-weight: 600; color: var(--text); margin-top: 6px; }
   @media print { .alts { display: none !important; } }
   /* Which photos may be in the book. */
   .filters { position: fixed; z-index: 6; top: calc(var(--bar-h, 64px) + 6px); right: 20px; width: min(460px, calc(100vw - 40px));
@@ -1615,7 +1622,7 @@
           pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)),
             tool('#', 'Move to page…', () => toPage(id)),
             tool('✂', 'Crop and straighten: choose the part of the photo that shows, and turn it', () => { cropping = cropping === id ? null : id; render(); }),
-            tool('⇄', 'Swap it for another photo from about the same time', () => { swapping = swapping === id ? null : id; render(); }),
+            tool('⇄', 'Swap it for another photo: one from about the same time, or any of the album', () => { swapping = swapping === id ? null : id; render(); }),
             tool('◐', 'Effect and shape: black and white, sepia, warmer, a circle, a heart…', () => { fxOpen = fxOpen === id ? null : id; render(); }), star, out);
           slot.appendChild(pt);
           // Dragged onto another photo, it takes that photo's place.
@@ -2743,10 +2750,12 @@
     return [Math.round(at((x0 + x1) / 2, sw, bw, .5)), Math.round(at((y0 + y1) / 2, sh, bh, .42))];
   }
 
-  // alternatives shows, under the page, photos of the book's source not in
-  // it, taken near the time of photo id: the nearest first. One clicked
-  // takes its place.
+  // alternatives shows photos of the book's source (its album, person…)
+  // not in it, to take the place of photo id. First those taken near its
+  // time, the nearest first; "All photos" shows every one by date, by
+  // month, opened at the photo's own time. One clicked takes its place.
   let swapping = null; // the photo whose alternatives are shown
+  let swapAll = false; // all the source's photos, not only the nearest
   function alternatives(id) {
     const im = byId.get(id), have = inBook();
     const near = (a, b) => Math.abs((a.taken || 0) - (b.taken || 0));
@@ -2757,27 +2766,61 @@
     box.className = 'alts';
     const hd = document.createElement('div');
     hd.className = 'alts-head';
-    const b = document.createElement('b');
-    b.textContent = t(sameTime.length ? 'Photos from about the same time' : 'The photos nearest in time');
-    hd.append(b, tool('Close', '', () => { swapping = null; render(); }));
+    const tabs = document.createElement('span');
+    tabs.className = 'alts-tabs';
+    const tab = (label, all) => {
+      return tool(label, '', () => { swapAll = all; render(); }, swapAll === all);
+    };
+    tabs.append(tab(sameTime.length ? 'About the same time' : 'Nearest in time', false), tab('All photos', true));
+    hd.append(tabs, tool('Close', '', () => { swapping = null; render(); }));
     box.appendChild(hd);
     const strip = document.createElement('div');
     strip.className = 'strip';
-    if (!pool.length) strip.textContent = t('There are no other photos to choose from.');
-    for (const p of pool) {
+    const take = p => {
+      const [pi, k] = locate(id);
+      if (pi < 0) return;
+      book.pages[pi].ids[k] = p.id;
+      if (book.cover === id) book.cover = p.id;
+      // The one taken out is free to be chosen again, not left out.
+      book.out = book.out.filter(x => x !== p.id);
+      swapping = null;
+      render();
+    };
+    const pic = p => {
       const i = document.createElement('img');
       i.src = thumb(p);
       i.loading = 'lazy';
-      i.title = fmtDate(p.taken);
-      i.addEventListener('click', () => {
-        const [pi, k] = locate(id);
-        if (pi < 0) return;
-        book.pages[pi].ids[k] = p.id;
-        if (book.cover === id) book.cover = p.id;
-        swapping = null;
-        render();
-      });
-      strip.appendChild(i);
+      i.title = fmtDate(p.taken) + (book.out.includes(p.id) ? ' · ' + t('left out of the book') : '');
+      if (book.out.includes(p.id)) i.className = 'was-out';
+      i.addEventListener('click', () => take(p));
+      return i;
+    };
+    if (swapAll) {
+      // Every photo of the source not in the book (also those left out
+      // or not chosen as good), oldest first, a heading a month.
+      strip.classList.add('all');
+      const all = photos.filter(p => !have.has(p.id)).sort((a, b) => (a.taken || 0) - (b.taken || 0));
+      if (!all.length) strip.textContent = t('There are no other photos to choose from.');
+      let month = '', here = null;
+      for (const p of all) {
+        const d = p.taken ? new Date(p.taken * 1000) : null;
+        const m = d ? monthName(d.getUTCFullYear(), d.getUTCMonth()) + ' ' + d.getUTCFullYear() : t('Without a date');
+        if (m !== month) {
+          month = m;
+          const h = document.createElement('div');
+          h.className = 'alts-month';
+          h.textContent = m;
+          strip.appendChild(h);
+        }
+        const i = pic(p);
+        if (!here && im.taken && (p.taken || 0) >= im.taken) here = i;
+        strip.appendChild(i);
+      }
+      // Opened at the photo's own time.
+      if (here) setTimeout(() => { strip.scrollTop = Math.max(0, here.offsetTop - strip.offsetTop - 40); });
+    } else {
+      if (!pool.length) strip.textContent = t('There are no other photos to choose from.');
+      for (const p of pool) strip.appendChild(pic(p));
     }
     box.appendChild(strip);
     return box;
