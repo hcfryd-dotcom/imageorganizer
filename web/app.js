@@ -169,6 +169,8 @@ document.addEventListener('alpine:init', () => {
     // more: [earlier, later]} — more says whether the library goes on.
     around: {id: 0, by: '', items: [], more: [false, false]},
     assign: {face: null, group: null, name: '', busy: false},
+    // groupPop: all the faces of a face's group, in a window over the photo.
+    groupPop: {open: false, gid: 0, size: 0, faces: [], loading: false},
     // Copying a person's photos out into a folder, one subfolder per year.
     exportForm: {open: false, dir: '', confirmedOnly: false, byPlace: '', busy: false, status: null},
     // Folders page: the whole library copied into one tidy folder.
@@ -2208,6 +2210,22 @@ document.addEventListener('alpine:init', () => {
       this.$nextTick(() => this.$refs.review && this.$refs.review.scrollTo({top: 0}));
     },
     closeGroup() { this.reviewGroup = 0; this.reviewFocus = null; this.writeHash(); },
+    // openGroupPop shows all the faces of group gid in a window over the
+    // photo, without leaving it; a face clicked opens its photo.
+    async openGroupPop(gid) {
+      this.groupPop = {open: true, gid, size: this.assign.group?.size || 0, faces: [], loading: true};
+      const g = await api(`/api/groups/${gid}?n=1000`).catch(() => null);
+      if (this.groupPop.gid !== gid) return;
+      this.groupPop.faces = (g && g.faces) || [];
+      this.groupPop.size = (g && g.size) || this.groupPop.faces.length;
+      this.groupPop.loading = false;
+    },
+    closeGroupPop() { this.groupPop = {open: false, gid: 0, size: 0, faces: [], loading: false}; },
+    groupPopFace(f) {
+      this.closeGroupPop();
+      this.closeAssign();
+      this.openImageById(f.image, f.id);
+    },
     // reviewCards is the inbox, with an opened group first.
     reviewCards() {
       const f = this.reviewFocus;
@@ -2418,6 +2436,10 @@ document.addEventListener('alpine:init', () => {
           e.target.blur();
           if (this.assign.face) this.closeAssign();
         }
+        return;
+      }
+      if (this.groupPop.open) {
+        if (e.key === 'Escape') this.closeGroupPop();
         return;
       }
       if (this.albumPick.open) {

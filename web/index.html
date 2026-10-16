@@ -1489,7 +1489,7 @@
                     <span x-text="personName(assign.face.maybe_picture) + ' is already in this photo, and this face doesn\'t look their age at the time. A picture of them, on a wall or in a frame?'"></span>
                     <button class="btn ghost" :disabled="assign.busy" @click="markPicture(true, assign.face.maybe_picture)" x-text="'Yes, a picture of ' + personName(assign.face.maybe_picture)"></button>
                   </div>
-                  <a href="#" class="assign-group small" x-show="assign.group && assign.group.size > 1" @click.prevent="openGroup(assign.face.group)"
+                  <a href="#" class="assign-group small" x-show="assign.group && assign.group.size > 1" @click.prevent="openGroupPop(assign.face.group)"
                      x-text="'See all ' + fmtCount(assign.group?.size) + ' photos in this group →'"></a>
                 </div>
               </template>
@@ -1641,6 +1641,26 @@
   </div>
 </div>
 <!-- Add photos to an album: one of them, or a new one -->
+<!-- All the faces of a group, over the photo viewer: a face opens its photo -->
+<div class="modal-back group-pop-back" x-show="groupPop.open" x-cloak @click.self="closeGroupPop()">
+  <div class="modal group-pop">
+    <div class="modal-head">
+      <b x-text="fmtCount(groupPop.size) + ' photos in this group'"></b>
+      <span class="grow"></span>
+      <button class="btn ghost" @click="const g = groupPop.gid; closeGroupPop(); openGroup(g)" title="Open the group in Review">Open in Review</button>
+      <button class="icon-btn" @click="closeGroupPop()" x-html="icons.close" title="Close"></button>
+    </div>
+    <div class="group-pop-grid">
+      <div class="muted pad" x-show="groupPop.loading"><span class="spinner"></span></div>
+      <template x-for="f in groupPop.faces" :key="f.id">
+        <button class="group-pop-face" @click="groupPopFace(f)" :title="'Open the photo' + (f.taken ? ' · ' + fmtYear(f.taken) : '')">
+          <img :src="faceURL(f.crop)" alt="" loading="lazy"><small x-text="fmtYear(f.taken)"></small>
+        </button>
+      </template>
+    </div>
+    <div class="muted small pad" x-show="!groupPop.loading && groupPop.faces.length < groupPop.size" x-text="'The first ' + groupPop.faces.length + ' are shown.'"></div>
+  </div>
+</div>
 <div class="modal-back" x-show="albumPick.open" x-cloak @click.self="albumPick.open = false">
   <div class="modal album-modal">
     <div class="modal-head">

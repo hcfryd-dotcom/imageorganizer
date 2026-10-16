@@ -952,7 +952,12 @@ func (s *Server) groupItem(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 400, err)
 		return
 	}
-	it, err := s.Store.GroupItem(r.Context(), id, 24)
+	// n: how many of its faces to send (to show them all, up to 1000).
+	n := 24
+	if v, err := strconv.Atoi(r.URL.Query().Get("n")); err == nil && v > 0 {
+		n = min(v, 1000)
+	}
+	it, err := s.Store.GroupItem(r.Context(), id, n)
 	if err != nil {
 		storeError(w, err)
 		return
