@@ -1486,6 +1486,7 @@
   // freeSlot puts photo id where the page says (else in a loose grid) and
   // makes it movable (movable).
   function freeSlot(slot, pg, id, k) {
+    if (!(pg.pos && pg.pos[id])) placeFree(pg);
     const n = pg.ids.length, cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
     const p = (pg.pos && pg.pos[id]) || {x: (k % cols) * 100 / cols + 2, y: Math.floor(k / cols) * 100 / rows + 2, w: 100 / cols - 4, h: 100 / rows - 4};
     movable(slot, p, {
@@ -1999,7 +2000,7 @@
         const seg = document.createElement('span');
         seg.className = 'seg';
         if (!month) {
-          for (const n of [1, 2, 3, 4, 6]) seg.append(tool(String(n), 'Photos on this page', () => { pg.n = n; reflow(); render(); }, pg.n === n));
+          for (const n of [1, 2, 3, 4, 6]) seg.append(tool(String(n), 'Photos on this page', () => setCount(pi, n), pg.n === n));
           tools.append(document.createTextNode(t('Photos on this page')), seg);
           if (pg.ids.length >= 1) {
             const sel = document.createElement('select');
@@ -2478,6 +2479,54 @@
       row.appendChild(b);
     }
     return row;
+  }
+
+  // boxesFor is the first ready-made layout for count photos, if any.
+  const boxesFor = count => BOX_LAYOUTS.find(b => b.length === count) || null;
+  const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+  // setCount gives page pi count photos. A page laid out freely (or by
+  // photo boxes) is laid out anew by the ready-made boxes for that many,
+  // so the photos that come do not land on top of the others.
+  function setCount(pi, count) {
+    let pg = book.pages[pi];
+    pg.n = count;
+    reflow();
+    pg = book.pages[pi];
+    if (pg && pg.layout === 'free') {
+      const boxes = boxesFor(pg.ids.length);
+      if (boxes) {
+        pg.pos = {};
+        pg.ids.forEach((id, k) => { pg.pos[id] = boxPos(boxes[k], k); });
+        pg.fillBoxes = true;
+      } else {
+        pg.layout = 'grid';
+      }
+    }
+    render();
+  }
+
+  // placeFree gives the photos of a free page without a box one (a photo
+  // that came from another page): the places of the ready-made layout for
+  // as many photos that the boxes there now cover least.
+  function placeFree(pg) {
+    const missing = pg.ids.filter(id => !(pg.pos && pg.pos[id]));
+    if (!missing.length) return;
+    const boxes = boxesFor(pg.ids.length) || boxesFor(Math.min(6, pg.ids.length));
+    if (!boxes) return;
+    pg.pos = {...(pg.pos || {})};
+    const taken = pg.ids.filter(id => pg.pos[id]).map(id => pg.pos[id]);
+    const z = 1 + Math.max(0, ...taken.map(o => o.z || 0));
+    const free = boxes.map((b, k) => boxPos(b, k)).map(p => ({p, used: taken.reduce((s, o) => s + overlap(p, o), 0) / (p.w * p.h)}));
+    missing.forEach((id, i) => {
+      free.sort((a, b) => a.used - b.used);
+      const f = free.shift();
+      // No room left: a small box, stepped down from the top left.
+      const p = f ? f.p : {x: 5 + i * 4, y: 5 + i * 4, w: 30, h: 30};
+      pg.pos[id] = {...p, z: z + i};
+      if (f) taken.push(p);
+      for (const o of free) o.used += overlap(o.p, p) / (o.p.w * o.p.h);
+    });
   }
 
   // addBox puts one more photo on page pi (the next one), in a box of its
