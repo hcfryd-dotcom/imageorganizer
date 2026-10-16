@@ -170,7 +170,7 @@ document.addEventListener('alpine:init', () => {
     around: {id: 0, by: '', items: [], more: [false, false]},
     assign: {face: null, group: null, name: '', busy: false},
     // groupPop: all the faces of a face's group, in a window over the photo.
-    groupPop: {open: false, gid: 0, size: 0, faces: [], loading: false},
+    groupPop: {open: false, gid: 0, size: 0, faces: [], loading: false, g: null, sugg: [], out: new Set(), name: '', busy: false},
     // Copying a person's photos out into a folder, one subfolder per year.
     exportForm: {open: false, dir: '', confirmedOnly: false, byPlace: '', busy: false, status: null},
     // Folders page: the whole library copied into one tidy folder.
@@ -2213,14 +2213,52 @@ document.addEventListener('alpine:init', () => {
     // openGroupPop shows all the faces of group gid in a window over the
     // photo, without leaving it; a face clicked opens its photo.
     async openGroupPop(gid) {
-      this.groupPop = {open: true, gid, size: this.assign.group?.size || 0, faces: [], loading: true};
+      // The suggestions the open face had are the group's best guess too.
+      const sugg = this.assign.group && this.assign.face?.group === gid ? this.assign.group.suggestions || [] : [];
+      this.groupPop = {open: true, gid, size: this.assign.group?.size || 0, faces: [], loading: true, g: null, sugg, out: new Set(), name: '', busy: false};
       const g = await api(`/api/groups/${gid}?n=1000`).catch(() => null);
       if (this.groupPop.gid !== gid) return;
+      this.groupPop.g = g;
+      if (!sugg.length && g) this.groupPop.sugg = g.suggestions || [];
       this.groupPop.faces = (g && g.faces) || [];
       this.groupPop.size = (g && g.size) || this.groupPop.faces.length;
       this.groupPop.loading = false;
     },
-    closeGroupPop() { this.groupPop = {open: false, gid: 0, size: 0, faces: [], loading: false}; },
+    closeGroupPop() { this.groupPop = {open: false, gid: 0, size: 0, faces: [], loading: false, g: null, sugg: [], out: new Set(), name: '', busy: false}; },
+    // groupPopCands: who the whole group may be, likeliest first.
+    groupPopCands() {
+      const g = this.groupPop.g, out = [];
+      if (g && g.person && g.auto) out.push({id: g.person, name: g.person_name});
+      for (const s of this.groupPop.sugg || []) if (!out.some(o => o.id === s.id)) out.push(s);
+      return out.slice(0, 4);
+    },
+    groupPopToggle(f) {
+      const out = new Set(this.groupPop.out);
+      out.has(f.id) ? out.delete(f.id) : out.add(f.id);
+      this.groupPop.out = out;
+    },
+    // groupPopApprove names the whole group as a person (pid, or a new
+    // name); faces taken out (×) are then said not to be them.
+    async groupPopApprove(pid) {
+      const gp = this.groupPop, name = (gp.name || '').trim();
+      if (gp.busy || (!pid && !name)) return;
+      gp.busy = true;
+      const shown = gp.faces.filter(f => !gp.out.has(f.id)).map(f => f.id);
+      try {
+        const r = await api(`/api/groups/${gp.gid}/name`, {method: 'POST', body: JSON.stringify(pid ? {person_id: pid, shown} : {name, shown})}, {retry: true});
+        for (const id of gp.out) await api(`/api/faces/${id}/remove`, {method: 'POST'}, {retry: true}).catch(() => {});
+        const who = pid ? this.personName(pid) : name;
+        this.notify(`${shown.length} faces are now ${who}`, 3000);
+        this.closeGroupPop();
+        this.closeAssign();
+        this.peopleChanged();
+        if (r && r.person_id && !pid) this.loadPeople();
+        await this.refreshFaces();
+      } catch (e) {
+        gp.busy = false;
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      }
+    },
     groupPopFace(f) {
       this.closeGroupPop();
       this.closeAssign();

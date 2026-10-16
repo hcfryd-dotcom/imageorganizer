@@ -1653,12 +1653,36 @@
     <div class="group-pop-grid">
       <div class="muted pad" x-show="groupPop.loading"><span class="spinner"></span></div>
       <template x-for="f in groupPop.faces" :key="f.id">
-        <button class="group-pop-face" @click="groupPopFace(f)" :title="'Open the photo' + (f.taken ? ' · ' + fmtYear(f.taken) : '')">
-          <img :src="faceURL(f.crop)" alt="" loading="lazy"><small x-text="fmtYear(f.taken)"></small>
-        </button>
+        <div class="group-pop-face" :class="{out: groupPop.out.has(f.id)}">
+          <button class="gp-open" @click="groupPopFace(f)" :title="'Open the photo' + (f.taken ? ' · ' + fmtYear(f.taken) : '')">
+            <img :src="faceURL(f.crop)" alt="" loading="lazy">
+          </button>
+          <button class="gp-out" @click="groupPopToggle(f)" :title="groupPop.out.has(f.id) ? 'Take it along again' : 'Not the same person: leave it out'" x-text="groupPop.out.has(f.id) ? '↺' : '×'"></button>
+          <small x-text="fmtYear(f.taken)"></small>
+        </div>
       </template>
     </div>
     <div class="muted small pad" x-show="!groupPop.loading && groupPop.faces.length < groupPop.size" x-text="'The first ' + groupPop.faces.length + ' are shown.'"></div>
+    <!-- Approve them all at once as someone -->
+    <div class="group-pop-foot" x-show="!groupPop.loading && groupPop.faces.length">
+      <template x-if="groupPop.g && groupPop.g.person && !groupPop.g.auto">
+        <span class="muted" x-text="'They are all ' + groupPop.g.person_name + '.'"></span>
+      </template>
+      <template x-if="!(groupPop.g && groupPop.g.person && !groupPop.g.auto)">
+        <div class="gp-approve">
+          <span class="muted small" x-text="groupPop.out.size ? 'Approve the other ' + (groupPop.faces.length - groupPop.out.size) + ' as:' : 'Approve all as:'"></span>
+          <template x-for="p in groupPopCands()" :key="p.id">
+            <button class="btn primary" :disabled="groupPop.busy" @click="groupPopApprove(p.id)">
+              <span x-text="'✓ ' + p.name"></span><small x-show="p.score" x-text="' ' + Math.round(p.score * 100) + '%'"></small>
+            </button>
+          </template>
+          <form class="gp-name" @submit.prevent="groupPopApprove(0)">
+            <input class="input" list="people-names" x-model="groupPop.name" spellcheck="false" :placeholder="groupPopCands().length ? 'Someone else…' : 'Name'">
+            <button class="btn" :disabled="!groupPop.name.trim() || groupPop.busy">Approve all</button>
+          </form>
+        </div>
+      </template>
+    </div>
   </div>
 </div>
 <div class="modal-back" x-show="albumPick.open" x-cloak @click.self="albumPick.open = false">
