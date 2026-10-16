@@ -348,6 +348,7 @@
     'Photo boxes': 'Billedkasser', '+ Photo box': '+ Billedkasse', '1 photo': '1 billede', 'Photo placed freely': 'Billede placeret frit',
     'Open in Review': 'Åbn i Gennemse', 'Open the group in Review': 'Åbn gruppen i Gennemse',
     'Unused photos': 'Ubrugte billeder', 'The year before': 'Året før', 'The year after': 'Året efter', 'Follow the page': 'Følg siden', 'Show the year of the page you are at, as you go': 'Vis året for den side, du er ved, mens du arbejder',
+    'Fold up or open': 'Fold sammen eller ud',
     'The album’s photos not in the book, of the year you are at: drag them into the book': 'Albummets billeder, der ikke er i bogen, fra det år du er ved: træk dem ind i bogen',
     '1 photo not in the book. Drag it onto a photo or a page.': '1 billede er ikke i bogen. Træk det hen på et billede eller en side.',
     'Cleanup': 'Oprydning', 'Receipts': 'Kvitteringer', 'Papers and documents': 'Papirer og dokumenter', 'Screenshots': 'Skærmbilleder', 'Blurry photos': 'Uskarpe billeder', 'Near copies': 'Næsten ens',

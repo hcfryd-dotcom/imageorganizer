@@ -407,14 +407,17 @@
   .crop-hint { position: absolute; left: 50%; top: 3mm; transform: translateX(-50%); padding: 3px 10px; border-radius: 10px; background: rgba(0, 0, 0, .55); color: #fff; font: 12px -apple-system, "Segoe UI", sans-serif; pointer-events: none; white-space: nowrap; }
   @media print { .crop-bar, .crop-hint, .crop-grid { display: none !important; } .slot.cropping .ph { outline: 0; } }
   /* Unused photos: a panel at the right to drag them into the book from. */
-  body.with-unused .pages, body.with-unused .book-note { margin-right: calc(var(--unused-w, 300px) + 20px); }
-  .unused { position: fixed; top: calc(var(--bar-h, 64px) + 10px); right: 10px; bottom: 10px; width: var(--unused-w, 300px); z-index: 55; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 0;
+  .unused { position: fixed; top: calc(var(--bar-h, 64px) + 10px); right: 10px; width: 320px; height: min(640px, calc(100vh - var(--bar-h, 64px) - 30px)); min-width: 220px; min-height: 160px; z-index: 55; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 0; resize: both; overflow: hidden;
     border-radius: 22px; background: var(--panel); box-shadow: 0 0 0 1px var(--line), 0 24px 70px rgba(0, 0, 0, .4); }
   [data-look="studio"] .unused { background: rgba(20, 19, 27, .9); backdrop-filter: blur(24px); }
   .unused[hidden] { display: none; }
-  .unused-head { display: flex; align-items: center; justify-content: space-between; font-size: 16px; }
+  .unused-head { display: flex; align-items: center; gap: 8px; font-size: 16px; cursor: move; user-select: none; }
+  .unused-head b { flex: 1; }
+  .unused-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  .unused.folded { height: auto !important; min-height: 0; resize: none; padding-bottom: 10px; }
+  .unused.folded .unused-body { display: none; }
   .unused-head b { font-family: var(--serif, inherit); font-weight: 400; font-size: 19px; }
-  .unused-close, .unused-years button { border: 0; border-radius: 999px; min-width: 30px; height: 30px; padding: 0 10px; background: rgba(127, 127, 127, .18); color: inherit; cursor: pointer; font: inherit; }
+  .unused-close, .unused-fold, .unused-years button { border: 0; border-radius: 999px; min-width: 30px; height: 30px; padding: 0 10px; background: rgba(127, 127, 127, .18); color: inherit; cursor: pointer; font: inherit; }
   .unused-years button:disabled { opacity: .35; cursor: default; }
   .unused-years button.on { background: var(--accent); color: #111; }
   .unused-years { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
@@ -428,7 +431,7 @@
   .unused-grid .hit.was-out img { opacity: .6; }
   .unused-add { position: absolute; top: 5px; right: 5px; width: 26px; height: 26px; border: 0; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; cursor: pointer; opacity: 0; transition: opacity .15s; }
   .unused-grid .hit:hover .unused-add { opacity: 1; }
-  @media print { .unused { display: none !important; } body.with-unused .pages { margin-right: 0 !important; } }
+  @media print { .unused { display: none !important; } }
   /* The page overview: every page small, in a panel at the side. */
   body.with-overview .pages, body.with-overview .book-note { margin-right: 300px; }
   .overview { position: fixed; top: var(--bar-h, 64px); right: 0; bottom: 0; width: 290px; overflow: auto; z-index: 4; padding: 10px;
@@ -3585,30 +3588,84 @@
     }
     return null;
   }
-  // The photos' width in the panel (its slider), and the panel's width
-  // from it: two across, at most half the window.
+  // The photos' width in the panel (its slider); the panel is sized by
+  // its corner.
   const unusedSize = () => { try { return +localStorage.getItem('unusedSize') || 130; } catch (e) { return 130; } };
   function sizeUnused() {
-    const s = unusedSize(), w = Math.round(Math.min(innerWidth * .5, Math.max(300, s * 2 + 32)));
-    document.documentElement.style.setProperty('--unused-thumb', s + 'px');
-    document.documentElement.style.setProperty('--unused-w', w + 'px');
+    document.documentElement.style.setProperty('--unused-thumb', unusedSize() + 'px');
   }
+  // unusedBox makes the panel: a floating box like the toolbox, moved by
+  // its top bar, folded with –, sized by its corner; where it lies and
+  // how big it is are kept (this browser).
+  function unusedBox() {
+    const panel = document.createElement('div');
+    panel.id = 'unused';
+    panel.className = 'unused';
+    panel.innerHTML = '<div class="unused-head"><span class="toolbox-grip">⠿</span><b></b><button type="button" class="unused-fold">–</button><button type="button" class="unused-close">×</button></div><div class="unused-body"></div>';
+    panel.querySelector('b').textContent = t('Unused photos');
+    panel.querySelector('.unused-fold').title = t('Fold up or open');
+    panel.querySelector('.unused-close').title = t('Close');
+    document.body.appendChild(panel);
+    const keep = () => {
+      const r = panel.getBoundingClientRect();
+      if (panel.hidden || r.width < 100) return; // not shown
+      let old = {};
+      try { old = JSON.parse(localStorage.getItem('unusedBox') || '{}') || {}; } catch (e) {}
+      // Folded, only where it lies changes; its size is the unfolded one's.
+      const folded = panel.classList.contains('folded');
+      const p = {x: Math.round(r.left), y: Math.round(r.top), w: folded ? old.w || Math.round(r.width) : Math.round(r.width), h: folded ? old.h || 480 : Math.round(parseFloat(panel.style.height) || r.height)};
+      try { localStorage.setItem('unusedBox', JSON.stringify(p)); } catch (e) {}
+    };
+    try {
+      const p = JSON.parse(localStorage.getItem('unusedBox') || 'null');
+      if (p) Object.assign(panel.style, {left: Math.min(p.x, innerWidth - 120) + 'px', top: Math.min(Math.max(0, p.y), innerHeight - 60) + 'px', right: 'auto', width: p.w + 'px', height: p.h + 'px'});
+      if (localStorage.getItem('unusedFolded') === '1') panel.classList.add('folded');
+    } catch (e) {}
+    fitUnused(panel);
+    panel.querySelector('.unused-close').addEventListener('click', () => unusedShow(false));
+    panel.querySelector('.unused-fold').addEventListener('click', () => {
+      panel.classList.toggle('folded');
+      try { localStorage.setItem('unusedFolded', panel.classList.contains('folded') ? '1' : '0'); } catch (e) {}
+    });
+    panel.querySelector('.unused-head').addEventListener('pointerdown', e => {
+      if (e.button !== 0 || e.target.closest('button')) return;
+      e.preventDefault();
+      const r = panel.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+      // From here on placed by its corner, its size as it is.
+      Object.assign(panel.style, {width: r.width + 'px', right: 'auto'});
+      if (!panel.classList.contains('folded') && !panel.style.height) panel.style.height = r.height + 'px';
+      const move = ev => {
+        panel.style.left = Math.min(innerWidth - 120, Math.max(0, ev.clientX - dx)) + 'px';
+        panel.style.top = Math.min(innerHeight - 50, Math.max(0, ev.clientY - dy)) + 'px';
+        fitUnused(panel);
+      };
+      const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); keep(); };
+      addEventListener('pointermove', move);
+      addEventListener('pointerup', up);
+    });
+    // Sized by its corner (CSS resize): kept when the mouse lets go.
+    panel.addEventListener('pointerup', () => { if (panel.style.width || panel.style.height) keep(); });
+    new ResizeObserver(() => { clearTimeout(panel._t); panel._t = setTimeout(keep, 300); }).observe(panel);
+    return panel;
+  }
+  // fitUnused keeps the box inside the window: never taller than the room
+  // below its top (its own height stays as set).
+  function fitUnused(panel) {
+    const top = panel.getBoundingClientRect().top || 0;
+    panel.style.maxHeight = Math.max(160, innerHeight - top - 10) + 'px';
+  }
+  addEventListener('resize', () => { const p = $('unused'); if (p) fitUnused(p); });
   let unusedShown = ''; // what the panel shows now, to draw it only when that changes
   function renderUnused() {
     if (pdfMode) return;
     let panel = $('unused');
-    document.body.classList.toggle('with-unused', unusedOpen);
     $('unusedBtn').classList.toggle('primary', unusedOpen);
     if (!unusedOpen) { if (panel) panel.hidden = true; unusedShown = ''; return; }
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = 'unused';
-      panel.className = 'unused';
-      document.body.appendChild(panel);
-    }
+    if (!panel) panel = unusedBox();
     panel.hidden = false;
     document.documentElement.style.setProperty('--bar-h', barHeight() + 'px');
     sizeUnused();
+    const body = panel.querySelector('.unused-body');
     const have = inBook();
     const rest = photos.filter(im => !have.has(im.id) && !im.video);
     const years = [...new Set(rest.map(yearOf))].sort((a, b) => a - b);
@@ -3621,14 +3678,7 @@
     const key = year + '|' + follow + '|' + list.map(im => im.id).join(',');
     if (key === unusedShown) return;
     unusedShown = key;
-    panel.textContent = '';
-    const head = document.createElement('div');
-    head.className = 'unused-head';
-    const b = document.createElement('b');
-    b.textContent = t('Unused photos');
-    const close = tool('×', 'Close', () => unusedShow(false));
-    close.className = 'unused-close';
-    head.append(b, close);
+    body.textContent = '';
     const nav = document.createElement('div');
     nav.className = 'unused-years';
     const i = years.indexOf(year);
@@ -3686,7 +3736,7 @@
       hit.appendChild(add);
       grid.appendChild(hit);
     }
-    panel.append(head, nav, note, grid);
+    body.append(nav, note, grid);
   }
 
   // renderOverview draws every page small in the side panel: a click
