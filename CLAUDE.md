@@ -151,7 +151,12 @@ the rest of the repo.
   "Copy" on the Photo books page.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
-- macOS-style look: one block at the end of `web/app.css`.
+- Looks: the macOS-style block in `web/app.css`, and after it the
+  "Studio" look (dark, glowing colour behind, glass panels, Bahnschrift
+  capitals for labels, lime main buttons, a violet-pink-amber gradient
+  for the open menu item and bar lines), the default since 2026-10-16;
+  `<html data-look="studio"|"classic">`, chosen in Settings → Look and
+  kept in localStorage.
 - Danish UI: `web/i18n.js` translates the page as it is drawn (exact strings
   plus patterns); English stays the source text. Add a Danish entry there
   for every new user-facing string. Language is chosen in Settings.

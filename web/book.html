@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Photo book</title>
+<script>try { document.documentElement.dataset.look = localStorage.getItem("look") || "studio"; } catch (e) { document.documentElement.dataset.look = "studio"; }</script>
 <link rel="stylesheet" href="app.css">
 <style>
   /* A photo book (of an album, a person, people together, a year or a
@@ -12,6 +13,8 @@
      on it, text pages between, and photos moved or left out. The book is
      saved in the library (/api/books). */
   html, body { height: auto; overflow: auto; display: block; background: #e8e8ed; }
+  html[data-look="studio"], html[data-look="studio"] body { background: radial-gradient(900px 600px at 85% -10%, rgba(139, 92, 255, .2), transparent 60%), radial-gradient(700px 500px at -10% 110%, rgba(47, 216, 255, .1), transparent 60%), #0b0b0f; background-attachment: fixed; }
+  @media print { html[data-look="studio"], html[data-look="studio"] body { background: #fff !important; } }
   .book-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px;
     background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: saturate(1.8) blur(20px); border-bottom: 1px solid var(--line); }
   .book-bar h1 { font-size: 17px; margin: 0 8px 0 0; }
