@@ -168,7 +168,10 @@ the rest of the repo.
   off (T on the photo, or "Caption" in the toolbox; `book.noCap`), and
   its date, place and who shown or not apart from the book (`book.capOwn`). Texts: a font
   of 17, a size in points (`style.pt`, typed or − +), bold, italic, a
-  colour of the row or any, and alignment.
+  colour of the row or any, and alignment. "Unused photos" opens a panel at
+  the right with the source's photos not in the book, of the year of the
+  page picked (or one chosen), with a size slider; they are dragged onto
+  a photo or a page, or put in by date (＋).
 - Cleanup (sidebar "Cleanup", `store/cleanup.go`, `server/cleanup.go`,
   `/api/cleanup/{receipts|papers|shots|blurry|copies}`): receipts and
   papers by meaning (mean likeness to a few texts minus likeness to
