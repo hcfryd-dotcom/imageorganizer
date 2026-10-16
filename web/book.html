@@ -255,6 +255,7 @@
   .photo-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
   .photo-buttons button { border: 0; border-radius: 999px; padding: 6px 13px; background: rgba(127, 127, 127, .18); color: inherit; cursor: pointer; font: inherit; font-size: 12.5px; }
   .photo-buttons button.on { background: var(--accent); color: #111; }
+  .cap-parts { align-items: center; font-size: 12.5px; color: var(--muted); }
   .movable { position: absolute; }
   .movable:hover .resize, .movable.moving .resize, .movable:hover .turn, .movable.moving .turn { opacity: 1; }
   .turn { position: absolute; left: 50%; top: -6mm; width: 4.5mm; height: 4.5mm; margin-left: -2.25mm; border-radius: 50%; background: #fff; border: 2px solid var(--accent);
@@ -1315,9 +1316,12 @@
     return row;
   }
 
+  // capOn says if a part of the caption (date, place, who) shows under
+  // photo id: its own choice (book.capOwn), else the book's.
+  const capOn = (id, k) => { const o = (book.capOwn || {})[id]; return o && o[k] != null ? o[k] : !!book.cap[k]; };
   function caption(im) {
     const f = info.get(im.id) || {};
-    return [im.title, book.cap.date && fmtDate(im.taken), book.cap.place && f.place, book.cap.who && (f.people || []).join(', ')]
+    return [im.title, capOn(im.id, 'date') && fmtDate(im.taken), capOn(im.id, 'place') && f.place, capOn(im.id, 'who') && (f.people || []).join(', ')]
       .filter(Boolean).join(' · ');
   }
 
@@ -3392,6 +3396,23 @@
         render();
       };
       tools.append(tool((book.noCap || {})[key] ? 'Caption: off' : 'Caption: on', 'Show or hide the caption under this photo', () => toggleCap(key), !(book.noCap || {})[key]));
+      // What the caption of this photo tells, apart from the book's choice.
+      const parts = document.createElement('span');
+      parts.className = 'photo-buttons cap-parts';
+      parts.append(document.createTextNode(t('Under the photo:')));
+      for (const [k, label] of [['date', 'Date'], ['place', 'Place'], ['who', 'Who']]) {
+        parts.append(tool(label, 'Show it under this photo, or not (the book’s choice is in Book settings)', async () => {
+          const own = {...((book.capOwn || {})[key] || {})};
+          own[k] = !capOn(key, k);
+          // Back to the book's choice: nothing of its own kept.
+          if (own[k] === !!book.cap[k]) delete own[k];
+          book.capOwn = {...(book.capOwn || {}), [key]: own};
+          if (!Object.keys(own).length) delete book.capOwn[key];
+          if (own[k] && k !== 'date') await needInfo([key]).catch(() => {});
+          render();
+        }, capOn(key, k)));
+      }
+      row.append(parts);
       tools.append(tool('− Smaller box', 'The box smaller, round its middle', scale(1 / 1.1)), tool('+ Bigger box', 'The box bigger, round its middle', scale(1.1)));
     } else {
       // The cover's photo: its box placed freely from where it lies now.
@@ -3421,7 +3442,7 @@
       cropping = null;
       render();
     }), tool('Done', '', () => { const img = live(); if (img && img._crop) img._crop.keep(); cropping = null; render(); }, true));
-    row.append(b, hint, zoom, tilt, tools);
+    row.append(b, hint, zoom, tilt, tools, ...row.querySelectorAll(':scope > .cap-parts'));
     return row;
   }
   // Escape, or a click on the page beside the photo, lets the photo go.
