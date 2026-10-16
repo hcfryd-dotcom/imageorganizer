@@ -107,6 +107,26 @@
   .cover-collage .ph .cell { position: relative; overflow: hidden; min-width: 0; min-height: 0; border-radius: 1.5mm; }
   .cover-collage .ph .cell img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; border-radius: 0; }
   .part { position: relative; }
+  /* The toolbox: the picked page's tools, floating over the pages. */
+  .toolbox { position: fixed; z-index: 60; top: calc(var(--bar-h, 150px) + 16px); right: 18px; width: min(460px, calc(100vw - 36px));
+    max-height: calc(100vh - 120px); display: flex; flex-direction: column; border-radius: 16px; overflow: hidden;
+    background: var(--panel); box-shadow: 0 0 0 1px var(--line), 0 18px 50px rgba(0, 0, 0, .45); }
+  [data-look="studio"] .toolbox { background: rgba(16, 16, 22, .9); backdrop-filter: blur(24px) saturate(1.4); box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 24px 70px rgba(0, 0, 0, .7); }
+  .toolbox-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: move; user-select: none; border-bottom: 1px solid var(--line); position: relative; }
+  [data-look="studio"] .toolbox-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--grad); opacity: .8; }
+  .toolbox-grip { color: var(--muted); font-size: 14px; }
+  .toolbox-title { flex: 1; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-family: var(--label, inherit); }
+  .toolbox-fold { width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .08); color: var(--text); cursor: pointer; font-size: 16px; line-height: 26px; padding: 0; }
+  .toolbox.folded .toolbox-body { display: none; }
+  .toolbox-body { overflow: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .toolbox-body .page-tools { justify-content: flex-start; }
+  .toolbox-body .page-tools > b { display: none; } /* the title shows it */
+  .toolbox-body .text-style, .toolbox-body .alts { width: auto; box-shadow: none !important; background: rgba(255, 255, 255, .04) !important; }
+  .page-wrap.picked > section.page { box-shadow: 0 0 0 3px var(--accent), 0 2px 14px rgba(0, 0, 0, .25); }
+  /* Rows above the other pages are not shown: the toolbox has them. */
+  #pages > .page-wrap > .page-tools, #pages > .page-wrap > .text-style, #pages > .page-wrap > .alts { display: none; }
+  #pages > .page-wrap { margin-bottom: 26px; }
+  @media print { .toolbox { display: none !important; } .page-wrap.picked > section.page { box-shadow: none !important; } }
   /* Templates. */
   .templ-row { flex-wrap: wrap; }
   .templ { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 6px; background: var(--panel-2); opacity: .55; }
@@ -514,7 +534,7 @@
   <button class="btn" id="restart" title="Lay the book out again, leaving out your changes">Start over</button>
   <button class="btn primary" id="print">Print / save as PDF</button>
 </div>
-<p class="muted small book-note">Each page can be changed above it: how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Double-click a photo to crop it and place it in its box; with the layout “Free placement” photos are moved and sized with the mouse. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
+<p class="muted small book-note">Click a page and change it in the floating toolbox (move the box by its top bar): how many photos it holds, a text on it, or a page of text after it. Drag a photo onto another photo or page to move it there; over a photo, ← → move it one place, # moves it to a page by number, ★ makes it the cover, × leaves it out of the book. Double-click a photo to crop it and place it in its box; with the layout “Free placement” photos are moved and sized with the mouse. Photos left out, and the others not in the book, are under the last page. The book is saved in the program by itself. To print, choose “Save as PDF” (or a printer) in the print window, set margins to “None” and turn on background graphics.</p>
 <div class="filters find" id="find" hidden>
   <b>Find photos for the book</b>
   <input class="input" id="findQ" placeholder="A name, a place, a year, or what is in it (“beach”, “cake”)" autocomplete="off">
@@ -1766,6 +1786,7 @@
       const th = pg && pg.theme != null ? (pg.theme === 'none' ? '' : pg.theme) : book.theme || '';
       if (th) sec.dataset.theme = th; else delete sec.dataset.theme;
     }
+    fillToolbox(true);
     setTimeout(afterLayout); // not requestAnimationFrame: a tab in the background never gets one
   }
 
@@ -2049,6 +2070,91 @@
     if (!$('pdfDir').value) $('pdfDir').value = (await api('/api/books/pdf-dir').catch(() => ({}))).dir || '';
     await runChecks($('shopCheck'));
   }
+
+  // ---------- the toolbox ----------
+
+  // A floating box over the pages holds the tools of the page picked (a
+  // click on a page picks it), instead of a row above every page. It is
+  // moved by its top bar and stays where it was put (this browser).
+  let picked = 'cover';   // "cover", "toc", "back", "spread" or a page index
+  let boxFrom = null;     // the page wrap whose tools are in the box now
+  function toolbox() {
+    let box = $('toolbox');
+    if (box) return box;
+    box = document.createElement('div');
+    box.id = 'toolbox';
+    box.className = 'toolbox';
+    box.innerHTML = '<div class="toolbox-head"><span class="toolbox-grip">⠿</span><b class="toolbox-title"></b><button type="button" class="toolbox-fold" title="">–</button></div><div class="toolbox-body"></div>';
+    document.body.appendChild(box);
+    box.querySelector('.toolbox-fold').title = t('Fold up or open the toolbox');
+    try {
+      const pos = JSON.parse(localStorage.getItem('toolboxPos') || 'null');
+      if (pos) { box.style.left = pos.x + 'px'; box.style.top = pos.y + 'px'; box.style.right = 'auto'; }
+      if (localStorage.getItem('toolboxFolded') === '1') box.classList.add('folded');
+    } catch (e) {}
+    box.querySelector('.toolbox-fold').addEventListener('click', () => {
+      box.classList.toggle('folded');
+      try { localStorage.setItem('toolboxFolded', box.classList.contains('folded') ? '1' : '0'); } catch (e) {}
+    });
+    // Moved by its top bar, kept inside the window.
+    box.querySelector('.toolbox-head').addEventListener('pointerdown', e => {
+      if (e.target.closest('button')) return;
+      e.preventDefault();
+      const r = box.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+      const move = ev => {
+        const x = Math.min(innerWidth - 80, Math.max(0, ev.clientX - dx)), y = Math.min(innerHeight - 40, Math.max(0, ev.clientY - dy));
+        box.style.left = x + 'px';
+        box.style.top = y + 'px';
+        box.style.right = 'auto';
+      };
+      const up = () => {
+        removeEventListener('pointermove', move);
+        removeEventListener('pointerup', up);
+        const b = box.getBoundingClientRect();
+        try { localStorage.setItem('toolboxPos', JSON.stringify({x: Math.round(b.left), y: Math.round(b.top)})); } catch (e) {}
+      };
+      addEventListener('pointermove', move);
+      addEventListener('pointerup', up);
+    });
+    return box;
+  }
+  const wrapOf = key => key === 'cover' ? document.querySelector('#pages > .cover-wrap')
+    : key === 'toc' ? document.querySelector('#pages > .toc-wrap')
+    : key === 'back' ? document.querySelector('#pages > .back-wrap')
+    : key === 'spread' ? document.querySelector('#pages > .spread-wrap')
+    : document.querySelector(`#pages > .page-wrap[data-pi="${key}"]:not(.pano-half)`);
+  const keyOf = wrap => wrap.classList.contains('cover-wrap') ? 'cover' : wrap.classList.contains('toc-wrap') ? 'toc'
+    : wrap.classList.contains('back-wrap') ? 'back' : wrap.classList.contains('spread-wrap') ? 'spread' : wrap.dataset.pi != null ? +wrap.dataset.pi : null;
+
+  // fillToolbox moves the picked page's tools (its rows above it) into
+  // the box, and the ones there before back to their page. After a
+  // drawing (fresh) the old rows are gone with their page.
+  function fillToolbox(fresh) {
+    if (pdfMode) return;
+    const box = toolbox(), body = box.querySelector('.toolbox-body');
+    if (fresh) { body.textContent = ''; boxFrom = null; }
+    else if (boxFrom) {
+      const sec = boxFrom.querySelector(':scope > section');
+      for (const n of [...body.children]) boxFrom.insertBefore(n, sec);
+    }
+    document.querySelectorAll('#pages > .page-wrap.picked').forEach(w => w.classList.remove('picked'));
+    let wrap = wrapOf(picked);
+    if (!wrap) { picked = 'cover'; wrap = wrapOf(picked); }
+    if (!wrap) return;
+    wrap.classList.add('picked');
+    const rows = [...wrap.children].filter(c => !c.matches('section'));
+    body.append(...rows);
+    boxFrom = wrap;
+    const label = rows[0] && rows[0].querySelector('b');
+    box.querySelector('.toolbox-title').textContent = (label ? label.textContent : '') || t('Tools');
+  }
+  // A click on a page picks it.
+  document.addEventListener('pointerdown', e => {
+    const w = e.target.closest && e.target.closest('#pages > .page-wrap');
+    if (!w) return;
+    const k = keyOf(w);
+    if (k != null && k !== picked) { picked = k; fillToolbox(false); }
+  }, true);
 
   // ---------- page templates ----------
 
@@ -2636,7 +2742,7 @@
   // photo, the other half.
   function panoRight(pg, number) {
     const wrap = document.createElement('div');
-    wrap.className = 'page-wrap';
+    wrap.className = 'page-wrap pano-half';
     wrap.dataset.pi = book.pages.indexOf(pg); // its design is the page's
     const tools = document.createElement('div');
     tools.className = 'page-tools';
