@@ -73,7 +73,24 @@
   .cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; padding: 16mm; text-align: center; }
   .cover .ph { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; }
   /* The cover photo cropped by hand fills its place; double-click edits. */
-  .cover.cropped .ph { position: relative; overflow: hidden; align-self: stretch; }
+  .cover.cropped:not(.cover-full):not(.cover-free) .ph { position: relative; align-self: stretch; }
+  .cover.cropped .ph { overflow: hidden; }
+  /* The cover photo placed freely (book.coverPos), the title at the foot. */
+  .cover.cover-free { justify-content: flex-end; }
+  .cover-free .ph { position: absolute; flex: none; }
+  .cover-free h2, .cover-free p { position: relative; z-index: 20; }
+  .cover.cropping .ph > .resize, .cover.cropping .ph > .turn { opacity: 1; }
+  .cover.cropping .ph > .grip-move { display: grid; }
+  /* Inside its edges: the box clips what lies outside it. */
+  .cover .ph > .resize { margin: 0; }
+  .cover .ph > .h-nw, .cover .ph > .h-w, .cover .ph > .h-sw { left: 1mm; }
+  .cover .ph > .h-n, .cover .ph > .h-s { left: calc(50% - 2.25mm); }
+  .cover .ph > .h-ne, .cover .ph > .h-e, .cover .ph > .h-se { left: calc(100% - 5.5mm); }
+  .cover .ph > .h-nw, .cover .ph > .h-n, .cover .ph > .h-ne { top: 1mm; }
+  .cover .ph > .h-w, .cover .ph > .h-e { top: calc(50% - 2.25mm); }
+  .cover .ph > .h-sw, .cover .ph > .h-s, .cover .ph > .h-se { top: calc(100% - 5.5mm); }
+  .cover .ph > .grip-move { left: 7mm; top: 1mm; }
+  .cover .ph > .turn { display: none; }
   .cover.cropped .ph img { position: absolute; inset: 0; width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; object-fit: cover; }
   .cover.cropping .ph { cursor: move; outline: 3px dashed var(--accent); outline-offset: -3px; touch-action: none; }
   .cover h2[contenteditable]:focus { outline: 2px dashed var(--accent); outline-offset: 4px; }
@@ -208,6 +225,13 @@
   .grip-move { position: absolute; left: 2mm; top: 2mm; z-index: 4; width: 8mm; height: 8mm; border-radius: 50%; display: none; place-items: center;
     background: rgba(0, 0, 0, .6); color: #fff; font-size: 4mm; cursor: move; touch-action: none; }
   .cropping > .grip-move { display: grid; }
+  /* Ready-made photo boxes to choose from. */
+  .box-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .box-pick { position: relative; width: 64px; border: 0; border-radius: 6px; background: #fff; cursor: pointer; padding: 0; box-shadow: 0 0 0 1px rgba(127, 127, 127, .3); }
+  [data-look] .page-tools > button.box-pick, .page-tools > button.box-pick { border-radius: 6px; background: #fff; padding: 0; }
+  .box-pick:hover { box-shadow: 0 0 0 2px var(--accent); }
+  .box-pick i { position: absolute; background: #b9b4cc; border-radius: 1.5px; box-shadow: 0 0 0 1px #fff; }
+  .box-pick:hover i { background: #9b7bff; }
   /* The photo picked, in the toolbox. */
   .photo-row { display: flex; flex-direction: column; align-items: stretch !important; gap: 8px !important; }
   .photo-row .muted { font-size: 12.5px; }
@@ -1587,6 +1611,30 @@
       if (c || cropping === ck) { cs.classList.add('cropped'); delete cimg.dataset.auto; }
       if (c) cropStyle(cimg, c);
       if (cropping === ck) cropEdit(cs, cimg, ck);
+      // Its box: placed freely (book.coverPos, moved and sized like a
+      // page's), else handles on the picked photo make it so.
+      const ph = cs.querySelector('.ph');
+      if (coverLayout === 'free') {
+        book.coverPos = book.coverPos || {x: 10, y: 8, w: 80, h: 62};
+        movable(ph, book.coverPos, {id: ck, grip: true, skip: () => cropping === ck, keep: () => save()});
+      } else if (cropping === ck) {
+        for (const d of HANDLES) {
+          const h = document.createElement('div');
+          h.className = 'resize h-' + d;
+          h.title = t('Drag to make it bigger or smaller');
+          h.addEventListener('pointerdown', e => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const c = cs.getBoundingClientRect(), r = ph.getBoundingClientRect();
+            book.coverPos = {x: (r.left - c.left) / c.width * 100, y: (r.top - c.top) / c.height * 100, w: r.width / c.width * 100, h: r.height / c.height * 100};
+            book.coverLayout = 'free';
+            resume = {id: ck, how: 'size:' + d, x: e.clientX, y: e.clientY};
+            render();
+          });
+          ph.appendChild(h);
+        }
+      }
       cs.querySelector('.ph').title = t('Click to crop and place the photo');
       cs.querySelector('.ph').addEventListener('click', e => {
         if (e.target.closest('button') || cropping === ck) return;
@@ -1622,7 +1670,7 @@
     cb.textContent = t('Cover');
     const cl = document.createElement('select');
     cl.className = 'select small-select';
-    for (const [v, label] of [['', 'Photo and title'], ['full', 'Photo over the whole cover'], ['collage', 'Collage of photos']]) {
+    for (const [v, label] of [['', 'Photo and title'], ['full', 'Photo over the whole cover'], ['collage', 'Collage of photos'], ['free', 'Photo placed freely']]) {
       const o = document.createElement('option');
       o.value = v;
       o.textContent = t(label);
@@ -1726,8 +1774,8 @@
           img.draggable = false; // the slot is what drags
           const c = book.crop && book.crop[id];
           // Filling its place: cropped by hand, or around the faces (decorate).
-          if (c || cropping === id || book.fillAll) slot.classList.add('cropped');
-          if (!c && (full || book.fillAll || cropping === id)) img.dataset.auto = '1';
+          if (c || cropping === id || book.fillAll || pg.fillBoxes) slot.classList.add('cropped');
+          if (!c && (full || book.fillAll || pg.fillBoxes || cropping === id)) img.dataset.auto = '1';
           if (c) cropStyle(img, c);
           if (cropping === id) cropEdit(slot, img, id);
           // Under the photo: a text of one's own (book.captions), then what
@@ -1823,9 +1871,12 @@
               // Free placement starts where the photos lie now.
               if (sel.value === 'free') pg.pos = {...placesNow(grid), ...(pg.pos || {})};
               pg.layout = sel.value || 'grid';
+              if (pg.layout !== 'free') delete pg.fillBoxes;
               render();
             });
             tools.append(sel);
+            tools.append(tool('Photo boxes', 'Choose how the boxes for the photos lie on the page', () => { boxesOpen = boxesOpen === pi ? null : pi; render(); }, boxesOpen === pi),
+              tool('+ Photo box', 'One more photo box on the page (the next photo), to place and size as you like', () => addBox(pi)));
           }
         }
         if (pg.ids.length === 1 && !month) {
@@ -1853,6 +1904,7 @@
       if (stickersOpen === pi) wrap.append(stickerRow(pg));
       if (typeof styling === 'string' && styling.startsWith('it-' + pi + '-')) { const it = (pg.items || [])[+styling.split('-')[2]]; if (it) wrap.append(styleRow(() => it)); }
       if (templOpen === pi) wrap.append(templateRow(pg, pi));
+      if (boxesOpen === pi) wrap.append(boxRow(pi));
       if (bgOpen === pi) wrap.append(backgroundRow(pg));
       wrap.append(sec);
       root.appendChild(wrap);
@@ -2232,6 +2284,75 @@
     $('spineHint').textContent = t('About ' + spineGuess().toLocaleString(locale) + ' mm for ' + innerPages + ' pages on 170 g silk paper. The exact width is in Lasertryk’s price calculator.');
     if (!$('pdfDir').value) $('pdfDir').value = (await api('/api/books/pdf-dir').catch(() => ({}))).dir || '';
     await runChecks($('shopCheck'));
+  }
+
+  // ---------- photo boxes ----------
+
+  // Ready-made ways for the boxes of a page's photos to lie, by how many
+  // there are; in twelfths of the photo area [column, row, width, height]
+  // with a little room between them. Chosen, the page becomes free (the
+  // boxes can then be moved and sized) and its photos fill their boxes.
+  const BOX_LAYOUTS = [
+    [[0, 0, 12, 12]], [[1.5, 1.5, 9, 9]], [[0, 0, 8, 12]], [[0, 0, 12, 8]],
+    [[0, 0, 6, 12], [6, 0, 6, 12]], [[0, 0, 12, 6], [0, 6, 12, 6]], [[0, 0, 8, 12], [8, 0, 4, 12]], [[0, 0, 12, 8], [0, 8, 12, 4]], [[0, 0, 9, 9], [7, 7, 5, 5]],
+    [[0, 0, 8, 12], [8, 0, 4, 6], [8, 6, 4, 6]], [[4, 0, 8, 12], [0, 0, 4, 6], [0, 6, 4, 6]], [[0, 0, 12, 7], [0, 7, 6, 5], [6, 7, 6, 5]],
+    [[0, 0, 4, 12], [4, 0, 4, 12], [8, 0, 4, 12]], [[0, 0, 12, 4], [0, 4, 12, 4], [0, 8, 12, 4]],
+    [[0, 0, 6, 6], [6, 0, 6, 6], [0, 6, 6, 6], [6, 6, 6, 6]], [[0, 0, 8, 12], [8, 0, 4, 4], [8, 4, 4, 4], [8, 8, 4, 4]],
+    [[0, 0, 12, 8], [0, 8, 4, 4], [4, 8, 4, 4], [8, 8, 4, 4]], [[0, 0, 7, 7], [7, 0, 5, 7], [0, 7, 5, 5], [5, 7, 7, 5]], [[0, 0, 3, 12], [3, 0, 3, 12], [6, 0, 3, 12], [9, 0, 3, 12]],
+    [[0, 0, 6, 6], [6, 0, 6, 6], [0, 6, 4, 6], [4, 6, 4, 6], [8, 6, 4, 6]], [[2, 2, 8, 8], [0, 0, 4, 4], [8, 0, 4, 4], [0, 8, 4, 4], [8, 8, 4, 4]],
+    [[0, 0, 6, 12], [6, 0, 3, 6], [9, 0, 3, 6], [6, 6, 3, 6], [9, 6, 3, 6]],
+    [[0, 0, 4, 6], [4, 0, 4, 6], [8, 0, 4, 6], [0, 6, 4, 6], [4, 6, 4, 6], [8, 6, 4, 6]], [[0, 0, 6, 4], [6, 0, 6, 4], [0, 4, 6, 4], [6, 4, 6, 4], [0, 8, 6, 4], [6, 8, 6, 4]],
+    [[0, 0, 8, 8], [8, 0, 4, 4], [8, 4, 4, 4], [0, 8, 4, 4], [4, 8, 4, 4], [8, 8, 4, 4]],
+  ];
+  const boxPos = ([c, r, w, h], k) => ({x: c / 12 * 100 + 1, y: r / 12 * 100 + 1, w: w / 12 * 100 - 2, h: h / 12 * 100 - 2, z: k + 1});
+  let boxesOpen = null; // the page whose row of photo boxes is open
+
+  function boxRow(pi) {
+    const row = document.createElement('div');
+    row.className = 'page-tools text-style box-row';
+    const [pw, ph] = SIZES[book.size] || SIZES.a4l;
+    for (const boxes of BOX_LAYOUTS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'box-pick';
+      b.style.aspectRatio = (pw / ph).toFixed(3);
+      b.title = t(boxes.length === 1 ? '1 photo' : boxes.length + ' photos');
+      boxes.forEach((r, k) => {
+        const p = boxPos(r, k), d = document.createElement('i');
+        Object.assign(d.style, {left: p.x + '%', top: p.y + '%', width: p.w + '%', height: p.h + '%', zIndex: p.z});
+        b.appendChild(d);
+      });
+      b.addEventListener('click', () => {
+        let pg = book.pages[pi];
+        if (pg.ids.length !== boxes.length) { pg.n = boxes.length; reflow(); pg = book.pages[pi]; }
+        if (!pg) return;
+        pg.layout = 'free';
+        pg.fillBoxes = true;
+        pg.pos = {};
+        pg.ids.forEach((id, k) => { if (boxes[k]) pg.pos[id] = boxPos(boxes[k], k); });
+        render();
+      });
+      row.appendChild(b);
+    }
+    return row;
+  }
+
+  // addBox puts one more photo on page pi (the next one), in a box of its
+  // own in the middle, picked so it can be sized at once.
+  function addBox(pi) {
+    let pg = book.pages[pi];
+    const grid = document.querySelector(`#pages > .page-wrap[data-pi="${pi}"]:not(.pano-half) .grid`);
+    if (pg.layout !== 'free' && grid) { pg.pos = {...(pg.pos || {}), ...placesNow(grid)}; pg.layout = 'free'; }
+    const had = new Set(pg.ids);
+    pg.n = pg.ids.length + 1;
+    reflow();
+    pg = book.pages[pi];
+    const id = pg && pg.ids.find(x => !had.has(x));
+    if (id == null) return render();
+    const z = 1 + Math.max(0, ...Object.values(pg.pos || {}).map(o => o.z || 0));
+    pg.pos = {...(pg.pos || {}), [id]: {x: 30, y: 30, w: 40, h: 40, z}};
+    cropping = id;
+    render();
   }
 
   // ---------- the toolbox ----------
@@ -3147,7 +3268,7 @@
     b.textContent = t('The photo picked');
     const hint = document.createElement('span');
     hint.className = 'muted small';
-    hint.textContent = t(pg ? 'Drag in the photo to move it in its box; the round handles size the box.' : 'Drag in the photo to move it in its box.');
+    hint.textContent = t('Drag in the photo to move it in its box; the round handles size the box.');
     const slider = (label, min, max, step, value, cls, fn) => {
       const l = document.createElement('label');
       l.className = 'photo-slider';
@@ -3191,6 +3312,25 @@
         if (pg.layout !== 'free') { pg.pos = {...(pg.pos || {}), ...placesNow(slot.closest('.grid'))}; pg.layout = 'free'; }
         const p = pg.pos && pg.pos[key];
         if (!p) return;
+        const w = Math.min(100, Math.max(5, p.w * f)), h = Math.min(100, Math.max(4, p.h * f));
+        p.x = Math.min(100 - w, Math.max(0, p.x + (p.w - w) / 2));
+        p.y = Math.min(100 - h, Math.max(0, p.y + (p.h - h) / 2));
+        p.w = w;
+        p.h = h;
+        render();
+      };
+      tools.append(tool('− Smaller box', 'The box smaller, round its middle', scale(1 / 1.1)), tool('+ Bigger box', 'The box bigger, round its middle', scale(1.1)));
+    } else {
+      // The cover's photo: its box placed freely from where it lies now.
+      const scale = f => () => {
+        const cs = document.querySelector('.cover.cropping'), ph = cs && cs.querySelector('.ph');
+        if (!ph) return;
+        if (book.coverLayout !== 'free') {
+          const c = cs.getBoundingClientRect(), r = ph.getBoundingClientRect();
+          book.coverPos = {x: (r.left - c.left) / c.width * 100, y: (r.top - c.top) / c.height * 100, w: r.width / c.width * 100, h: r.height / c.height * 100};
+          book.coverLayout = 'free';
+        }
+        const p = book.coverPos;
         const w = Math.min(100, Math.max(5, p.w * f)), h = Math.min(100, Math.max(4, p.h * f));
         p.x = Math.min(100 - w, Math.max(0, p.x + (p.w - w) / 2));
         p.y = Math.min(100 - h, Math.max(0, p.y + (p.h - h) / 2));

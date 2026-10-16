@@ -158,6 +158,11 @@ the rest of the repo.
   to move it in its box, eight handles size the box (a grid page becomes
   free as it lies, `gridHandles` + `resume`), zoom and turn are sliders
   in the toolbox (`photoRow`); Escape or a click beside it lets go.
+  "Photo boxes" offers ready-made box layouts (`BOX_LAYOUTS`, 1 to 6
+  photos; the page becomes free and its photos fill their boxes,
+  `pg.fillBoxes`); "+ Photo box" adds the next photo in a box of its
+  own. The cover photo can be placed freely too (`book.coverLayout`
+  "free", `book.coverPos`).
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - Looks: the macOS-style block in `web/app.css`, and after it the
