@@ -3,9 +3,7 @@
   "configurations": [
     {
       "name": "imageorganizer",
-      "runtimeExecutable": "dist/ImageOrganizer/imageorganizer.exe",
-      "runtimeArgs": ["-listen", "127.0.0.1:8420"],
-      "port": 8420
+      "url": "http://127.0.0.1:8420"
     }
   ]
 }
