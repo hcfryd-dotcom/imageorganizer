@@ -162,7 +162,8 @@ the rest of the repo.
   photos; the page becomes free and its photos fill their boxes,
   `pg.fillBoxes`); "+ Photo box" adds the next photo in a box of its
   own. The cover photo can be placed freely too (`book.coverLayout`
-  "free", `book.coverPos`).
+  "free", `book.coverPos`). Each photo's caption can be turned
+  off (T on the photo, or "Caption" in the toolbox; `book.noCap`).
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - Looks: the macOS-style block in `web/app.css`, and after it the

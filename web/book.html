@@ -1799,7 +1799,9 @@
             auto.textContent = text;
             cap.appendChild(auto);
           }
-          slot.appendChild(cap);
+          // Each photo can be without its caption (book.noCap).
+          const capOff = !!(book.noCap || {})[id];
+          if (!capOff) slot.appendChild(cap);
           const pt = document.createElement('div');
           pt.className = 'photo-tools';
           const swap = d => {
@@ -1819,7 +1821,8 @@
             tool('#', 'Move to page…', () => toPage(id)),
             tool('✂', 'Crop and straighten: choose the part of the photo that shows, and turn it', () => { cropping = cropping === id ? null : id; render(); }),
             tool('⇄', 'Swap it for another photo: one from about the same time, or any of the album', () => { swapping = swapping === id ? null : id; render(); }),
-            tool('◐', 'Effect and shape: black and white, sepia, warmer, a circle, a heart…', () => { fxOpen = fxOpen === id ? null : id; render(); }), star, out);
+            tool('◐', 'Effect and shape: black and white, sepia, warmer, a circle, a heart…', () => { fxOpen = fxOpen === id ? null : id; render(); }),
+            tool('T', capOff ? 'Show the caption under this photo' : 'No caption under this photo', () => toggleCap(id), !capOff), star, out);
           slot.appendChild(pt);
           // Dragged onto another photo, it takes that photo's place.
           slot.draggable = cropping !== id && !free;
@@ -3256,6 +3259,14 @@
     box.appendChild(grid);
   }
 
+  // toggleCap shows or hides the caption under photo id (book.noCap).
+  function toggleCap(id) {
+    const off = {...(book.noCap || {})};
+    if (off[id]) delete off[id]; else off[id] = true;
+    book.noCap = off;
+    render();
+  }
+
   // photoRow is the toolbox's part for the photo picked (key: its id, or
   // "c" + id for the cover's): zoom and turning with big sliders, the
   // box bigger or smaller (a page's photo; the page becomes free), all of
@@ -3319,6 +3330,7 @@
         p.h = h;
         render();
       };
+      tools.append(tool((book.noCap || {})[key] ? 'Caption: off' : 'Caption: on', 'Show or hide the caption under this photo', () => toggleCap(key), !(book.noCap || {})[key]));
       tools.append(tool('− Smaller box', 'The box smaller, round its middle', scale(1 / 1.1)), tool('+ Bigger box', 'The box bigger, round its middle', scale(1.1)));
     } else {
       // The cover's photo: its box placed freely from where it lies now.
