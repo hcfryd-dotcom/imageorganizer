@@ -860,12 +860,19 @@
   function moveTo(id, anchor) {
     if (id === anchor) return;
     if (locate(id)[0] < 0) {
-      // A photo new to the book (from "Find photos"): in before the anchor.
+      // A photo new to the book (unused photos, "Find photos"): it takes
+      // the anchor's place and box (where it lies, its size and turn);
+      // the anchor leaves the book, to be used again.
       const [pi, k] = locate(anchor);
       if (pi < 0) return;
-      book.pages[pi].ids.splice(k, 0, id);
+      const pg = book.pages[pi];
+      pg.ids[k] = id;
+      if (pg.pos && pg.pos[anchor]) {
+        pg.pos = {...pg.pos, [id]: {...pg.pos[anchor]}};
+        delete pg.pos[anchor];
+      }
+      if (book.cover === anchor) book.cover = id;
       book.out = book.out.filter(x => x !== id);
-      if (!book.calendar) reflow();
       render();
       return;
     }
@@ -1870,6 +1877,23 @@
           e.preventDefault();
           sec.classList.remove('drop');
           if (!dragged) return;
+          if (locate(dragged)[0] < 0 && pg.ids.length && !month) {
+            // A photo new to the book: one more on this page, in its own
+            // box where it was let go on a page laid out freely.
+            const id = dragged;
+            pg.ids.push(id);
+            pg.n = pg.ids.length;
+            book.out = book.out.filter(x => x !== id);
+            const g = sec.querySelector('.grid'), r = g && g.getBoundingClientRect();
+            if (pg.layout === 'free' && r && r.width) {
+              const z = 1 + Math.max(0, ...Object.values(pg.pos || {}).map(o => o.z || 0));
+              const x = Math.min(60, Math.max(0, (e.clientX - r.left) / r.width * 100 - 20)), y = Math.min(60, Math.max(0, (e.clientY - r.top) / r.height * 100 - 20));
+              pg.pos = {...(pg.pos || {}), [id]: {x, y, w: 40, h: 40, z}};
+              cropping = id;
+            }
+            render();
+            return;
+          }
           if (pg.ids.length) moveTo(dragged, pg.ids[0]);
           else { takeOut(dragged); pg.ids.push(dragged); if (!book.calendar) reflow(); render(); }
         });
