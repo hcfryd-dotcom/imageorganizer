@@ -76,7 +76,7 @@
   .find-results .hit button { position: absolute; right: 4px; bottom: 4px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .65); color: #fff; font-size: 16px; line-height: 26px; padding: 0; cursor: pointer; }
   .find-results .hit button:hover { background: var(--accent); }
   /* A page's own background: colour, and a faint photo behind. */
-  .page.has-bg > *:not(.bgphoto):not(.pnum) { position: relative; z-index: 1; }
+  .page.has-bg > *:not(.bgphoto):not(.pnum):not(.items) { position: relative; z-index: 1; }
   .page .bgphoto { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
   .page .bgphoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .page.dark-bg, .page.dark-bg .page-text, .page.dark-bg .cap, .page.dark-bg .cap .own { color: #f2f2f7; }
@@ -104,6 +104,47 @@
   .cover-collage .ph .cell { position: relative; overflow: hidden; min-width: 0; min-height: 0; border-radius: 1.5mm; }
   .cover-collage .ph .cell img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; border-radius: 0; }
   .part { position: relative; }
+  /* Templates. */
+  .templ-row { flex-wrap: wrap; }
+  .templ { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 6px; background: var(--panel-2); opacity: .55; }
+  .templ.fits { opacity: 1; }
+  /* Turning the pages. */
+  .flip { position: fixed; inset: 0; z-index: 100; background: rgba(20, 20, 24, .92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  .flip-stage { perspective: 2500px; }
+  .flip-book { display: flex; box-shadow: 0 10px 40px rgba(0, 0, 0, .6); }
+  .flip-page { position: relative; overflow: hidden; background: #fff; cursor: pointer; }
+  .flip-page.blank { background: transparent; box-shadow: none; cursor: default; }
+  .flip-page > .page { box-shadow: none !important; margin: 0; }
+  .flip-book .flip-page:first-child:not(.blank) { box-shadow: inset -12px 0 20px -12px rgba(0, 0, 0, .35); }
+  .flip-book.turn-next .flip-page:last-child { animation: flipIn .45s ease-out; transform-origin: left center; }
+  .flip-book.turn-back .flip-page:first-child { animation: flipBack .45s ease-out; transform-origin: right center; }
+  @keyframes flipIn { from { transform: rotateY(-75deg); opacity: .4; } to { transform: none; opacity: 1; } }
+  @keyframes flipBack { from { transform: rotateY(75deg); opacity: .4; } to { transform: none; opacity: 1; } }
+  .flip-bar { display: flex; align-items: center; gap: 10px; color: #fff; font-size: 14px; }
+  .flip-bar .btn { min-width: 44px; color: #1d1d1f; background: #fff; font-size: 16px; }
+  @media print { .flip { display: none !important; } }
+  /* A photo's effect and shape. */
+  .fx-row { flex-wrap: wrap; }
+  .fx-pick { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer; font-size: 10px; color: var(--text); }
+  .fx-pick img { width: 46px; height: 46px; object-fit: cover; display: block; }
+  .fx-pick.on { outline: 2px solid var(--accent); }
+  /* Text boxes and stickers over the page. */
+  .items { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+  .item { pointer-events: auto; box-sizing: border-box; padding: 1.5mm; border-radius: 1.5mm; cursor: move; touch-action: none; }
+  .item:hover, .item.moving { outline: 1px dashed rgba(0, 0, 0, .35); }
+  .item.with-bg { background: rgba(255, 255, 255, .85); box-shadow: 0 .5mm 2mm rgba(0, 0, 0, .15); }
+  .item-text { width: 100%; height: 100%; overflow: hidden; outline: none; cursor: text; text-align: center; white-space: pre-wrap;
+    font: calc(13pt * var(--k, 1))/1.25 -apple-system, "Segoe UI", sans-serif; display: flex; align-items: center; justify-content: center; }
+  .item-text:empty::before { content: attr(data-ph); color: #a1a1a6; }
+  .sticker-item svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .item-tools { position: absolute; left: 0; top: -8mm; display: none; gap: 3px; white-space: nowrap; }
+  .item:hover .item-tools { display: flex; }
+  .item-tools button, .item-tools .grip { width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .65); color: #fff; font-size: 12px; line-height: 24px; padding: 0; cursor: pointer; text-align: center; }
+  .item-tools .grip { cursor: move; display: inline-block; }
+  .sticker-row { flex-wrap: wrap; }
+  .sticker-pick { width: 34px; height: 34px; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer; }
+  .sticker-pick svg { width: 100%; height: 100%; display: block; }
+  @media print { .item-tools { display: none !important; } .item { outline: 0 !important; } .item-text:empty { display: none; } }
   /* Free placement: photos moved and sized by hand. */
   .grid.free { display: block; position: relative; }
   .grid.free .slot { position: absolute; cursor: move; touch-action: none; }
@@ -111,8 +152,15 @@
   .grid.free .slot:hover { outline: 1px dashed rgba(0, 0, 0, .25); outline-offset: 2px; }
   .resize { position: absolute; right: -2mm; bottom: -2mm; width: 5mm; height: 5mm; border-radius: 50%; background: var(--accent); border: 2px solid #fff;
     box-shadow: 0 1px 3px rgba(0, 0, 0, .35); cursor: nwse-resize; z-index: 3; opacity: 0; transition: opacity .15s; touch-action: none; }
-  .grid.free .slot:hover .resize, .grid.free .slot.moving .resize { opacity: 1; }
-  @media print { .resize { display: none !important; } .grid.free .slot { outline: 0 !important; } }
+  .movable { position: absolute; }
+  .movable:hover .resize, .movable.moving .resize, .movable:hover .turn, .movable.moving .turn { opacity: 1; }
+  .turn { position: absolute; left: 50%; top: -6mm; width: 4.5mm; height: 4.5mm; margin-left: -2.25mm; border-radius: 50%; background: #fff; border: 2px solid var(--accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .35); cursor: grab; z-index: 3; opacity: 0; transition: opacity .15s; touch-action: none; }
+  .turn::after { content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 2mm; background: var(--accent); }
+  .guide { position: absolute; z-index: 50; pointer-events: none; background: #ff2d92; }
+  .guide.v { top: 0; bottom: 0; width: 1px; }
+  .guide.h { left: 0; right: 0; height: 1px; }
+  @media print { .resize, .turn, .guide { display: none !important; } .grid.free .slot, .movable { outline: 0 !important; } }
   /* Scattered prints: photos lying askew over each other. */
   .grid.scatter { display: block; position: relative; }
   .grid.scatter .slot { position: absolute; }
@@ -451,6 +499,7 @@
   <span class="small weak" id="weak" title="Marked ⚠ on the pages"></span>
   <span class="small weak" id="odd" hidden title="Print shops mostly want an even number of pages (some a number of 4s). Add or remove a page, e.g. a page of text or the back cover.">Odd number of pages</span>
   <span class="muted small saved" id="saved"></span>
+  <button class="btn" id="flipBtn" title="Look at the book as it opens, turning the pages">Turn the pages</button>
   <button class="btn" id="findBtn" title="Search the whole library and drag photos into the book">Find photos…</button>
   <button class="btn" id="checkBtn" title="Look the book through for what may go wrong in print">Check the book</button>
   <button class="btn" id="shopBtn" title="Print files (PDF) for Lasertryk.dk">For Lasertryk.dk…</button>
@@ -1067,6 +1116,19 @@
     script: ['Script', '"Segoe Script", "Brush Script MT", "Lucida Handwriting", cursive'],
     round: ['Round', '"Trebuchet MS", "Verdana", sans-serif'],
     type: ['Typewriter', '"Courier New", Courier, monospace'],
+    // Fonts of Windows and Office on the owner's machine; printed to PDF
+    // they go into the file, so the print shop needs none of them.
+    gabriola: ['Elegant script', 'Gabriola, "Segoe Script", cursive'],
+    edwardian: ['Wedding script', '"Edwardian Script ITC", "Script MT Bold", cursive'],
+    inkfree: ['Felt pen', '"Ink Free", "Segoe Print", cursive'],
+    kristen: ['Child’s hand', '"Kristen ITC", "Comic Sans MS", cursive'],
+    curlz: ['Curly', '"Curlz MT", "Kristen ITC", cursive'],
+    jokerman: ['Funny', 'Jokerman, "Comic Sans MS", cursive'],
+    cooper: ['Retro', '"Cooper Black", Georgia, serif'],
+    showcard: ['Poster', '"Showcard Gothic", Impact, sans-serif'],
+    sitka: ['Fine serif', '"Sitka Banner", Georgia, serif'],
+    bahn: ['Modern', 'Bahnschrift, "Segoe UI", sans-serif'],
+    oldeng: ['Gothic', '"Old English Text MT", serif'],
   };
   const TSIZES = {s: ['Small', .8], '': ['Normal', 1], l: ['Large', 1.4], xl: ['Very large', 2]};
   const COLORS = ['', '#6e6e73', '#ffffff', '#c0392b', '#d0457a', '#e67e22', '#b8860b', '#2e7d32', '#1f6fbf', '#5b3c88'];
@@ -1177,64 +1239,125 @@
   }
 
   // freeSlot puts photo id where the page says (else in a loose grid) and
-  // lets the mouse move it, and size it by its corner. The page is not
-  // drawn again while dragging; the box is kept when the mouse lets go.
+  // makes it movable (movable).
   function freeSlot(slot, pg, id, k) {
     const n = pg.ids.length, cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
     const p = (pg.pos && pg.pos[id]) || {x: (k % cols) * 100 / cols + 2, y: Math.floor(k / cols) * 100 / rows + 2, w: 100 / cols - 4, h: 100 / rows - 4};
+    movable(slot, p, {
+      skip: () => cropping === id,
+      zOf: () => 1 + Math.max(0, ...Object.values(pg.pos || {}).map(o => o.z || 0), ...(pg.items || []).map(o => o.z || 0)),
+      keep: () => { pg.pos = {...(pg.pos || {}), [id]: {...p}}; save(); requestAnimationFrame(checkPrint); },
+    });
+  }
+
+  // movable lets the mouse move el (a box p in percent of its container:
+  // x, y, w, h, r degrees turned, z on top of), size it by the handle at
+  // its corner and turn it by the one above it. While it moves it snaps
+  // to the middle and edges of the container and of the other movable
+  // boxes there, and guide lines show it. The page is not drawn again
+  // while dragging; opts.keep stores the box when the mouse lets go.
+  function movable(el, p, opts) {
     const place = () => {
-      slot.style.left = p.x + '%';
-      slot.style.top = p.y + '%';
-      slot.style.width = p.w + '%';
-      slot.style.height = p.h + '%';
-      slot.style.zIndex = p.z || 1;
+      el.style.left = p.x + '%';
+      el.style.top = p.y + '%';
+      el.style.width = p.w + '%';
+      el.style.height = p.h + '%';
+      el.style.zIndex = p.z || 1;
+      el.style.transform = p.r ? `rotate(${p.r}deg)` : '';
     };
     place();
-    const keep = () => {
-      pg.pos = {...(pg.pos || {}), [id]: {...p}};
-      save();
-      requestAnimationFrame(checkPrint);
-    };
+    el.classList.add('movable');
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const drag = (e, how) => {
-      if (cropping === id) return;
+      if (opts.skip && opts.skip()) return;
       e.preventDefault();
       e.stopPropagation();
-      const grid = slot.parentElement.getBoundingClientRect();
+      const box = el.parentElement, area = box.getBoundingClientRect();
       const sx = e.clientX, sy = e.clientY, start = {...p};
-      // The photo dragged comes to the top.
-      p.z = 1 + Math.max(0, ...Object.values(pg.pos || {}).map(o => o.z || 0));
-      slot.style.zIndex = p.z;
-      slot.classList.add('moving');
+      p.z = opts.zOf ? opts.zOf() : (p.z || 1);
+      el.style.zIndex = p.z;
+      el.classList.add('moving');
+      // What it may snap to: the container's middle and edges, and the
+      // other boxes' (in percent of the container).
+      const xs = [0, 50, 100], ys = [0, 50, 100];
+      for (const o of el.closest('.page').querySelectorAll('.movable')) {
+        if (o === el) continue;
+        const r = o.getBoundingClientRect();
+        const l = (r.left - area.left) / area.width * 100, t_ = (r.top - area.top) / area.height * 100;
+        const w = r.width / area.width * 100, h = r.height / area.height * 100;
+        xs.push(l, l + w / 2, l + w);
+        ys.push(t_, t_ + h / 2, t_ + h);
+      }
+      const guides = [];
+      const guide = (dir, at) => {
+        const g = document.createElement('div');
+        g.className = 'guide ' + dir;
+        g.style[dir === 'v' ? 'left' : 'top'] = at + '%';
+        box.appendChild(g);
+        guides.push(g);
+      };
+      const snap = (vals, lines, size) => {
+        // The nearest of the box's edges and middle to a line, within 1.2%.
+        let best = null;
+        for (const [i, v] of vals.entries()) for (const l of lines) {
+          const d = l - v;
+          if (Math.abs(d) <= 1.2 && (!best || Math.abs(d) < Math.abs(best.d))) best = {d, l, i};
+        }
+        return best;
+      };
       const move = ev => {
-        const dx = (ev.clientX - sx) / grid.width * 100, dy = (ev.clientY - sy) / grid.height * 100;
+        const dx = (ev.clientX - sx) / area.width * 100, dy = (ev.clientY - sy) / area.height * 100;
+        guides.splice(0).forEach(g => g.remove());
         if (how === 'move') {
           p.x = clamp(start.x + dx, 0, 100 - p.w); // kept on the page: what lies off it is cut away
           p.y = clamp(start.y + dy, 0, 100 - p.h);
+          if (!ev.altKey) { // Alt: no snapping
+            const sxv = snap([p.x, p.x + p.w / 2, p.x + p.w], xs), syv = snap([p.y, p.y + p.h / 2, p.y + p.h], ys);
+            if (sxv) { p.x += sxv.d; guide('v', sxv.l); }
+            if (syv) { p.y += syv.d; guide('h', syv.l); }
+          }
+        } else if (how === 'size') {
+          p.w = clamp(start.w + dx, 5, 100 - start.x);
+          p.h = clamp(start.h + dy, 4, 100 - start.y);
+          if (!ev.altKey) {
+            const sxv = snap([p.x + p.w], xs), syv = snap([p.y + p.h], ys);
+            if (sxv) { p.w += sxv.d; guide('v', sxv.l); }
+            if (syv) { p.h += syv.d; guide('h', syv.l); }
+          }
         } else {
-          p.w = clamp(start.w + dx, 8, 100 - start.x);
-          p.h = clamp(start.h + dy, 8, 100 - start.y);
+          // Turning: the angle from the box's middle to the mouse, in
+          // steps of 1 degree, catching at 0 and multiples of 45.
+          const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+          let a = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI + 90;
+          a = Math.round(((a + 540) % 360) - 180);
+          for (const c of [-180, -135, -90, -45, 0, 45, 90, 135, 180]) if (Math.abs(a - c) <= 3 && !ev.altKey) a = c;
+          p.r = a === 180 || a === -180 ? 180 : a;
         }
         place();
       };
       const up = () => {
         removeEventListener('pointermove', move);
         removeEventListener('pointerup', up);
-        slot.classList.remove('moving');
-        keep();
+        guides.splice(0).forEach(g => g.remove());
+        el.classList.remove('moving');
+        opts.keep();
       };
       addEventListener('pointermove', move);
       addEventListener('pointerup', up);
     };
-    slot.addEventListener('pointerdown', e => {
-      if (e.button !== 0 || e.target.closest('button, .cap, .resize, .crop-bar')) return;
+    el.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || e.target.closest('button, .cap, .resize, .turn, .crop-bar, .item-text, select, input')) return;
       drag(e, 'move');
     });
     const handle = document.createElement('div');
     handle.className = 'resize';
     handle.title = t('Drag to make it bigger or smaller');
     handle.addEventListener('pointerdown', e => drag(e, 'size'));
-    slot.appendChild(handle);
+    const turn = document.createElement('div');
+    turn.className = 'turn';
+    turn.title = t('Drag to turn it');
+    turn.addEventListener('pointerdown', e => drag(e, 'turn'));
+    el.append(handle, turn);
   }
 
   // scatterSlot places photo k of count on a scattered page: in its cell
@@ -1416,6 +1539,7 @@
           const img = slot.querySelector('img');
           img.src = imgSrc(im);
           img.dataset.id = id;
+          photoLook(img, id);
           if (book.tilt && book.tilt[id]) img.dataset.tilt = book.tilt[id];
           img.draggable = false; // the slot is what drags
           const c = book.crop && book.crop[id];
@@ -1464,7 +1588,8 @@
           pt.append(tool('←', 'Move it back', () => swap(-1)), tool('→', 'Move it on', () => swap(1)),
             tool('#', 'Move to page…', () => toPage(id)),
             tool('✂', 'Crop and straighten: choose the part of the photo that shows, and turn it', () => { cropping = cropping === id ? null : id; render(); }),
-            tool('⇄', 'Swap it for another photo from about the same time', () => { swapping = swapping === id ? null : id; render(); }), star, out);
+            tool('⇄', 'Swap it for another photo from about the same time', () => { swapping = swapping === id ? null : id; render(); }),
+            tool('◐', 'Effect and shape: black and white, sepia, warmer, a circle, a heart…', () => { fxOpen = fxOpen === id ? null : id; render(); }), star, out);
           slot.appendChild(pt);
           // Dragged onto another photo, it takes that photo's place.
           slot.draggable = cropping !== id && !free;
@@ -1528,7 +1653,10 @@
         tools.append(tool(pg.text != null ? 'Remove text' : '+ Text', '', () => { pg.text = pg.text != null ? null : ''; render(); }));
         if (pg.text != null) tools.append(styleButton(pi));
       }
-      tools.append(pageDesign(pg));
+      tools.append(pageDesign(pg),
+        tool('+ Text box', 'A text you place where you like on the page, also over photos', () => { addItem(pg, {type: 'text', x: 25, y: 40, w: 50, h: 14, text: '', style: {size: 'l'}, bg: true}); render(); }),
+        tool('+ Sticker', 'Hearts, stars, balloons and more to put on the page', () => { stickersOpen = stickersOpen === pi ? null : pi; render(); }, stickersOpen === pi),
+        tool('Template', 'Save this page as a template, or use one', () => { templOpen = templOpen === pi ? null : pi; render(); }, templOpen === pi));
       tools.append(tool('Background', 'A colour or a faint photo behind the page', () => { bgOpen = bgOpen === pi ? null : pi; render(); }, bgOpen === pi || !!pg.bg),
         tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: ''}); render(); }),
         tool('+ Map', 'A page with a map of where the photos were taken, after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: null, map: true}); render(); }));
@@ -1536,10 +1664,15 @@
       if (styling === pi) wrap.append(styleRow(() => pg));
       if (book.pageNums) sec.appendChild(pageNum(at));
       pageBackground(sec, pg);
+      sec.appendChild(itemsLayer(pg, pi));
+      if (stickersOpen === pi) wrap.append(stickerRow(pg));
+      if (typeof styling === 'string' && styling.startsWith('it-' + pi + '-')) { const it = (pg.items || [])[+styling.split('-')[2]]; if (it) wrap.append(styleRow(() => it)); }
+      if (templOpen === pi) wrap.append(templateRow(pg, pi));
       if (bgOpen === pi) wrap.append(backgroundRow(pg));
       wrap.append(sec);
       root.appendChild(wrap);
       if (swapping != null && pg.ids.includes(swapping)) wrap.append(alternatives(swapping));
+      if (fxOpen != null && pg.ids.includes(fxOpen)) wrap.append(fxRow(fxOpen));
       if (pano) root.appendChild(panoRight(pg, at + 1));
     });
 
@@ -1914,6 +2047,293 @@
     await runChecks($('shopCheck'));
   }
 
+  // ---------- page templates ----------
+
+  // A template is how a page with n photos looks: its layout, where its
+  // photos lie (by their order), its text boxes and stickers, background
+  // colour and design. Kept with the book (book.templates) and, to use in
+  // other books, in this browser too.
+  let templOpen = null; // the page whose template row is open
+  function templates() {
+    let mine = [];
+    try { mine = JSON.parse(localStorage.getItem('bookTemplates') || '[]'); } catch (e) {}
+    const all = [...(book.templates || [])];
+    for (const tp of mine) if (!all.some(o => o.name === tp.name)) all.push(tp);
+    return all;
+  }
+  function storeTemplates(list) {
+    book.templates = list;
+    try { localStorage.setItem('bookTemplates', JSON.stringify(list)); } catch (e) {}
+  }
+  function templateOf(pg, name) {
+    return {
+      name, n: pg.ids.length, layout: pg.layout || null, full: !!pg.full, theme: pg.theme ?? null,
+      pos: pg.ids.map(id => (pg.pos || {})[id] || null),
+      items: JSON.parse(JSON.stringify(pg.items || [])),
+      bg: pg.bg && pg.bg.color ? {color: pg.bg.color} : null,
+      text: pg.text != null ? '' : null,
+    };
+  }
+  function applyTemplate(tp, pg) {
+    if (pg.n > 0 && pg.ids.length !== tp.n) return false;
+    pg.layout = tp.layout || undefined;
+    pg.full = tp.full;
+    if (tp.theme != null) pg.theme = tp.theme; else delete pg.theme;
+    pg.pos = {};
+    pg.ids.forEach((id, k) => { if (tp.pos[k]) pg.pos[id] = {...tp.pos[k]}; });
+    pg.items = JSON.parse(JSON.stringify(tp.items || []));
+    if (tp.bg) pg.bg = {...tp.bg}; else delete pg.bg;
+    if (tp.text != null && pg.text == null) pg.text = '';
+    return true;
+  }
+  function templateRow(pg, pi) {
+    const row = document.createElement('div');
+    row.className = 'page-tools text-style templ-row';
+    row.appendChild(tool('Save this page as a template', '', () => {
+      const name = prompt(t('A name for the template:'), t('Page with ' + pg.ids.length + ' photos'));
+      if (!name) return;
+      storeTemplates([...templates().filter(o => o.name !== name), templateOf(pg, name.trim())]);
+      render();
+    }));
+    const list = templates();
+    if (!list.length) row.appendChild(document.createTextNode(t('No templates saved yet.')));
+    for (const tp of list) {
+      const box = document.createElement('span');
+      box.className = 'templ' + (tp.n === pg.ids.length ? ' fits' : '');
+      const b = document.createElement('b');
+      b.textContent = tp.name + ' (' + t(tp.n + (tp.n === 1 ? ' photo' : ' photos')) + ')';
+      box.appendChild(b);
+      if (tp.n === pg.ids.length) {
+        box.append(tool('Use here', '', () => { applyTemplate(tp, pg); render(); }),
+          tool('On all pages with ' + tp.n, 'Every page with as many photos gets it', () => {
+            let k = 0;
+            for (const p of book.pages) if (p.n > 0 && p.month == null && p.ids.length === tp.n && applyTemplate(tp, p)) k++;
+            render();
+            alert(t(k + (k === 1 ? ' page changed' : ' pages changed')));
+          }));
+      }
+      box.appendChild(tool('×', 'Delete the template', () => { storeTemplates(templates().filter(o => o !== tp)); render(); }));
+      row.appendChild(box);
+    }
+    return row;
+  }
+
+  // ---------- turning the pages (a look at the book as bound) ----------
+
+  // flipView shows the book as it opens, two pages at a time, the cover
+  // alone first; ← → (or the arrows, or a click on a page) turn the pages
+  // and Esc closes. The pages shown are copies, so nothing in them can
+  // be changed there.
+  function flipView() {
+    const pages = [...document.querySelectorAll('#pages > .page-wrap:not(.spread-wrap) > section.page')];
+    if (!pages.length) return;
+    const spreads = [[null, pages[0]]];
+    for (let i = 1; i < pages.length; i += 2) spreads.push([pages[i], pages[i + 1] || null]);
+    const ov = document.createElement('div');
+    ov.className = 'flip';
+    ov.innerHTML = '<div class="flip-stage"></div><div class="flip-bar"><button class="btn" data-go="-1">‹</button><span class="flip-at"></span><button class="btn" data-go="1">›</button><button class="btn" data-close>✕</button></div>';
+    document.body.appendChild(ov);
+    const stage = ov.querySelector('.flip-stage');
+    const w = pages[0].offsetWidth, h = pages[0].offsetHeight;
+    const copy = sec => {
+      const holder = document.createElement('div');
+      holder.className = 'flip-page';
+      holder.style.width = w + 'px';
+      holder.style.height = h + 'px';
+      if (sec) {
+        const c = sec.cloneNode(true);
+        c.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
+        c.querySelectorAll('.photo-tools, .item-tools, .resize, .turn, .lowres, .crop-bar, .crop-hint, .crop-grid, .page-text:empty, .cap .own:empty').forEach(e => e.remove());
+        holder.appendChild(c);
+      } else holder.classList.add('blank');
+      return holder;
+    };
+    let at = 0;
+    const show = dir => {
+      const scale = Math.min(innerWidth * .92 / (2 * w), (innerHeight - 90) / h);
+      stage.textContent = '';
+      const book_ = document.createElement('div');
+      book_.className = 'flip-book' + (dir > 0 ? ' turn-next' : dir < 0 ? ' turn-back' : '');
+      book_.style.zoom = scale;
+      const [l, r] = spreads[at];
+      book_.append(copy(l), copy(r));
+      stage.appendChild(book_);
+      ov.querySelector('.flip-at').textContent = (at + 1) + ' / ' + spreads.length;
+    };
+    const go = d => { const n = at + d; if (n < 0 || n >= spreads.length) return; at = n; show(d); };
+    const key = e => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+      else if (e.key === 'Escape') close();
+    };
+    const close = () => { removeEventListener('keydown', key, true); ov.remove(); };
+    addEventListener('keydown', key, true);
+    ov.addEventListener('click', e => {
+      const b = e.target.closest('[data-go], [data-close]');
+      if (b) return b.dataset.close != null ? close() : go(+b.dataset.go);
+      const p = e.target.closest('.flip-page');
+      if (p) go(p === p.parentElement.lastElementChild ? 1 : -1);
+    });
+    show(0);
+  }
+
+  // ---------- a photo's effect and shape ----------
+
+  // Effects (book.fx[id]) are filters on the page only; the photo files
+  // are not touched. Shapes (book.shape[id]) cut the photo to a form.
+  const FX = {
+    bw: 'grayscale(1) contrast(1.05)',
+    sepia: 'sepia(.85) contrast(1.02)',
+    warm: 'sepia(.25) saturate(1.25) hue-rotate(-8deg)',
+    cool: 'saturate(.9) hue-rotate(12deg) brightness(1.02)',
+    vivid: 'saturate(1.45) contrast(1.08)',
+    soft: 'saturate(.6) brightness(1.08) contrast(.92)',
+  };
+  const FX_NAMES = [['', 'Normal'], ['bw', 'Black and white'], ['sepia', 'Sepia'], ['warm', 'Warmer'], ['cool', 'Cooler'], ['vivid', 'Strong colours'], ['soft', 'Pale']];
+  const SHAPE_NAMES = [['', 'As it is'], ['round', 'Rounded corners'], ['circle', 'Circle'], ['ellipse', 'Oval'], ['heart', 'Heart']];
+  const HEART_MASK = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 92\'%3E%3Cpath d=\'M50 90C18 66 2 50 2 30A24 24 0 0150 18 24 24 0 0198 30c0 20-16 36-48 60z\'/%3E%3C/svg%3E")';
+  let fxOpen = null; // the photo whose effect row is open
+
+  // photoLook gives a photo on the page its effect and shape.
+  function photoLook(img, id) {
+    photoLookShape(img, (book.shape || {})[id]);
+    img.style.filter = FX[(book.fx || {})[id]] || '';
+  }
+
+  function fxRow(id) {
+    const im = byId.get(id);
+    const row = document.createElement('div');
+    row.className = 'page-tools text-style fx-row';
+    const group = (label, names, key) => {
+      row.appendChild(document.createTextNode(t(label)));
+      for (const [v, name] of names) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'fx-pick' + (((book[key] || {})[id] || '') === v ? ' on' : '');
+        const i = document.createElement('img');
+        i.src = thumb(im);
+        if (key === 'fx') i.style.filter = FX[v] || '';
+        else photoLookShape(i, v);
+        const s = document.createElement('span');
+        s.textContent = t(name);
+        b.append(i, s);
+        b.addEventListener('click', () => {
+          const m = {...(book[key] || {})};
+          if (v) m[id] = v; else delete m[id];
+          book[key] = m;
+          render();
+        });
+        row.appendChild(b);
+      }
+    };
+    group('Effect', FX_NAMES, 'fx');
+    group('Shape', SHAPE_NAMES, 'shape');
+    row.appendChild(tool('Close', '', () => { fxOpen = null; render(); }));
+    return row;
+  }
+  function photoLookShape(img, shape) {
+    img.style.clipPath = shape === 'circle' ? 'circle(closest-side)' : shape === 'ellipse' ? 'ellipse(50% 50%)' : '';
+    img.style.borderRadius = shape === 'round' ? '12%' : '';
+    const mask = shape === 'heart' ? HEART_MASK + ' center / contain no-repeat' : '';
+    img.style.webkitMask = mask;
+    img.style.mask = mask;
+  }
+
+  // ---------- things placed on a page: text boxes and stickers ----------
+
+  // pg.items: boxes over the whole page (percent of it), each a text
+  // ({type: "text", text, style, bg}) or a sticker ({type: "sticker",
+  // kind, color}); moved, sized and turned by hand (movable).
+  let stickersOpen = null; // the page whose sticker row is open
+  const STICKER_COLORS = ['#e8374f', '#ff8a00', '#f5c400', '#34a853', '#2f7de1', '#8e44ad', '#ff6fae', '#ffffff', '#1d1d1f'];
+  // Stickers, drawn in a 100×100 box; {c} is the colour, {d} a darker one.
+  const STICKERS = {
+    heart: '<path d="M50 88C20 66 6 50 6 32A22 22 0 0150 22 22 22 0 0194 32c0 18-14 34-44 56z" fill="{c}"/>',
+    star: '<path d="M50 6l13 28 30 3-23 20 7 30-27-16-27 16 7-30L7 37l30-3z" fill="{c}"/>',
+    balloon: '<ellipse cx="50" cy="38" rx="28" ry="33" fill="{c}"/><path d="M46 70h8l-4 6z" fill="{c}"/><path d="M50 76c-6 8 6 12 0 22" stroke="#555" stroke-width="1.5" fill="none"/><ellipse cx="40" cy="26" rx="6" ry="10" fill="#fff" opacity=".35"/>',
+    sun: '<circle cx="50" cy="50" r="22" fill="{c}"/><g stroke="{c}" stroke-width="6" stroke-linecap="round"><path d="M50 6v12M50 82v12M6 50h12M82 50h12M19 19l8 8M73 73l8 8M81 19l-8 8M27 73l-8 8"/></g>',
+    flower: '<g fill="{c}"><circle cx="50" cy="24" r="16"/><circle cx="76" cy="44" r="16"/><circle cx="66" cy="74" r="16"/><circle cx="34" cy="74" r="16"/><circle cx="24" cy="44" r="16"/></g><circle cx="50" cy="52" r="12" fill="#ffd23f"/>',
+    bubble: '<path d="M10 14h80a6 6 0 016 6v44a6 6 0 01-6 6H40L22 88l4-18H10a6 6 0 01-6-6V20a6 6 0 016-6z" fill="#fff" stroke="{c}" stroke-width="4"/>',
+    arrow: '<path d="M8 58c22-30 52-36 70-24" stroke="{c}" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M66 22l18 12-16 16" stroke="{c}" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    crown: '<path d="M10 76L16 30l20 22 14-30 14 30 20-22 6 46z" fill="{c}"/><rect x="10" y="76" width="80" height="10" rx="3" fill="{c}"/>',
+    flags: '<path d="M2 14Q50 34 98 14" stroke="#777" stroke-width="2" fill="none"/><g fill="{c}"><path d="M8 17l12 4-4 18z"/><path d="M38 24l12 1-6 18z" opacity=".75"/><path d="M62 24l12-2-4 18z"/><path d="M86 18l10-3-2 18z" opacity=".75"/></g>',
+    cake: '<rect x="18" y="50" width="64" height="36" rx="5" fill="{c}"/><path d="M18 60q8 8 16 0t16 0 16 0 16 0" stroke="#fff" stroke-width="4" fill="none"/><g fill="#ffd23f"><rect x="32" y="30" width="5" height="20"/><rect x="48" y="30" width="5" height="20"/><rect x="64" y="30" width="5" height="20"/></g><g fill="#ff8a00"><ellipse cx="34.5" cy="25" rx="3" ry="5"/><ellipse cx="50.5" cy="25" rx="3" ry="5"/><ellipse cx="66.5" cy="25" rx="3" ry="5"/></g>',
+    gift: '<rect x="14" y="40" width="72" height="48" rx="4" fill="{c}"/><rect x="10" y="30" width="80" height="14" rx="3" fill="{c}"/><rect x="45" y="30" width="10" height="58" fill="#ffd23f"/><path d="M50 30c-8-16-28-14-20-2M50 30c8-16 28-14 20-2" stroke="#ffd23f" stroke-width="5" fill="none"/>',
+    camera: '<rect x="8" y="28" width="84" height="56" rx="8" fill="{c}"/><rect x="32" y="18" width="28" height="14" rx="3" fill="{c}"/><circle cx="50" cy="56" r="18" fill="#fff"/><circle cx="50" cy="56" r="11" fill="{c}"/>',
+  };
+  function stickerSVG(kind, color) {
+    return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' + (STICKERS[kind] || '').replaceAll('{c}', color || '#e8374f') + '</svg>';
+  }
+  function addItem(pg, it) {
+    it.z = 10 + (pg.items || []).length;
+    pg.items = [...(pg.items || []), it];
+  }
+
+  function itemsLayer(pg, pi) {
+    const layer = document.createElement('div');
+    layer.className = 'items';
+    (pg.items || []).forEach((it, idx) => {
+      const el = document.createElement('div');
+      el.className = 'item ' + it.type + '-item' + (it.bg ? ' with-bg' : '');
+      if (it.type === 'text') {
+        const tx = document.createElement('div');
+        tx.className = 'item-text';
+        tx.contentEditable = 'true';
+        tx.dataset.ph = t('Write here');
+        tx.textContent = it.text || '';
+        textStyle(tx, it.style);
+        tx.addEventListener('input', () => { it.text = tx.innerText.replace(/\n$/, ''); save(true); });
+        el.appendChild(tx);
+      } else {
+        el.innerHTML = stickerSVG(it.kind, it.color);
+      }
+      const bar = document.createElement('div');
+      bar.className = 'item-tools';
+      const grip = document.createElement('span');
+      grip.className = 'grip';
+      grip.textContent = '✥';
+      grip.title = t('Drag to move it');
+      bar.appendChild(grip);
+      if (it.type === 'text') {
+        const key = 'it-' + pi + '-' + idx;
+        bar.append(tool('Aa', 'How the text looks: font, size, colour', () => { styling = styling === key ? null : key; render(); }),
+          tool('▢', 'A light box behind the text, or none', () => { it.bg = !it.bg; render(); }));
+      } else {
+        bar.append(tool('●', 'Another colour', () => {
+          const i = STICKER_COLORS.indexOf(it.color);
+          it.color = STICKER_COLORS[(i + 1) % STICKER_COLORS.length];
+          render();
+        }));
+      }
+      bar.append(tool('⧉', 'One more like it', () => { addItem(pg, {...it, x: Math.min(it.x + 4, 100 - it.w), y: Math.min(it.y + 4, 100 - it.h)}); render(); }),
+        tool('×', 'Remove it', () => { pg.items = pg.items.filter(x => x !== it); render(); }));
+      el.appendChild(bar);
+      movable(el, it, {
+        zOf: () => 1 + Math.max(10, ...(pg.items || []).map(o => o.z || 0), ...Object.values(pg.pos || {}).map(o => o.z || 0)),
+        keep: () => save(),
+      });
+      layer.appendChild(el);
+    });
+    return layer;
+  }
+
+  function stickerRow(pg) {
+    const row = document.createElement('div');
+    row.className = 'page-tools text-style sticker-row';
+    for (const kind of Object.keys(STICKERS)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sticker-pick';
+      b.innerHTML = stickerSVG(kind, '#e8374f');
+      b.title = t('Put it on the page');
+      b.addEventListener('click', () => { addItem(pg, {type: 'sticker', kind, color: '#e8374f', x: 40, y: 35, w: 14, h: 14 * pageRatio(), r: 0}); render(); });
+      row.appendChild(b);
+    }
+    return row;
+  }
+  // pageRatio makes a square on the page: width over height.
+  const pageRatio = () => { const [w, h] = SIZES[book.size] || SIZES.a4l; return w / h; };
+
   // pageDesign is a page's own choice of design: the book's, none, or
   // another (pg.theme; undefined is the book's, "none" none).
   function pageDesign(pg) {
@@ -2147,8 +2567,9 @@
         }
       }
       const l = f.look && f.look.light;
-      img.style.filter = book.enhance && l != null
+      const lift = book.enhance && l != null
         ? `brightness(${l < .42 ? Math.min(1.35, 1 + (.45 - l) * 1.3) : l > .78 ? .96 : 1}) contrast(1.07) saturate(1.06)` : '';
+      img.style.filter = [lift, FX[(book.fx || {})[id]] || ''].filter(Boolean).join(' ');
     }
   }
 
@@ -2570,6 +2991,7 @@
   $('filtersBtn').addEventListener('click', () => panel('filters'));
   $('checkBtn').addEventListener('click', () => { if (panel('check')) runChecks($('checkList')); });
   $('findBtn').addEventListener('click', () => { if (panel('find')) $('findQ').focus(); });
+  $('flipBtn').addEventListener('click', flipView);
   $('findQ').addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(findPhotos, 400); });
   $('shopBtn').addEventListener('click', () => { if (panel('shop')) openShop(); });
   $('shopSize').addEventListener('change', () => {
