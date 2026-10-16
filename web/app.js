@@ -20,6 +20,7 @@ const icons = {
   up: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
   info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>',
+  broom: '<svg viewBox="0 0 24 24"><path d="M14 3l-3.5 9M7 12h7l2 9H5z"/><path d="M8.5 16l-.5 5M12 16v5"/></svg>',
   download: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
   camera: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   image: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M21 15l-5-5L5 21"/></svg>',
@@ -73,6 +74,7 @@ document.addEventListener('alpine:init', () => {
       {id: 'map', label: 'Map', icon: 'map'},
       {id: 'table', label: 'Table', icon: 'table'},
       {id: 'folders', label: 'Folders', icon: 'folder'},
+      {id: 'cleanup', label: 'Cleanup', icon: 'broom'},
     ],
     ready: false,
     view: 'photos',
@@ -171,6 +173,16 @@ document.addEventListener('alpine:init', () => {
     assign: {face: null, group: null, name: '', busy: false},
     // groupPop: all the faces of a face's group, in a window over the photo.
     groupPop: {open: false, gid: 0, size: 0, faces: [], loading: false, g: null, sugg: [], out: new Set(), name: '', busy: false},
+    // Cleanup page: photos one may want rid of, by kind; the ones chosen
+    // are moved to the deleted-photos folder.
+    clean: {kind: 'receipts', items: [], loading: false, error: '', show: 60, chosen: new Set(), busy: false},
+    cleanKinds: [
+      {id: 'receipts', label: 'Receipts', hint: 'Photos of receipts from shops, the likeliest first.', ranked: true},
+      {id: 'papers', label: 'Papers and documents', hint: 'Letters, forms, notes, signs and whiteboards, the likeliest first.', ranked: true},
+      {id: 'shots', label: 'Screenshots', hint: 'Pictures of a phone’s or computer’s screen, newest first.'},
+      {id: 'blurry', label: 'Blurry photos', hint: 'Photos with little fine detail, the blurriest first.'},
+      {id: 'copies', label: 'Near copies', hint: 'Photos taken within a minute of each other that look alike. The best of each (a favourite, else the sharpest) is kept.'},
+    ],
     // Copying a person's photos out into a folder, one subfolder per year.
     exportForm: {open: false, dir: '', confirmedOnly: false, byPlace: '', busy: false, status: null},
     // Folders page: the whole library copied into one tidy folder.
@@ -396,6 +408,7 @@ document.addEventListener('alpine:init', () => {
       if (v === 'family') this.loadPeople();
       if (v === 'albums') this.loadAlbums();
       if (v === 'books') this.loadBooks();
+      if (v === 'cleanup') this.loadClean();
       if (v === 'photos') this.$nextTick(() => this.layout());
     },
     isPhotoView() { return ['photos', 'table', 'map'].includes(this.view); },
@@ -2210,6 +2223,83 @@ document.addEventListener('alpine:init', () => {
       this.$nextTick(() => this.$refs.review && this.$refs.review.scrollTo({top: 0}));
     },
     closeGroup() { this.reviewGroup = 0; this.reviewFocus = null; this.writeHash(); },
+    // ---------- cleanup ----------
+    async loadClean(kind) {
+      const c = this.clean;
+      if (kind) c.kind = kind;
+      const k = c.kind;
+      c.loading = true;
+      c.error = '';
+      c.items = [];
+      c.chosen = new Set();
+      try {
+        const r = await api(`/api/cleanup/${k}?n=600`);
+        if (this.clean.kind !== k) return;
+        c.items = r.items || [];
+        c.show = this.cleanKind().ranked ? 60 : Math.min(c.items.length, 200);
+        c.prevShow = c.show;
+        this.cleanPreselect();
+      } catch (e) {
+        c.error = e.message;
+      } finally {
+        if (this.clean.kind === k) c.loading = false;
+      }
+    },
+    cleanKind() { return this.cleanKinds.find(k => k.id === this.clean.kind) || this.cleanKinds[0]; },
+    // cleanShown: the photos on show now (the slider says how many).
+    cleanShown() { return this.clean.items.slice(0, this.clean.show); },
+    // What is chosen to go at first: all shown but the ones to keep, the
+    // favourites and the rated.
+    cleanPreselect() {
+      this.clean.chosen = new Set(this.cleanShown().filter(it => !it.keep && !it.fav && !it.rating).map(it => it.id));
+    },
+    cleanToggle(it) {
+      if (it.keep) return;
+      const s = new Set(this.clean.chosen);
+      s.has(it.id) ? s.delete(it.id) : s.add(it.id);
+      this.clean.chosen = s;
+    },
+    // cleanSlid: more shown by the slider; those come chosen as at first,
+    // what was chosen or not before stays so.
+    cleanSlid() {
+      const c = this.clean, from = c.prevShow || 0;
+      if (c.show > from) {
+        const s = new Set(c.chosen);
+        for (const it of c.items.slice(from, c.show)) if (!it.keep && !it.fav && !it.rating) s.add(it.id);
+        c.chosen = s;
+      }
+      c.prevShow = Math.max(from, c.show);
+    },
+    cleanAll(on) { on ? this.cleanPreselect() : this.clean.chosen = new Set(); },
+    // cleanCount: how many chosen of those on show (only those go).
+    cleanCount() { return this.cleanShown().filter(it => this.clean.chosen.has(it.id)).length; },
+    // A new set in the list of near copies starts a new row.
+    cleanNewSet(it, i) { return this.clean.kind === 'copies' && i > 0 && this.cleanShown()[i - 1].set !== it.set; },
+    async cleanDelete() {
+      const c = this.clean;
+      const ids = this.cleanShown().filter(it => c.chosen.has(it.id)).map(it => it.id);
+      if (!ids.length || c.busy) return;
+      let trash = '';
+      try { trash = localStorage.getItem('trashDir') || ''; } catch (e) {}
+      if (!trash) trash = (await api('/api/trash').catch(() => ({}))).default || '';
+      if (!trash) return;
+      if (!confirm(`Move ${fmtCount(ids.length)} photos to the deleted-photos folder?\n\n${trash}\n\nNothing is erased: the files are moved there, and moving them back brings them back.`)) return;
+      c.busy = true;
+      try {
+        const res = await api('/api/images/delete', {method: 'POST', body: JSON.stringify({ids, trash})});
+        try { localStorage.setItem('trashDir', res.trash); } catch (e) {}
+        const gone = new Set(ids);
+        c.items = c.items.filter(it => !gone.has(it.id));
+        c.chosen = new Set([...c.chosen].filter(id => !gone.has(id)));
+        if (res.failed) this.notify(`Moved ${fmtCount(res.deleted)}; ${res.failed} couldn’t be: ${(res.errors || []).join('; ')}`, 9000);
+        else this.notify(`Moved ${fmtCount(res.deleted)} photos to ${res.trash}`, 6000);
+        this.peopleChanged();
+      } catch (e) {
+        this.notify(`Couldn’t delete: ${e.message}`, 8000);
+      } finally {
+        c.busy = false;
+      }
+    },
     // openGroupPop shows all the faces of group gid in a window over the
     // photo, without leaving it; a face clicked opens its photo.
     async openGroupPop(gid) {

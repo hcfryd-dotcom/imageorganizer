@@ -169,6 +169,15 @@ the rest of the repo.
   its date, place and who shown or not apart from the book (`book.capOwn`). Texts: a font
   of 17, a size in points (`style.pt`, typed or − +), bold, italic, a
   colour of the row or any, and alignment.
+- Cleanup (sidebar "Cleanup", `store/cleanup.go`, `server/cleanup.go`,
+  `/api/cleanup/{receipts|papers|shots|blurry|copies}`): receipts and
+  papers by meaning (mean likeness to a few texts minus likeness to
+  screenshots, people and places; screenshots left out), screenshots (PNG
+  with no camera, or named so), blurry photos, and near copies (within
+  60 s and perceptual hash within 10 bits; a favourite or rated one, else
+  the sharpest, is kept). The page only lists; the photos chosen go
+  through `/api/images/delete` (moved to the deleted-photos folder) after
+  a confirm. Favourites and rated photos are never chosen by themselves.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - Looks: the macOS-style block in `web/app.css`, and after it the

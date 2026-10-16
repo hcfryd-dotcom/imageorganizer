@@ -1174,6 +1174,46 @@
   </section>
 
   <!-- Photo books (web/book.html), saved in the library -->
+  <!-- Cleanup: photos one may want rid of; the ones chosen are moved to the deleted-photos folder -->
+  <section class="cleanup" x-show="view === 'cleanup'" x-cloak>
+    <div class="people-head">
+      <h2>Cleanup</h2>
+    </div>
+    <div class="clean-tabs">
+      <template x-for="k in cleanKinds" :key="k.id">
+        <button class="dq-tab" :class="{on: clean.kind === k.id}" @click="loadClean(k.id)" x-text="k.label"></button>
+      </template>
+    </div>
+    <p class="muted" x-text="cleanKind().hint"></p>
+    <div class="clean-bar" x-show="clean.items.length">
+      <label class="clean-show" x-show="clean.items.length > 30">
+        <span x-text="'Show ' + clean.show + ' of ' + fmtCount(clean.items.length)"></span>
+        <input type="range" min="10" :max="clean.items.length" step="10" x-model.number="clean.show" @change="cleanSlid()">
+      </label>
+      <span class="grow"></span>
+      <button class="btn ghost" @click="cleanAll(true)">Choose all</button>
+      <button class="btn ghost" @click="cleanAll(false)">Choose none</button>
+      <button class="btn danger" :disabled="!cleanCount() || clean.busy" @click="cleanDelete()"
+              x-text="clean.busy ? 'Moving…' : 'Move ' + fmtCount(cleanCount()) + ' to deleted photos'"></button>
+    </div>
+    <div class="muted pad" x-show="clean.loading"><span class="spinner"></span> Looking through the photos…</div>
+    <div class="error pad" x-show="clean.error" x-text="clean.error"></div>
+    <p class="muted" x-show="!clean.loading && !clean.error && !clean.items.length">None found.</p>
+    <p class="muted small" x-show="clean.items.length">Click a photo to choose it or not; the magnifier shows it big. Favourites and rated photos are not chosen by themselves.</p>
+    <div class="clean-grid">
+      <template x-for="(it, i) in cleanShown()" :key="it.id">
+        <div class="clean-item" :class="{chosen: clean.chosen.has(it.id), keep: it.keep, 'new-set': cleanNewSet(it, i)}" @click="cleanToggle(it)"
+             :title="(it.taken ? fmtDateShort(it.taken) + ' · ' : '') + (it.path || '')">
+          <img :src="thumbURL(it)" alt="" loading="lazy">
+          <span class="clean-check" x-show="!it.keep" x-html="clean.chosen.has(it.id) ? icons.check : ''"></span>
+          <span class="clean-keep" x-show="it.keep">Kept</span>
+          <span class="clean-fav" x-show="it.fav" x-html="icons.heart"></span>
+          <button class="clean-zoom" @click.stop="openImageById(it.id)" title="Show it big">🔍</button>
+        </div>
+      </template>
+    </div>
+  </section>
+
   <section class="albums books" x-show="view === 'books'" x-cloak>
     <div class="people-head">
       <h2>Photo books</h2>

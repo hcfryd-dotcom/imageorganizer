@@ -106,6 +106,7 @@ func (s *Server) Handler() http.Handler {
 	s.frameRoutes(mux)
 	s.confidentRoutes(mux)
 	s.deleteRoutes(mux)
+	s.cleanupRoutes(mux)
 	s.geoRoutes(mux)
 	s.settingsRoutes(mux)
 	mux.HandleFunc("POST /api/browse", s.browse)
