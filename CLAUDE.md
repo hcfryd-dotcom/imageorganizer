@@ -148,13 +148,19 @@ the rest of the repo.
   own captions (`book.captions`), cover layouts (photo, full, collage),
   page layouts (grid, one big, scattered prints), page backgrounds
   (`pg.bg`), page numbers and a contents page (both choices), and
-  "Copy" on the Photo books page.
+  "Copy" on the Photo books page. The bar is one line; the choices for
+  the whole book are in "Book settings". A floating toolbox holds the
+  tools of the page clicked, which is shown big. The cover is edited like
+  a page (`book.coverPage`: design, background, text boxes, stickers;
+  its photo any of the source, cropped under key "c"+id; title typed on
+  it); ⇄ can swap a photo for any photo of the source.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
   the browser if the program already runs.
 - Looks: the macOS-style block in `web/app.css`, and after it the
-  "Studio" look (dark, glowing colour behind, glass panels, Bahnschrift
-  capitals for labels, lime main buttons, a violet-pink-amber gradient
-  for the open menu item and bar lines), the default since 2026-10-16;
+  "Studio" look (dark and soft, glowing colour behind, frosted glass, no
+  hairlines, words in normal case, headings in the Sitka serif, rounded
+  photos with air between, lime main buttons; made lighter on 2026-10-16
+  after he found the first version too square), the default since 2026-10-16;
   `<html data-look="studio"|"classic">`, chosen in Settings → Look and
   kept in localStorage.
 - Danish UI: `web/i18n.js` translates the page as it is drawn (exact strings
