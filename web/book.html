@@ -93,7 +93,7 @@
   .toc-row { display: flex; align-items: baseline; gap: 2mm; }
   .toc-row .dots { flex: 1; border-bottom: .4mm dotted #aeaeb2; transform: translateY(-1mm); }
   @media print { .toc-none { display: none; } }
-  [data-theme="elegant"] .tocpage h2, [data-theme="elegant"] .toc { font-family: Georgia, "Times New Roman", serif; }
+  .tocpage[data-theme="elegant"] h2, .tocpage[data-theme="elegant"] .toc { font-family: Georgia, "Times New Roman", serif; }
   /* Cover layouts: the photo over the whole cover, or a collage. */
   .cover.cover-full, .part.cover-full { position: relative; justify-content: flex-end; padding-bottom: 18mm; }
   .cover-full .ph { position: absolute; inset: 0; }
@@ -258,55 +258,95 @@
   /* Designs: backgrounds drawn here (CSS and small SVG patterns), light
      enough that photos and text stand out. They print when the print
      window's "background graphics" is on. */
-  [data-theme="summer"] .page {
+  .page[data-theme="summer"] {
     background:
       radial-gradient(circle at 92% 8%, rgba(255, 196, 61, .55) 0 9%, rgba(255, 214, 102, .25) 9.5% 14%, transparent 14.5%),
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='20'%3E%3Cpath d='M0 12 Q20 2 40 12 T80 12' fill='none' stroke='%2363c3e8' stroke-width='3' opacity='.55'/%3E%3C/svg%3E") repeat-x bottom 3mm left 0 / 22mm auto,
       linear-gradient(180deg, #fff6dc 0%, #fffdf7 55%, #e4f5ff 100%);
   }
-  [data-theme="winter"] .page {
+  .page[data-theme="winter"] {
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cg stroke='%2390bde6' stroke-width='1.6' stroke-linecap='round' opacity='.55'%3E%3Cpath d='M15 8v14M8 15h14M10 10l10 10M20 10L10 20'/%3E%3Cpath d='M45 38v10M40 43h10M41.5 39.5l7 7M48.5 39.5l-7 7'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 22mm 22mm,
       linear-gradient(180deg, #f2f8ff, #e4f0fb);
   }
-  [data-theme="birthday"] .page {
+  .page[data-theme="birthday"] {
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cg opacity='.85'%3E%3Crect x='8' y='10' width='6' height='3' fill='%23ff5a7a' transform='rotate(25 11 11)'/%3E%3Ccircle cx='40' cy='18' r='3' fill='%23ffc23d'/%3E%3Crect x='66' y='30' width='6' height='3' fill='%234aa3ff' transform='rotate(-30 69 31)'/%3E%3Ccircle cx='20' cy='58' r='2.5' fill='%2334c759'/%3E%3Crect x='50' y='64' width='6' height='3' fill='%23af52de' transform='rotate(50 53 65)'/%3E%3Ccircle cx='78' cy='76' r='3' fill='%23ff9500'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 30mm 30mm,
       #fffdfa;
   }
-  [data-theme="christmas"] .page {
+  .page[data-theme="christmas"] {
     border: 3mm solid #b3261e; outline: 1.2mm solid #1f6b3a; outline-offset: -5mm;
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='70'%3E%3Cpath d='M18 10l2.4 5 5.4.6-4 3.7 1.1 5.3L18 22l-4.9 2.6 1.1-5.3-4-3.7 5.4-.6z' fill='%23d4a017' opacity='.45'/%3E%3Ccircle cx='52' cy='50' r='2.2' fill='%23b3261e' opacity='.35'/%3E%3C/svg%3E") repeat 0 0 / 24mm 24mm,
       #fffaf0;
   }
-  [data-theme="girl"] .page {
+  .page[data-theme="girl"] {
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M15 22c-4-3-8-6-8-10a4 4 0 018-1 4 4 0 018 1c0 4-4 7-8 10z' fill='%23ff8fb1' opacity='.4'/%3E%3Ccircle cx='45' cy='45' r='3' fill='%23ffb3cc' opacity='.6'/%3E%3C/svg%3E") repeat 0 0 / 20mm 20mm,
       #fff2f6;
   }
-  [data-theme="boy"] .page {
+  .page[data-theme="boy"] {
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M15 6l2.6 5.4 6 .8-4.3 4.2 1 5.9L15 19.5l-5.3 2.8 1-5.9-4.3-4.2 6-.8z' fill='%235aa9ff' opacity='.35'/%3E%3Ccircle cx='45' cy='45' r='3' fill='%2382c0ff' opacity='.5'/%3E%3C/svg%3E") repeat 0 0 / 20mm 20mm,
       #eef6ff;
   }
-  [data-theme="elegant"] .page {
+  .page[data-theme="elegant"] {
     background: #fbf8f1;
     border: .6mm solid #c8a75a; outline: .3mm solid #c8a75a; outline-offset: -3mm;
   }
-  [data-theme="elegant"] .cover h2, [data-theme="elegant"] .textpage .page-text { font-family: Georgia, "Times New Roman", serif; font-weight: 400; color: #5a4520; }
-  [data-theme="ocean"] .page {
+  .cover[data-theme="elegant"] h2, .textpage[data-theme="elegant"] .page-text { font-family: Georgia, "Times New Roman", serif; font-weight: 400; color: #5a4520; }
+  .page[data-theme="ocean"] {
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='24'%3E%3Cpath d='M0 8 Q20 0 40 8 T80 8M0 18 Q20 10 40 18 T80 18' fill='none' stroke='%2334a8a0' stroke-width='2' opacity='.45'/%3E%3C/svg%3E") repeat-x bottom 2mm left 0 / 24mm auto,
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='24'%3E%3Cpath d='M0 8 Q20 0 40 8 T80 8' fill='none' stroke='%2334a8a0' stroke-width='2' opacity='.3'/%3E%3C/svg%3E") repeat-x top 2mm left 0 / 24mm auto,
       linear-gradient(180deg, #effbfa, #e2f4f8);
   }
-  [data-theme="christmas"] .cover h2 { color: #b3261e; }
-  [data-theme="summer"] .cover h2 { color: #c86b00; }
-  [data-theme="winter"] .cover h2, [data-theme="boy"] .cover h2 { color: #2a6db0; }
-  [data-theme="girl"] .cover h2 { color: #d0457a; }
-  [data-theme="birthday"] .cover h2 { color: #e0365a; }
-  [data-theme="ocean"] .cover h2 { color: #1f7f78; }
+  /* Autumn: maple leaves in reds and oranges drifting over warm cream. */
+  .page[data-theme="autumn"] {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Cg opacity='.5'%3E%3Cpath d='M20 8l3 7 6-3-2 7 7 1-6 4 3 6-7-2-1 7-3-6-3 6-1-7-7 2 3-6-6-4 7-1-2-7 6 3z' fill='%23d9622b' transform='rotate(18 20 20)'/%3E%3Cpath d='M78 58l2 5 5-2-2 5 5 1-4 3 2 4-5-1-1 5-2-4-2 4-1-5-5 1 2-4-4-3 5-1-2-5 5 2z' fill='%23b8322a' transform='rotate(-25 78 66)'/%3E%3Ccircle cx='60' cy='18' r='2' fill='%23e3a33b'/%3E%3Ccircle cx='24' cy='86' r='2.5' fill='%23c9762e'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 38mm 38mm,
+      linear-gradient(180deg, #fff8ee, #fbeedd);
+  }
+  .cover[data-theme="autumn"] h2 { color: #b4471e; }
+  /* Spring and Easter: little flowers and pastel eggs. */
+  .page[data-theme="spring"] {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cg opacity='.6'%3E%3Cg transform='translate(18 18)'%3E%3Ccircle r='3' fill='%23f6c544'/%3E%3Cg fill='%23ffffff' stroke='%23f2b8c6' stroke-width='.8'%3E%3Cellipse cx='0' cy='-6' rx='3' ry='4'/%3E%3Cellipse cx='0' cy='6' rx='3' ry='4'/%3E%3Cellipse cx='-6' cy='0' rx='4' ry='3'/%3E%3Cellipse cx='6' cy='0' rx='4' ry='3'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='64' cy='62' rx='5' ry='7' fill='%23b9e3c6'/%3E%3Cpath d='M59 62h10' stroke='%23ffffff' stroke-width='1.5'/%3E%3Cellipse cx='30' cy='72' rx='3.5' ry='5' fill='%23c9d6f5'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 30mm 30mm,
+      linear-gradient(180deg, #fbfde9, #f1f9e6);
+  }
+  .cover[data-theme="spring"] h2 { color: #5f9e3a; }
+  /* Nature: leafy sprigs in two corners, a soft green page. */
+  .page[data-theme="nature"] {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='%235e9a5b' opacity='.7'%3E%3Cpath d='M0 120 C30 90 60 70 110 60' stroke='%23477a44' stroke-width='2' fill='none'/%3E%3Cellipse cx='30' cy='92' rx='9' ry='4' transform='rotate(-40 30 92)'/%3E%3Cellipse cx='52' cy='78' rx='9' ry='4' transform='rotate(-30 52 78)'/%3E%3Cellipse cx='76' cy='68' rx='9' ry='4' transform='rotate(-20 76 68)'/%3E%3Cellipse cx='40' cy='100' rx='8' ry='3.5' transform='rotate(20 40 100)'/%3E%3Cellipse cx='64' cy='86' rx='8' ry='3.5' transform='rotate(25 64 86)'/%3E%3C/g%3E%3C/svg%3E") no-repeat left bottom / 65mm 65mm,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='%235e9a5b' opacity='.6' transform='rotate(180 60 60)'%3E%3Cpath d='M0 120 C30 90 60 70 110 60' stroke='%23477a44' stroke-width='2' fill='none'/%3E%3Cellipse cx='30' cy='92' rx='9' ry='4' transform='rotate(-40 30 92)'/%3E%3Cellipse cx='52' cy='78' rx='9' ry='4' transform='rotate(-30 52 78)'/%3E%3Cellipse cx='76' cy='68' rx='9' ry='4' transform='rotate(-20 76 68)'/%3E%3C/g%3E%3C/svg%3E") no-repeat right top / 55mm 55mm,
+      linear-gradient(180deg, #f3f8ef, #e9f2e4);
+  }
+  .cover[data-theme="nature"] h2 { color: #3f6f3c; }
+  /* Wedding: ivory with a fine double gold rule and a small heart. */
+  .page[data-theme="wedding"] {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20'%3E%3Cpath d='M20 17c-5-3.5-9-6.5-9-10a4.5 4.5 0 019-1 4.5 4.5 0 019 1c0 3.5-4 6.5-9 10z' fill='none' stroke='%23c9a45c' stroke-width='1.2'/%3E%3C/svg%3E") no-repeat center bottom 7mm / 12mm auto,
+      #fffdf8;
+    border: .5mm solid #c9a45c; outline: .25mm solid #c9a45c; outline-offset: -2.5mm;
+  }
+  .cover[data-theme="wedding"] h2, .textpage[data-theme="wedding"] .page-text { font-family: Georgia, "Times New Roman", serif; font-weight: 400; color: #8a6a2f; }
+  /* Vintage: old paper, warm and a little darker at the edges; serif
+     type and the photos lifted off it by a soft shadow. */
+  .page[data-theme="vintage"] {
+    background:
+      radial-gradient(ellipse at center, rgba(255, 248, 230, 0) 55%, rgba(150, 110, 60, .22) 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cg fill='%238a6b3f' opacity='.07'%3E%3Ccircle cx='7' cy='9' r='1'/%3E%3Ccircle cx='41' cy='17' r='.8'/%3E%3Ccircle cx='23' cy='44' r='1.2'/%3E%3Ccircle cx='52' cy='51' r='.7'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0 / 15mm 15mm,
+      #f3e6c9;
+  }
+  .page[data-theme="vintage"] .slot .ph img { box-shadow: 0 .5mm 2mm rgba(60, 40, 10, .35); }
+  .page[data-theme="vintage"] .cap, .cover[data-theme="vintage"] h2, .cover[data-theme="vintage"] p, .textpage[data-theme="vintage"] .page-text { font-family: Georgia, "Times New Roman", serif; color: #5a4022; }
+  .cover[data-theme="christmas"] h2 { color: #b3261e; }
+  .cover[data-theme="summer"] h2 { color: #c86b00; }
+  .cover[data-theme="winter"] h2, .cover[data-theme="boy"] h2 { color: #2a6db0; }
+  .cover[data-theme="girl"] h2 { color: #d0457a; }
+  .cover[data-theme="birthday"] h2 { color: #e0365a; }
+  .cover[data-theme="ocean"] h2 { color: #1f7f78; }
   @media print { .page { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
   @media print {
     html, body { background: #fff; }
@@ -359,6 +399,11 @@
     <option value="boy">Boy</option>
     <option value="elegant">Elegant</option>
     <option value="ocean">Sea and travel</option>
+    <option value="autumn">Autumn</option>
+    <option value="spring">Spring and Easter</option>
+    <option value="nature">Nature</option>
+    <option value="wedding">Wedding</option>
+    <option value="vintage">Vintage</option>
   </select></label>
   <label title="Every photo fills its box, cropped so the faces show">
     <input type="checkbox" id="fillAll"> Fill the boxes</label>
@@ -1127,7 +1172,7 @@
       (b ? `.page:not(.full) { padding: ${10 + b}mm; } .page.cover { padding: ${16 + b}mm; } .page.full .slot .cap { bottom: ${4 + b}mm; }` : '') +
       // Printing the cover in one piece: its own page size.
       (pdfMode === 'cover' ? `@page { size: ${coverDims().w}mm ${coverDims().h}mm; margin: 0; }` : '');
-    document.body.dataset.theme = book.theme || '';
+
     const root = $('pages');
     root.textContent = '';
     if (!photos.length) {
@@ -1380,6 +1425,7 @@
         tools.append(tool(pg.text != null ? 'Remove text' : '+ Text', '', () => { pg.text = pg.text != null ? null : ''; render(); }));
         if (pg.text != null) tools.append(styleButton(pi));
       }
+      tools.append(pageDesign(pg));
       tools.append(tool('Background', 'A colour or a faint photo behind the page', () => { bgOpen = bgOpen === pi ? null : pi; render(); }, bgOpen === pi || !!pg.bg),
         tool('+ Text page', 'A page of text after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: ''}); render(); }),
         tool('+ Map', 'A page with a map of where the photos were taken, after this one', () => { book.pages.splice(pi + 1, 0, {n: 0, ids: [], text: null, map: true}); render(); }));
@@ -1475,6 +1521,12 @@
       pdfMode === 'cover' ? w.classList.contains('spread-wrap') : !w.classList.contains('spread-wrap') && !(pdfMode === 'inner' && (w.classList.contains('cover-wrap') || w.classList.contains('back-wrap'))));
     const lastPage = printed.length ? printed[printed.length - 1].querySelector('section.page') : null;
     if (lastPage) lastPage.classList.add('last');
+    // Designs: each page its own (pg.theme; "none" for none), else the book's.
+    for (const sec of root.querySelectorAll('section.page, .spread .part')) {
+      const w = sec.closest('.page-wrap'), pg = w && w.dataset.pi != null ? book.pages[+w.dataset.pi] : null;
+      const th = pg && pg.theme != null ? (pg.theme === 'none' ? '' : pg.theme) : book.theme || '';
+      if (th) sec.dataset.theme = th; else delete sec.dataset.theme;
+    }
     setTimeout(afterLayout); // not requestAnimationFrame: a tab in the background never gets one
   }
 
@@ -1759,6 +1811,29 @@
     await runChecks($('shopCheck'));
   }
 
+  // pageDesign is a page's own choice of design: the book's, none, or
+  // another (pg.theme; undefined is the book's, "none" none).
+  function pageDesign(pg) {
+    const sel = document.createElement('select');
+    sel.className = 'select small-select';
+    sel.title = t('This page’s design');
+    const add = (v, label) => {
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = label;
+      sel.appendChild(o);
+    };
+    add('', t('The book’s design'));
+    add('none', t('No design on this page'));
+    for (const o of $('theme').options) if (o.value) add(o.value, o.textContent);
+    sel.value = pg.theme || '';
+    sel.addEventListener('change', () => {
+      if (sel.value) pg.theme = sel.value; else delete pg.theme;
+      render();
+    });
+    return sel;
+  }
+
   // Page backgrounds (pg.bg): a colour, and/or one of the book's photos,
   // faint, behind what is on the page. Over a design's own background.
   let bgOpen = null; // the page whose background row is open
@@ -2035,6 +2110,7 @@
   function panoRight(pg, number) {
     const wrap = document.createElement('div');
     wrap.className = 'page-wrap';
+    wrap.dataset.pi = book.pages.indexOf(pg); // its design is the page's
     const tools = document.createElement('div');
     tools.className = 'page-tools';
     const b = document.createElement('b');

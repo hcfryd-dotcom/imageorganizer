@@ -332,6 +332,8 @@
     'Leave out photos with shut eyes (the program can take narrowed eyes, or someone looking down, for shut)':
       'Spring billeder over med lukkede øjne (programmet kan tage smalle øjne, eller nogen der kigger ned, for lukkede)',
     'Looking at eyes': 'Ser på øjne', 'Open or shut, for photo books': 'Åbne eller lukkede, til fotobøger',
+    'Autumn': 'Efterår', 'Spring and Easter': 'Forår og påske', 'Nature': 'Natur', 'Wedding': 'Bryllup', 'Vintage': 'Vintage',
+    'This page’s design': 'Sidens design', 'The book’s design': 'Bogens design', 'No design on this page': 'Intet design på denne side',
     'Find photos…': 'Find billeder…', 'Search the whole library and drag photos into the book': 'Søg i hele biblioteket og træk billeder ind i bogen',
     'Find photos for the book': 'Find billeder til bogen',
     'A name, a place, a year, or what is in it (“beach”, “cake”)': 'Et navn, et sted, et år, eller hvad der er på (“strand”, “kage”)',
