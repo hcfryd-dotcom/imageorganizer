@@ -148,9 +148,11 @@ the rest of the repo.
   own captions (`book.captions`), cover layouts (photo, full, collage),
   page layouts (grid, one big, scattered prints), page backgrounds
   (`pg.bg`), page numbers and a contents page (both choices), and
-  "Copy" on the Photo books page. The bar is one line; the choices for
-  the whole book are in "Book settings". A floating toolbox holds the
-  tools of the page clicked, which is shown big. The cover is edited like
+  "Copy" on the Photo books page. The bar is one line. One floating
+  toolbox holds everything else in parts opened and closed by their
+  headings (`TB_PARTS`): the page clicked (shown big), book settings,
+  which photos, find photos, check the book, Lasertryk; the old panels
+  are moved into it and `panel()` opens a part. The cover is edited like
   a page (`book.coverPage`: design, background, text boxes, stickers;
   its photo any of the source, cropped under key "c"+id; title typed on
   it); ⇄ can swap a photo for any photo of the source (bigger with a

@@ -346,6 +346,7 @@
     'Double-click to crop and place the photo': 'Dobbeltklik for at beskære og placere billedet', 'Click to write the title': 'Klik for at skrive titlen', 'Page size, design, frames, chapters, captions and more for the whole book': 'Sidestørrelse, design, rammer, kapitler, billedtekster og mere for hele bogen',
     'Click to crop and place the photo': 'Klik for at beskære og placere billedet', 'The photo picked': 'Det valgte billede', 'Turn': 'Drej',
     'Photo boxes': 'Billedkasser', '+ Photo box': '+ Billedkasse', '1 photo': '1 billede', 'Photo placed freely': 'Billede placeret frit',
+    'The page': 'Siden', 'Which photos': 'Udvalg af billeder', 'Find photos': 'Find billeder', 'For Lasertryk.dk': 'Til Lasertryk.dk',
     'Show the caption under this photo': 'Vis billedteksten under dette billede', 'No caption under this photo': 'Ingen billedtekst under dette billede',
     'Caption: on': 'Billedtekst: til', 'Caption: off': 'Billedtekst: fra', 'Show or hide the caption under this photo': 'Vis eller skjul billedteksten under dette billede',
     'Choose how the boxes for the photos lie on the page': 'Vælg hvordan billedernes kasser ligger på siden', 'One more photo box on the page (the next photo), to place and size as you like': 'Én billedkasse mere på siden (det næste billede), som du kan placere og ændre størrelsen på',

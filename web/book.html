@@ -157,6 +157,20 @@
   .toolbox-big { width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .08); color: var(--muted); cursor: pointer; font-size: 14px; line-height: 26px; padding: 0; }
   .toolbox-big.on { background: var(--accent); color: #111; }
   .toolbox.folded .toolbox-body { display: none; }
+  /* Its parts, opened and closed by their headings. */
+  .tb-part { border-radius: 16px; background: rgba(127, 127, 127, .06); }
+  .tb-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 12px; border: 0; background: none; color: var(--text); cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; text-align: left; }
+  .tb-head:hover { color: var(--accent); }
+  .tb-arrow { display: inline-block; width: 12px; transition: transform .15s; color: var(--muted); font-size: 16px; }
+  .tb-part.open .tb-arrow { transform: rotate(90deg); }
+  .tb-content { display: none; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
+  .tb-part.open .tb-content { display: flex; }
+  /* The panels that lived on their own now lie in the toolbox. */
+  .toolbox .filters, .toolbox .book-settings { position: static; width: auto; max-height: none; overflow: visible; padding: 0; box-shadow: none !important; background: none !important; backdrop-filter: none; border-radius: 0; z-index: auto; }
+  .toolbox .filters > b:first-child, .toolbox .bs-head { display: none; }
+  .toolbox .book-settings section:first-of-type { padding-top: 0; }
+  /* Their old buttons in the bar: the toolbox has them. */
+  #settingsBtn, #filtersBtn, #findBtn, #checkBtn, #shopBtn { display: none; }
   @media print { #pages section.zoomed { zoom: 1 !important; } }
   .toolbox-body { overflow: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
   .toolbox-body .page-tools { justify-content: flex-start; }
@@ -2265,13 +2279,11 @@
   const spineGuess = () => Math.round((innerPages / 2 * .16 + .6) * 10) / 10;
 
   function panel(id) {
-    document.documentElement.style.setProperty('--bar-h', barHeight() + 'px');
-    for (const p of ['find', 'check', 'shop', 'filters']) {
-      const open = p === id && $(p).hidden;
-      $(p).hidden = !open;
-      $({find: 'findBtn', check: 'checkBtn', shop: 'shopBtn', filters: 'filtersBtn'}[p]).classList.toggle('primary', open);
-    }
-    return !$(id).hidden;
+    // A part of the toolbox now: opened or closed there.
+    if (pdfMode) return false;
+    const open = !tbOpen[id];
+    tbShow(id, open);
+    return open;
   }
 
   async function openShop() {
@@ -2373,6 +2385,31 @@
     box.className = 'toolbox';
     box.innerHTML = '<div class="toolbox-head"><span class="toolbox-grip">⠿</span><b class="toolbox-title"></b><button type="button" class="toolbox-big" title="">⤢</button><button type="button" class="toolbox-fold" title="">–</button></div><div class="toolbox-body"></div>';
     document.body.appendChild(box);
+    box.querySelector('.toolbox-title').textContent = t('Tools');
+    // Its parts, each opened and closed by its heading (kept in this
+    // browser): the page picked, then what was in panels of their own.
+    const body = box.querySelector('.toolbox-body');
+    for (const [id, label, el] of TB_PARTS) {
+      const part = document.createElement('div');
+      part.className = 'tb-part';
+      part.dataset.part = id;
+      const head = document.createElement('button');
+      head.type = 'button';
+      head.className = 'tb-head';
+      head.innerHTML = '<span class="tb-arrow">›</span><span class="tb-label"></span>';
+      head.querySelector('.tb-label').textContent = t(label);
+      head.addEventListener('click', () => {
+        const btn = TB_BUTTONS[id];
+        // Opening a part does what its old button did (a check runs, …).
+        if (btn && !tbOpen[id]) $(btn).click(); else tbShow(id, !tbOpen[id]);
+      });
+      const content = document.createElement('div');
+      content.className = 'tb-content';
+      if (el && $(el)) { $(el).hidden = false; content.appendChild($(el)); }
+      part.append(head, content);
+      part.classList.toggle('open', !!tbOpen[id]);
+      body.appendChild(part);
+    }
     box.querySelector('.toolbox-fold').title = t('Fold up or open the toolbox');
     const big = box.querySelector('.toolbox-big');
     big.title = t('Show the picked page big, or not');
@@ -2426,7 +2463,7 @@
   // drawing (fresh) the old rows are gone with their page.
   function fillToolbox(fresh) {
     if (pdfMode) return;
-    const box = toolbox(), body = box.querySelector('.toolbox-body');
+    const box = toolbox(), body = box.querySelector('.tb-part[data-part="page"] .tb-content');
     if (fresh) { body.textContent = ''; boxFrom = null; }
     else if (boxFrom) {
       const sec = boxFrom.querySelector(':scope > section');
@@ -2442,7 +2479,31 @@
     body.append(...rows);
     boxFrom = wrap;
     const label = rows[0] && rows[0].querySelector('b');
-    box.querySelector('.toolbox-title').textContent = (label ? label.textContent : '') || t('Tools');
+    box.querySelector('.tb-part[data-part="page"] .tb-label').textContent = (label ? label.textContent : '') || t('The page');
+    // A photo picked shows its tools here: the part opens.
+    if (cropping != null && !tbOpen.page) tbShow('page', true);
+  }
+
+  // The toolbox's parts: [id, heading, element moved into it].
+  const TB_PARTS = [['page', 'The page', null], ['book', 'Book settings', 'bookSettings'], ['filters', 'Which photos', 'filters'],
+    ['find', 'Find photos', 'find'], ['check', 'Check the book', 'check'], ['shop', 'For Lasertryk.dk', 'shop']];
+  const TB_BUTTONS = {filters: 'filtersBtn', find: 'findBtn', check: 'checkBtn', shop: 'shopBtn'};
+  let tbOpen = {page: true};
+  try { tbOpen = {page: true, ...JSON.parse(localStorage.getItem('toolboxParts') || '{}')}; } catch (e) {}
+  // tbShow opens or closes a part of the toolbox; opened, the box is
+  // unfolded and the part brought into view.
+  function tbShow(id, open) {
+    tbOpen[id] = open;
+    // Kept: the page, the settings and the choices; a check, a search or
+    // the print files start closed (they run when opened).
+    try { localStorage.setItem('toolboxParts', JSON.stringify({page: tbOpen.page, book: tbOpen.book, filters: tbOpen.filters})); } catch (e) {}
+    const box = toolbox(), part = box.querySelector(`.tb-part[data-part="${id}"]`);
+    if (!part) return;
+    part.classList.toggle('open', open);
+    if (open) {
+      box.classList.remove('folded');
+      part.scrollIntoView({block: 'nearest'});
+    }
   }
 
   // enlarge shows the picked page as big as the window allows (CSS zoom,
@@ -3646,10 +3707,7 @@
   $('filtersBtn').addEventListener('click', () => panel('filters'));
   // Book settings: the choices for the whole book, in a panel opened from
   // the bar, so the bar itself stays one light line.
-  const openSettings = on => { $('bookSettings').hidden = !on; $('settingsBtn').classList.toggle('on', on); };
-  $('settingsBtn').addEventListener('click', () => openSettings($('bookSettings').hidden));
-  $('settingsClose').addEventListener('click', () => openSettings(false));
-  addEventListener('keydown', e => { if (e.key === 'Escape' && !$('bookSettings').hidden) openSettings(false); });
+  $('settingsBtn').addEventListener('click', () => tbShow('book', !tbOpen.book));
   $('checkBtn').addEventListener('click', () => { if (panel('check')) runChecks($('checkList')); });
   $('findBtn').addEventListener('click', () => { if (panel('find')) $('findQ').focus(); });
   $('flipBtn').addEventListener('click', flipView);
