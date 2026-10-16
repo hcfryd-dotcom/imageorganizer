@@ -108,7 +108,7 @@
   .cover-collage .ph .cell img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; border-radius: 0; }
   .part { position: relative; }
   /* The toolbox: the picked page's tools, floating over the pages. */
-  .toolbox { position: fixed; z-index: 60; top: calc(var(--bar-h, 150px) + 16px); right: 18px; width: min(460px, calc(100vw - 36px));
+  .toolbox { position: fixed; z-index: 60; top: 40vh; right: 18px; width: min(460px, calc(100vw - 36px));
     max-height: calc(100vh - 120px); display: flex; flex-direction: column; border-radius: 16px; overflow: hidden;
     background: var(--panel); box-shadow: 0 0 0 1px var(--line), 0 18px 50px rgba(0, 0, 0, .45); }
   [data-look="studio"] .toolbox { background: rgba(16, 16, 22, .9); backdrop-filter: blur(24px) saturate(1.4); box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 24px 70px rgba(0, 0, 0, .7); }
@@ -117,7 +117,10 @@
   .toolbox-grip { color: var(--muted); font-size: 14px; }
   .toolbox-title { flex: 1; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-family: var(--label, inherit); }
   .toolbox-fold { width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .08); color: var(--text); cursor: pointer; font-size: 16px; line-height: 26px; padding: 0; }
+  .toolbox-big { width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .08); color: var(--muted); cursor: pointer; font-size: 14px; line-height: 26px; padding: 0; }
+  .toolbox-big.on { background: var(--accent); color: #111; }
   .toolbox.folded .toolbox-body { display: none; }
+  @media print { #pages section.zoomed { zoom: 1 !important; } }
   .toolbox-body { overflow: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
   .toolbox-body .page-tools { justify-content: flex-start; }
   .toolbox-body .page-tools > b { display: none; } /* the title shows it */
@@ -126,6 +129,7 @@
   /* Rows above the other pages are not shown: the toolbox has them. */
   #pages > .page-wrap > .page-tools, #pages > .page-wrap > .text-style, #pages > .page-wrap > .alts { display: none; }
   #pages > .page-wrap { margin-bottom: 26px; }
+  .book-bar { position: relative; } /* scrolls away: room for the picked page */
   @media print { .toolbox { display: none !important; } .page-wrap.picked > section.page { box-shadow: none !important; } }
   /* Templates. */
   .templ-row { flex-wrap: wrap; }
@@ -2047,7 +2051,7 @@
   const spineGuess = () => Math.round((innerPages / 2 * .16 + .6) * 10) / 10;
 
   function panel(id) {
-    document.documentElement.style.setProperty('--bar-h', document.querySelector('.book-bar').offsetHeight + 'px');
+    document.documentElement.style.setProperty('--bar-h', barHeight() + 'px');
     for (const p of ['find', 'check', 'shop', 'filters']) {
       const open = p === id && $(p).hidden;
       $(p).hidden = !open;
@@ -2084,9 +2088,17 @@
     box = document.createElement('div');
     box.id = 'toolbox';
     box.className = 'toolbox';
-    box.innerHTML = '<div class="toolbox-head"><span class="toolbox-grip">⠿</span><b class="toolbox-title"></b><button type="button" class="toolbox-fold" title="">–</button></div><div class="toolbox-body"></div>';
+    box.innerHTML = '<div class="toolbox-head"><span class="toolbox-grip">⠿</span><b class="toolbox-title"></b><button type="button" class="toolbox-big" title="">⤢</button><button type="button" class="toolbox-fold" title="">–</button></div><div class="toolbox-body"></div>';
     document.body.appendChild(box);
     box.querySelector('.toolbox-fold').title = t('Fold up or open the toolbox');
+    const big = box.querySelector('.toolbox-big');
+    big.title = t('Show the picked page big, or not');
+    big.classList.toggle('on', bigOn());
+    big.addEventListener('click', () => {
+      try { localStorage.setItem('bigPage', bigOn() ? '0' : '1'); } catch (e) {}
+      big.classList.toggle('on', bigOn());
+      enlarge(boxFrom, true);
+    });
     try {
       const pos = JSON.parse(localStorage.getItem('toolboxPos') || 'null');
       if (pos) { box.style.left = pos.x + 'px'; box.style.top = pos.y + 'px'; box.style.right = 'auto'; }
@@ -2142,19 +2154,52 @@
     if (!wrap) { picked = 'cover'; wrap = wrapOf(picked); }
     if (!wrap) return;
     wrap.classList.add('picked');
+    enlarge(wrap, !fresh);
     const rows = [...wrap.children].filter(c => !c.matches('section'));
     body.append(...rows);
     boxFrom = wrap;
     const label = rows[0] && rows[0].querySelector('b');
     box.querySelector('.toolbox-title').textContent = (label ? label.textContent : '') || t('Tools');
   }
-  // A click on a page picks it.
+
+  // enlarge shows the picked page as big as the window allows (CSS zoom,
+  // so all inside it grows alike; other pages stay small). With show, the
+  // page is scrolled to just under the bar.
+  // barHeight is how much of the window the bar at the top covers: none
+  // now that it scrolls away with the page (the toolbox has the tools).
+  function barHeight() { const b = document.querySelector('.book-bar'); return b && getComputedStyle(b).position === 'sticky' ? b.offsetHeight : 0; }
+  const bigOn = () => { try { return localStorage.getItem('bigPage') !== '0'; } catch (e) { return true; } };
+  function enlarge(wrap, show) {
+    document.querySelectorAll('#pages section.zoomed').forEach(s => { s.style.zoom = ''; s.classList.remove('zoomed'); });
+    const sec = wrap && wrap.querySelector(':scope > section');
+    if (!sec || !bigOn() || pdfMode) return;
+    const barH = barHeight();
+    // On screen sizes: the pages may be zoomed out already (#pages).
+    // Spreads: two pages side by side, each gets half.
+    const half = $('pages').classList.contains('spreads') && !wrap.classList.contains('spread-wrap') && !wrap.classList.contains('left-out');
+    const r = sec.getBoundingClientRect(), room = Math.min($('pages').getBoundingClientRect().width, innerWidth) / (half ? 2 : 1) - 40;
+    const z = Math.min(room / r.width, (innerHeight - barH - 40) / r.height);
+    if (z > 1.05) { sec.style.zoom = z.toFixed(3); sec.classList.add('zoomed'); }
+    if (show) scrollTo(0, scrollY + sec.getBoundingClientRect().top - barH - 16);
+  }
+  // A click on a page picks it, and only that: the page grows under the
+  // mouse, so the click is not let through to what is there now.
   document.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
     const w = e.target.closest && e.target.closest('#pages > .page-wrap');
     if (!w) return;
     const k = keyOf(w);
-    if (k != null && k !== picked) { picked = k; fillToolbox(false); }
+    if (k == null || k === picked) return;
+    picked = k;
+    fillToolbox(false);
+    if (!bigOn()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const eat = ev => { ev.preventDefault(); ev.stopPropagation(); };
+    addEventListener('click', eat, {capture: true, once: true});
+    setTimeout(() => removeEventListener('click', eat, true), 600);
   }, true);
+  addEventListener('resize', () => { if (boxFrom) enlarge(boxFrom, false); });
 
   // ---------- page templates ----------
 
@@ -2777,8 +2822,10 @@
       let lx = e.clientX, ly = e.clientY;
       const move = ev => {
         // Dragging the photo right shows more of its left side.
-        c.x = clamp(c.x - (ev.clientX - lx) / box.clientWidth * 150 / c.z, 0, 100);
-        c.y = clamp(c.y - (ev.clientY - ly) / box.clientHeight * 150 / c.z, 0, 100);
+        // By its size on screen, not in layout: the picked page is zoomed.
+        const r = box.getBoundingClientRect();
+        c.x = clamp(c.x - (ev.clientX - lx) / r.width * 150 / c.z, 0, 100);
+        c.y = clamp(c.y - (ev.clientY - ly) / r.height * 150 / c.z, 0, 100);
         lx = ev.clientX;
         ly = ev.clientY;
         cropStyle(img, c);
@@ -2842,7 +2889,7 @@
     document.body.classList.toggle('with-overview', overviewOpen);
     $('overview').classList.toggle('primary', overviewOpen);
     if (!overviewOpen) return;
-    document.documentElement.style.setProperty('--bar-h', document.querySelector('.book-bar').offsetHeight + 'px');
+    document.documentElement.style.setProperty('--bar-h', barHeight() + 'px');
     const [w, h] = SIZES[book.size] || SIZES.a4l;
     const panel = document.createElement('div');
     panel.className = 'overview';

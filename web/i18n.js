@@ -339,7 +339,7 @@
     'A text you place where you like on the page, also over photos': 'En tekst, du placerer, hvor du vil på siden, også oven på billeder',
     '+ Sticker': '+ Klistermærke', 'Hearts, stars, balloons and more to put on the page': 'Hjerter, stjerner, balloner og mere til siden',
     'Template': 'Skabelon', 'Save this page as a template, or use one': 'Gem siden som skabelon, eller brug en',
-    'Tools': 'Værktøjer', 'Fold up or open the toolbox': 'Fold værktøjskassen sammen eller ud',
+    'Tools': 'Værktøjer', 'Show the picked page big, or not': 'Vis den valgte side stort, eller ikke', 'Fold up or open the toolbox': 'Fold værktøjskassen sammen eller ud',
     'Drag to move it': 'Træk for at flytte det', 'A light box behind the text, or none': 'En lys kasse bag teksten, eller ingen',
     'Another colour': 'En anden farve', 'One more like it': 'Én mere magen til', 'Remove it': 'Fjern det', 'Put it on the page': 'Sæt det på siden',
     'Save this page as a template': 'Gem siden som skabelon', 'A name for the template:': 'Et navn til skabelonen:',
