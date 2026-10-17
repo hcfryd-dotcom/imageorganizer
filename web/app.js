@@ -2236,7 +2236,7 @@ document.addEventListener('alpine:init', () => {
         const r = await api(`/api/cleanup/${k}?n=600`);
         if (this.clean.kind !== k) return;
         c.items = r.items || [];
-        c.show = this.cleanKind().ranked ? 60 : Math.min(c.items.length, 200);
+        c.show = Math.min(c.items.length, this.cleanKind().ranked ? 60 : 200);
         c.prevShow = c.show;
         this.cleanPreselect();
       } catch (e) {

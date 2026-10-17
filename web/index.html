@@ -1186,9 +1186,9 @@
     </div>
     <p class="muted" x-text="cleanKind().hint"></p>
     <div class="clean-bar" x-show="clean.items.length">
-      <label class="clean-show" x-show="clean.items.length > 30">
+      <label class="clean-show" x-show="clean.items.length > 10">
         <span x-text="'Show ' + clean.show + ' of ' + fmtCount(clean.items.length)"></span>
-        <input type="range" min="10" :max="clean.items.length" step="10" x-model.number="clean.show" @change="cleanSlid()">
+        <input type="range" :min="Math.min(10, clean.items.length)" :max="clean.items.length" step="1" x-model.number="clean.show" @change="cleanSlid()">
       </label>
       <span class="grow"></span>
       <button class="btn ghost" @click="cleanAll(true)">Choose all</button>
