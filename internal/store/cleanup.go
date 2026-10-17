@@ -32,8 +32,12 @@ func isShot(im *imageRec, path string) bool {
 
 // CleanupByMeaning ranks photos by how much more they look like pos (the
 // mean likeness to its texts' vectors) than like neg, best first, up to
-// n. Screenshots and photos not embedded yet are left out.
-func (s *Store) CleanupByMeaning(ctx context.Context, pos, neg [][]float32, n int) []CleanupItem {
+// n, and only those at least `least` more alike: once the real ones are gone,
+// the list ends instead of going on with the next likeliest. Screenshots,
+// photos not embedded yet and photos with a clear face (receipts and
+// papers have none; a child at the kitchen table looks papery enough)
+// are left out.
+func (s *Store) CleanupByMeaning(ctx context.Context, pos, neg [][]float32, n int, least float32) []CleanupItem {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	mean := func(v []float32, qs [][]float32) float32 {
@@ -56,11 +60,28 @@ func (s *Store) CleanupByMeaning(ctx context.Context, pos, neg [][]float32, n in
 		if isShot(im, img.Path) {
 			continue
 		}
+		if s.hasFace(im.ID) {
+			continue
+		}
 		img.Score = mean(v, pos) - mean(v, neg)
+		if img.Score < least {
+			continue
+		}
 		out = append(out, CleanupItem{Image: img})
 	}
 	slices.SortFunc(out, func(a, b CleanupItem) int { return cmp.Or(cmp.Compare(b.Score, a.Score), cmp.Compare(b.ID, a.ID)) })
 	return out[:min(len(out), n)]
+}
+
+// hasFace reports whether a photo shows a face at least 5% of its width
+// (smaller ones may be a pattern, or someone far off); call with s.mu held.
+func (s *Store) hasFace(imageID int64) bool {
+	for _, fid := range s.facesByImage[imageID] {
+		if f := s.faces[fid]; f != nil && f.Box[2]-f.Box[0] >= 0.05 {
+			return true
+		}
+	}
+	return false
 }
 
 // CleanupShots lists the screenshots, newest first.

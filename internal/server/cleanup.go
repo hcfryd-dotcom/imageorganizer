@@ -31,6 +31,11 @@ var cleanupTexts = map[string]struct{ pos, neg []string }{
 	},
 }
 
+// cleanupLeast is how much more a photo must look like a receipt or a
+// paper than like what they are told apart from, to be offered: below it,
+// on his library, came photos of other things (seen on 2026-10-17).
+const cleanupLeast = 0.05
+
 var (
 	cleanupVecMu sync.Mutex
 	cleanupVecs  = map[string][]float32{} // the texts' vectors, asked once
@@ -74,7 +79,7 @@ func (s *Server) cleanup(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			var neg [][]float32
 			if neg, err = s.cleanupVectors(r, t.neg); err == nil {
-				items = s.Store.CleanupByMeaning(ctx, pos, neg, n)
+				items = s.Store.CleanupByMeaning(ctx, pos, neg, n, cleanupLeast)
 			}
 		}
 		if err != nil {

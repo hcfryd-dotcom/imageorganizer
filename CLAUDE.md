@@ -175,7 +175,8 @@ the rest of the repo.
 - Cleanup (sidebar "Cleanup", `store/cleanup.go`, `server/cleanup.go`,
   `/api/cleanup/{receipts|papers|shots|blurry|copies}`): receipts and
   papers by meaning (mean likeness to a few texts minus likeness to
-  screenshots, people and places; screenshots left out), screenshots (PNG
+  screenshots, people and places, at least `cleanupLeast` = 0.05; photos
+  with a face of 5% width or more and screenshots left out), screenshots (PNG
   with no camera, or named so), blurry photos, and near copies (within
   60 s and perceptual hash within 10 bits; a favourite or rated one, else
   the sharpest, is kept). The page only lists; the photos chosen go
