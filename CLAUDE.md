@@ -36,9 +36,14 @@ the rest of the repo.
 - Face models in `models\`: `scrfd_10g.onnx` and `arcface_w600k_r50.onnx`
   (InsightFace buffalo_l, non-commercial licence) and `mivolo_v2_age.onnx`
   (ages), `genderage.onnx` (gender) and `2d106det.onnx` (eyes).
-- Photos: the library's one folder is `E:\Billeder ryddet` (~30,000, made
-  on 2026-10-14 by the tidy copy from `E:\Onedrive\Billeder` and
-  `E:\Old_Onedrive`; outside OneDrive). The two old folders are still on
+- Photos: the library's one folder is `E:\Onedrive\Billeder ryddet` (~39,000
+  files, 92 GB, inside his OneDrive, pinned "always keep on this device" with
+  `attrib +P`). Made on 2026-10-14 by the tidy copy from `E:\Onedrive\Billeder`
+  and `E:\Old_Onedrive` into `E:\Billeder ryddet`; moved into OneDrive on
+  2026-10-17 at his wish (each copy checked by SHA-256 before its original
+  was deleted; log `E:\ImageOrganizer-flytning.log`; library backup from just
+  before: `E:\ImageOrganizer-backup\library.bolt.before-onedrive-20261017`;
+  folder id 8, the old id 5 removed). The two old folders are still on
   disk, untouched, no longer in the library; deleting them is his call.
   Backup of the library from just before the switch:
   `E:\ImageOrganizer-backup\library.bolt.before-switch-20261014`.
