@@ -176,6 +176,7 @@
                 <span class="fav-badge" x-show="it.im.fav" x-html="icons.heartFill"></span>
                 <span class="video-badge" x-show="it.im.video" x-html="icons.play + '<span>' + fmtDuration(it.im.duration) + '</span>'"></span>
                 <span class="sel-mark" x-show="sel.on" x-html="icons.check"></span>
+                <button class="tile-album" x-show="!sel.on" @click.stop="openAlbumPick([it.im.id])" x-html="icons.album" title="Add to album…"></button>
                 <span class="geo-badge" x-show="sel.on && it.im.lat != null" :class="it.im.geo_src" x-html="icons.pin"
                       :title="it.im.geo_src === 'near' ? 'Place borrowed from a photo taken around the same time' : it.im.geo_src === 'user' ? 'Place set by you' : 'Place from the camera'"></span>
                 <figcaption><span x-text="fmtDateShort(it.im.taken)"></span></figcaption>
@@ -1569,6 +1570,7 @@
       <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(90)" x-html="icons.rotate" title="Turn right (R)"></button>
       <button class="icon-btn" :class="{active: lightbox.faces}" @click="toggleFaces()" x-html="icons.people" title="Show who is in the photo (F)"></button>
       <button class="icon-btn" :class="{on: current()?.fav}" @click="toggleFav(current())" x-html="current()?.fav ? icons.heartFill : icons.heart" title="Favorite (H)"></button>
+      <button class="icon-btn" @click="current() && openAlbumPick([current().id])" x-html="icons.album" title="Add to album… (A)"></button>
       <a class="icon-btn" :href="current() && '/original/' + current().id + '?download'" x-html="icons.download" title="Download original"></a>
       <button class="icon-btn" @click="askDelete()" x-html="icons.trash" title="Delete: move to the deleted-photos folder (Del)"></button>
       <button class="icon-btn" :class="{active: lightbox.strip}" @click="toggleStrip()" x-html="icons.strip" title="Photos taken around the same time (T)"></button>

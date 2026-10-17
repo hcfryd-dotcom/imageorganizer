@@ -2626,6 +2626,7 @@ document.addEventListener('alpine:init', () => {
         else if (e.key === 'r') this.rotateCurrent(90);
         else if (e.key === 'R') this.rotateCurrent(-90);
         else if (e.key === 'h') this.toggleFav(this.current());
+        else if (e.key === 'a' && this.current()) this.openAlbumPick([this.current().id]);
         else if (e.key === 'i') this.lightbox.info = !this.lightbox.info;
         else if (e.key === 'Delete') this.askDelete();
         else if (e.key === 't') this.toggleStrip();

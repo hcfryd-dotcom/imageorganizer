@@ -520,6 +520,7 @@
     // Albums
     'Albums': 'Album', 'New album': 'Nyt album', 'All albums': 'Alle album', 'Delete album': 'Slet album',
     'Add to album…': 'Tilføj til album…', 'Remove from album': 'Fjern fra album', 'Make album': 'Lav album',
+    'Add to album… (A)': 'Tilføj til album… (A)',
     'Add the photo to an album': 'Tilføj billedet til et album', 'Take it out of this album': 'Tag det ud af dette album',
     'New album, e.g. Summer 2024': 'Nyt album, fx Sommer 2024', 'No albums yet: make the first below.': 'Ingen album endnu: lav det første herunder.',
     'Name of the new album': 'Navn på det nye album', 'New name of the album': 'Nyt navn på albummet',
