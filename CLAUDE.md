@@ -100,6 +100,9 @@ the rest of the repo.
   original (.mov served as video/mp4) and "Save picture" writes the paused
   frame next to the video (`server/frame.go`).
 - Albums (`store/albums.go`, `/api/albums`, sidebar "Album").
+- Videos: sidebar "Videos" shows only the videos (`video=1`, or `$video`
+  typed in the search; `Filter.Video`), where they lie in the folders;
+  nothing is moved. The library stats count them (`videos`).
 - Daily backups of library.bolt (`internal/backup`), set to
   `E:\ImageOrganizer-backup`, 14 kept; Settings shows the last one.
 - Eyes: `models\2d106det.onnx` (InsightFace buffalo_l 106 landmarks,

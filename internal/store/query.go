@@ -105,6 +105,7 @@ type Filter struct {
 	// HideNsfw leaves out photos not safe for work; OnlyNsfw lists just them.
 	HideNsfw, OnlyNsfw bool
 	Blurry             bool // only photos that look blurry
+	Video              bool // only videos
 }
 
 // match reports whether im passes f; call with s.mu held.
@@ -122,6 +123,9 @@ func (s *Store) match(im *imageRec, f *Filter, words []string, ids map[int64]boo
 		return false
 	}
 	if f.Blurry && !isBlurry(im) {
+		return false
+	}
+	if f.Video && !im.Video {
 		return false
 	}
 	if f.From != nil && (im.TakenAt == nil || *im.TakenAt < f.From.Unix()) {
@@ -418,6 +422,7 @@ type Stats struct {
 	GeoNear int   `json:"geo_near"` // of Geo: borrowed from photos taken close in time
 	GeoUser int   `json:"geo_user"` // of Geo: set by the user
 	Fav     int   `json:"favorites"`
+	Videos  int   `json:"videos"`
 	Bytes   int64 `json:"bytes"`
 	Lost    int   `json:"lost"` // images with no present file (metadata kept)
 }
@@ -448,6 +453,9 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 			}
 			if im.Favorite {
 				st.Fav++
+			}
+			if im.Video {
+				st.Videos++
 			}
 		} else {
 			st.Lost++

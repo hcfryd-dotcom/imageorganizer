@@ -139,7 +139,7 @@ func isWordRune(r rune) bool {
 // $blurry. one($kind) and many($kind) ask for exactly one, or two or more,
 // of a face filter: one($known) one($unknown) is a named person with a
 // stranger.
-var specialRe = regexp.MustCompile(`(?i)(?:^|\s)(?:\$(known|unknown|confirmed|unconfirmed|alone|nsfw|blurry|picture)|(one|many)\(\s*\$?(known|unknown|confirmed|unconfirmed)\s*\))(?:\s|$)`)
+var specialRe = regexp.MustCompile(`(?i)(?:^|\s)(?:\$(known|unknown|confirmed|unconfirmed|alone|nsfw|blurry|picture|video)|(one|many)\(\s*\$?(known|unknown|confirmed|unconfirmed)\s*\))(?:\s|$)`)
 
 // extractSpecial pulls the search filters out of a query, returning the
 // remaining text and the filters found ("known", "one-unknown", ...).
@@ -180,5 +180,5 @@ func faceFilter(v string) (kind, count string, ok bool) {
 // isSpecial reports whether v names a search filter.
 func isSpecial(v string) bool {
 	_, _, face := faceFilter(v)
-	return face || v == "alone" || v == "nsfw" || v == "blurry" || v == "picture"
+	return face || v == "alone" || v == "nsfw" || v == "blurry" || v == "picture" || v == "video"
 }

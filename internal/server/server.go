@@ -515,6 +515,7 @@ func (s *Server) parseQuery(r *http.Request) (store.Filter, parsedQuery) {
 		Text:     q.Get("q"),
 		Sort:     q.Get("sort"),
 		Favorite: q.Get("fav") == "1",
+		Video:    q.Get("video") == "1",
 	}
 	f.FolderID, _ = strconv.ParseInt(q.Get("folder"), 10, 64)
 	f.Offset, _ = strconv.Atoi(q.Get("offset"))
@@ -606,6 +607,8 @@ func (s *Server) parseQuery(r *http.Request) (store.Filter, parsedQuery) {
 			f.OnlyNsfw = true
 		case "blurry":
 			f.Blurry = true
+		case "video":
+			f.Video = true
 		default:
 			if kind, count, ok := faceFilter(v); ok {
 				restrict(s.Store.FaceImageIDs(kind, count))

@@ -29,9 +29,9 @@ func TestCleanupCopiesAndShots(t *testing.T) {
 		return id
 	}
 	a := add(1, "a.jpg", "jpg", "Apple", 1000, 0xff00)
-	b := add(2, "b.jpg", "jpg", "Apple", 1020, 0xff01)    // 20 s later, alike: a copy of a
+	b := add(2, "b.jpg", "jpg", "Apple", 1020, 0xff01)     // 20 s later, alike: a copy of a
 	c := add(3, "c.jpg", "jpg", "Apple", 1030, 0xffffffff) // close in time, but another picture
-	d := add(4, "d.jpg", "jpg", "Apple", 5000, 0xff00)    // alike, but long after
+	d := add(4, "d.jpg", "jpg", "Apple", 5000, 0xff00)     // alike, but long after
 	shot := add(5, "IMG_1.PNG", "png", "", 6000, 1)
 	named := add(6, "Skærmbillede 2024.jpg", "jpg", "", 7000, 2)
 	h.s.SetLook(ctx, a, h.s.images[a].Hash, Look{Sharp: 100})

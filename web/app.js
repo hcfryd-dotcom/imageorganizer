@@ -36,6 +36,7 @@ const icons = {
   pin: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
   book: '<svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 004 20.5z"/><path d="M4 20.5A2.5 2.5 0 006.5 23H20v-5"/><path d="M9 8h7"/></svg>',
   pause: '<svg viewBox="0 0 24 24" class="fill"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>',
+  video: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5l5-3v9l-5-3z"/></svg>',
   play: '<svg viewBox="0 0 24 24" class="fill"><path d="M8 5.5v13a1 1 0 001.5.86l10.5-6.5a1 1 0 000-1.72L9.5 4.64A1 1 0 008 5.5z"/></svg>',
   album: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="15" height="14" rx="2.5"/><path d="M3 16.5V5.5A2.5 2.5 0 015.5 3H16"/><path d="M21 16l-4-4-7 7"/><circle cx="11" cy="10.5" r="1.5"/></svg>',
 };
@@ -53,6 +54,7 @@ document.addEventListener('alpine:init', () => {
       switch (n.id) {
         case 'photos': return lib.images || 0;
         case 'favorites': return lib.favorites || 0;
+        case 'videos': return lib.videos || 0;
         case 'people': return this.peopleData.people.length;
         case 'review': return (this.jobs && this.jobs.review) || 0;
         // The server's count, less the questions it still has that were
@@ -64,6 +66,7 @@ document.addEventListener('alpine:init', () => {
     nav: [
       {id: 'photos', label: 'Photos', icon: 'photos'},
       {id: 'favorites', label: 'Favorites', icon: 'heart', view: 'photos', fav: true},
+      {id: 'videos', label: 'Videos', icon: 'video', view: 'photos', video: true},
       {id: 'albums', label: 'Albums', icon: 'album'},
       {id: 'books', label: 'Photo books', icon: 'book'},
       {id: 'discover', label: 'Discover', icon: 'discover', badge: true},
@@ -81,6 +84,7 @@ document.addEventListener('alpine:init', () => {
     q: '',
     sort: 'taken_desc',
     fav: false,
+    video: false, // only videos (sidebar "Videos"); they stay where they are in the folders
     rowHeight: 220,
     items: [],
     total: 0,
@@ -270,6 +274,7 @@ document.addEventListener('alpine:init', () => {
       this.sort = p.get('sort') || 'taken_desc';
       this.hadQ = !!this.q.trim();
       this.fav = p.get('fav') === '1';
+      this.video = p.get('video') === '1';
       this.person = +p.get('person') || 0;
       this.album = +p.get('album') || 0;
       this.openPersonId = +p.get('p') || 0;
@@ -284,6 +289,7 @@ document.addEventListener('alpine:init', () => {
       if (this.tokens.length) p.set('who', this.tokens.map(t => t.id + ':' + t.name).join(','));
       if (this.sort !== 'taken_desc') p.set('sort', this.sort);
       if (this.fav) p.set('fav', '1');
+      if (this.video) p.set('video', '1');
       if (this.person) p.set('person', this.person);
       if (this.album) p.set('album', this.album);
       if (this.view === 'people' && this.openPersonId) p.set('p', this.openPersonId);
@@ -352,12 +358,12 @@ document.addEventListener('alpine:init', () => {
     onHashChange() {
       this.restoring = true;
       try {
-        const before = [this.view, this.q, this.tokenIDs(), this.sort, this.fav, this.person, this.album].join('|');
+        const before = [this.view, this.q, this.tokenIDs(), this.sort, this.fav, this.video, this.person, this.album].join('|');
         const view = this.view, pid = this.openPersonId, gid = this.reviewGroup;
         this.readHash();
         const img = this.pendingImage;
         if (this.lightbox.open && (!img || this.current()?.id !== img)) this.closeLightbox();
-        if ([this.view, this.q, this.tokenIDs(), this.sort, this.fav, this.person, this.album].join('|') !== before) {
+        if ([this.view, this.q, this.tokenIDs(), this.sort, this.fav, this.video, this.person, this.album].join('|') !== before) {
           const st = this.restoreScroll;
           this.reload().then(() => this.scrollBack(st));
         }
@@ -374,11 +380,12 @@ document.addEventListener('alpine:init', () => {
     isNav(n) {
       const v = n.view || n.id;
       if (v === 'albums') return this.view === 'albums' || this.view === 'photos' && !!this.album;
-      return this.view === v && !!n.fav === this.fav && (v !== 'photos' || !this.person && !this.album);
+      return this.view === v && !!n.fav === this.fav && !!n.video === this.video && (v !== 'photos' || !this.person && !this.album);
     },
     goNav(n) {
       this.clearMapFocus();
       this.fav = !!n.fav;
+      this.video = !!n.video;
       this.person = 0;
       this.album = 0;
       if (n.id === 'people') this.openPersonId = 0;
@@ -420,6 +427,7 @@ document.addEventListener('alpine:init', () => {
       if (this.q) p.set('q', this.q);
       if (this.tokens.length) p.set('people', this.tokenIDs());
       if (this.fav) p.set('fav', '1');
+      if (this.video) p.set('video', '1');
       if (this.person) p.set('person', this.person);
       if (this.album) p.set('album', this.album);
       return p.toString();
@@ -3033,6 +3041,7 @@ document.addEventListener('alpine:init', () => {
       this.q = '';
       this.tokens = [];
       this.fav = false;
+      this.video = false;
       this.setView('photos');
       this.reload();
     },
@@ -3044,6 +3053,7 @@ document.addEventListener('alpine:init', () => {
       this.q = '';
       this.tokens = [];
       this.fav = false;
+      this.video = false;
       this.person = 0;
       this.setView('photos');
       this.reload();
