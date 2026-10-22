@@ -204,7 +204,7 @@ the rest of the repo.
   "Studio" look (dark and soft, glowing colour behind, frosted glass, no
   hairlines, words in normal case, headings in the Sitka serif, rounded
   photos with air between, lime main buttons; made lighter on 2026-10-16
-  after he found the first version too square), the default since 2026-10-16;
+  after he found the first version too square), the default from 2026-10-16 to 10-22;
   `<html data-look="studio"|"classic">`, chosen in Settings → Look and
   kept in localStorage.
 - Danish UI: `web/i18n.js` translates the page as it is drawn (exact strings
