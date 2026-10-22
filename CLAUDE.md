@@ -108,9 +108,9 @@ the rest of the repo.
   folder…" (`POST /api/albums/from-folder`) makes an album of a folder's
   photos, found in the library by content hash (the folder is only read).
   On 2026-10-22 51 albums were made so from his named folders in
-  `E:\Onedrive\Billeder\Billeder` (and `Mathildes konfirmation`); folders
-  named only by a date, and camera/phone dumps (Filmrulle, usorteret, DCIM,
-  H-PHONE, m's telefon), were left out. An album button on each photo in
+  `E:\Onedrive\Billeder\Billeder`, then deleted again the same day at his
+  wish (only his own "Mathilde 18 år" kept); don't make them again unasked.
+  An album button on each photo in
   the grid and in the viewer (key A) adds that photo to an album.
 - Videos: sidebar "Videos" shows only the videos (`video=1`, or `$video`
   typed in the search; `Filter.Video`), where they lie in the folders;
