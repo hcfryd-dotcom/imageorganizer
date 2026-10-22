@@ -191,7 +191,10 @@ the rest of the repo.
   through `/api/images/delete` (moved to the deleted-photos folder) after
   a confirm. Favourites and rated photos are never chosen by themselves.
 - Desktop shortcut `ImageOrganizer.lnk` → the Start .bat, which only opens
-  the browser if the program already runs.
+  the browser if the program already runs. The program listens from its first
+  moment and, until the library is open, every page is a start-up page
+  (`startup.go`) with a bar of what it is doing (`store.LoadProgress` steps,
+  then face models); the .bat opens the browser 2 s after starting it.
 - Looks: the macOS-style block in `web/app.css`, and after it the
   "Studio" look (dark and soft, glowing colour behind, frosted glass, no
   hairlines, words in normal case, headings in the Sitka serif, rounded

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -166,6 +167,22 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		os.Exit(130)
 	}()
 
+	// Listening at once, with the start-up page until all is ready
+	// (startup.go): the browser the start script opens finds it at once.
+	boot := newStartup()
+	ln, err := net.Listen("tcp", listen)
+	if err != nil {
+		return err
+	}
+	hs := &http.Server{Handler: boot, ReadHeaderTimeout: 10 * time.Second}
+	defer hs.Close()
+	served := make(chan error, 1)
+	go func() {
+		log.Info("listening", "addr", listen)
+		served <- hs.Serve(ln)
+	}()
+	store.LoadProgress = boot.set
+
 	// The database holds passwords for remote folders: keep it private.
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return err
@@ -177,6 +194,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 	} else {
 		log.Info("videos are skipped: ffmpeg and ffprobe not found next to the program or on the PATH")
 	}
+	boot.set("opening")
 	st, err := store.Open(filepath.Join(dataDir, "library.bolt"))
 	if err != nil {
 		return err
@@ -214,6 +232,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 	if faceModels == "" {
 		faceModels = filepath.Join(dataDir, "models")
 	}
+	boot.set("models")
 	fcfg := faces.DefaultConfig(faceModels)
 	fcfg.Library, fcfg.Device, fcfg.GPUMemory = ortLib, faceDevice, faceGPUMem
 	faceEngine, err := faces.Open(fcfg)
@@ -228,6 +247,7 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		st.GenderVersion = faceEngine.GenderVersion()
 		st.NoAgeModel = !faceEngine.HasAge() // then faces are grouped without waiting for an age
 	}
+	boot.set("preparing")
 	// Images whose original-dependent analysis is out of date (a version in
 	// package analysis was bumped) are read once more by import.
 	if n, err := st.RequeueForAnalysis(ctx, faceEngine != nil); err != nil {
@@ -488,12 +508,8 @@ func run(log *slog.Logger, flags config, explicit map[string]bool) error {
 		Log:     log,
 	})
 
-	hs := &http.Server{Addr: listen, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
-	served := make(chan error, 1)
-	go func() {
-		log.Info("listening", "addr", listen)
-		served <- hs.ListenAndServe()
-	}()
+	boot.done(srv.Handler()) // ready: the photos from now on
+	store.LoadProgress = nil
 
 	select {
 	case err := <-served: // failed to listen

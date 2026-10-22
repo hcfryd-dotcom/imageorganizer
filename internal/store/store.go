@@ -238,6 +238,17 @@ func Open(path string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
+// LoadProgress, when set, is told each step of opening a library (the
+// program's start-up page shows it): "images", "files", "vectors",
+// "albums", "faces".
+var LoadProgress func(step string)
+
+func loadStep(step string) {
+	if LoadProgress != nil {
+		LoadProgress(step)
+	}
+}
+
 func (s *Store) load() error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		for _, b := range [][]byte{bucketFolders, bucketImages, bucketFiles} {
@@ -255,6 +266,7 @@ func (s *Store) load() error {
 		}); err != nil {
 			return err
 		}
+		loadStep("images")
 		if err := tx.Bucket(bucketImages).ForEach(func(_, v []byte) error {
 			var im imageRec
 			if err := json.Unmarshal(v, &im); err != nil {
@@ -273,6 +285,7 @@ func (s *Store) load() error {
 		}); err != nil {
 			return err
 		}
+		loadStep("files")
 		if err := tx.Bucket(bucketFiles).ForEach(func(_, v []byte) error {
 			var f fileRec
 			if err := json.Unmarshal(v, &f); err != nil {
@@ -283,6 +296,7 @@ func (s *Store) load() error {
 		}); err != nil {
 			return err
 		}
+		loadStep("vectors")
 		if err := s.loadVectors(tx); err != nil {
 			return err
 		}
@@ -296,9 +310,11 @@ func (s *Store) load() error {
 				s.unindexFile(f)
 			}
 		}
+		loadStep("albums")
 		if err := s.loadAlbums(tx); err != nil {
 			return err
 		}
+		loadStep("faces")
 		return s.loadFaces(tx)
 	})
 }
