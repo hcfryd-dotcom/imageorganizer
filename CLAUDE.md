@@ -104,7 +104,14 @@ the rest of the repo.
   start is the thumbnail and goes through faces; the viewer plays the
   original (.mov served as video/mp4) and "Save picture" writes the paused
   frame next to the video (`server/frame.go`).
-- Albums (`store/albums.go`, `/api/albums`, sidebar "Album").
+- Albums (`store/albums.go`, `/api/albums`, sidebar "Album"). "Album from a
+  folder…" (`POST /api/albums/from-folder`) makes an album of a folder's
+  photos, found in the library by content hash (the folder is only read).
+  On 2026-10-22 51 albums were made so from his named folders in
+  `E:\Onedrive\Billeder\Billeder` (and `Mathildes konfirmation`); folders
+  named only by a date, and camera/phone dumps (Filmrulle, usorteret, DCIM,
+  H-PHONE, m's telefon), were left out. An album button on each photo in
+  the grid and in the viewer (key A) adds that photo to an album.
 - Videos: sidebar "Videos" shows only the videos (`video=1`, or `$video`
   typed in the search; `Filter.Video`), where they lie in the folders;
   nothing is moved. The library stats count them (`videos`).
