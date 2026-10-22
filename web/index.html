@@ -1161,7 +1161,8 @@
     <div class="people-head">
       <h2>Albums</h2>
       <span class="muted" x-text="albums.length ? fmtCount(albums.length) + (albums.length === 1 ? ' album' : ' albums') : ''"></span>
-      <button class="btn primary albums-new" @click="newAlbum().then(a => a && openAlbum(a))">New album</button>
+      <button class="btn albums-new" @click="albumFromFolder()" title="Make an album of a folder of photos, e.g. one you sorted yourself in OneDrive; the folder is only read">Album from a folder…</button>
+      <button class="btn primary" @click="newAlbum().then(a => a && openAlbum(a))">New album</button>
     </div>
     <p class="muted" x-show="!albums.length">No albums yet. Make one here, or in Photos: click Select, choose photos and then “Add to album…”. A photo can be in several albums, from any folder, and taking it out of an album never deletes it.</p>
     <div class="album-grid">

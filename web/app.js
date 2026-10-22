@@ -3186,6 +3186,24 @@ document.addEventListener('alpine:init', () => {
         return null;
       }
     },
+    // albumFromFolder makes an album of a folder's photos (the folder is
+    // only read; its photos are found in the library by their content).
+    async albumFromFolder() {
+      const folder = (this.ask('The folder to make an album of, e.g. E:\\Onedrive\\Billeder\\Mathildes konfirmation') || '').trim();
+      if (!folder) return;
+      const base = folder.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+      const name = (this.ask('Name of the album', base) || '').trim();
+      if (!name) return;
+      this.notify('Reading the folder…', 60000);
+      try {
+        const r = await api('/api/albums/from-folder', {method: 'POST', body: JSON.stringify({folder, name})});
+        await this.loadAlbums();
+        this.notify(r.found ? `Album “${r.name}”: ${fmtCount(r.found)} photos` + (r.missing ? ` (${fmtCount(r.missing)} not in the library)` : '')
+          : `No photos of the library in that folder (${fmtCount(r.files)} files read)`, 8000);
+      } catch (e) {
+        this.notify(`Couldn’t make the album: ${e.message}`, 8000);
+      }
+    },
     async renameAlbum() {
       const a = this.albums.find(a => a.id === this.album);
       const name = (this.ask('New name of the album', a ? a.name : '') || '').trim();

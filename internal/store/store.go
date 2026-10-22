@@ -717,6 +717,14 @@ func (s *Store) HashKnown(ctx context.Context, hash string) (bool, error) {
 	return ok, nil
 }
 
+// ImageByHash is the image with this content hash, if the library has it.
+func (s *Store) ImageByHash(hash string) (int64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	id, ok := s.byHash[hash]
+	return id, ok
+}
+
 // ImageData is the extracted (non-user) metadata for an image.
 type ImageData struct {
 	ContentHash string
