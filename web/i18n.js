@@ -332,7 +332,7 @@
     'Leave out photos with shut eyes (the program can take narrowed eyes, or someone looking down, for shut)':
       'Spring billeder over med lukkede øjne (programmet kan tage smalle øjne, eller nogen der kigger ned, for lukkede)',
     'Looking at eyes': 'Ser på øjne', 'Open or shut, for photo books': 'Åbne eller lukkede, til fotobøger',
-    'Look': 'Udseende', 'Studio (dark)': 'Studio (mørk)', 'Classic': 'Klassisk',
+    'Look': 'Udseende', 'Studio (dark)': 'Studio (mørk)', 'Nordic (light)': 'Nordisk (lys)', 'Classic': 'Klassisk',
     'Elegant script': 'Elegant skråskrift', 'Wedding script': 'Bryllupsskrift', 'Felt pen': 'Tusch', 'Child’s hand': 'Børneskrift',
     'Curly': 'Krøllet', 'Funny': 'Sjov', 'Retro': 'Retro', 'Poster': 'Plakat', 'Fine serif': 'Fin klassisk', 'Modern': 'Moderne', 'Gothic': 'Gotisk',
     'Drag to turn it': 'Træk for at dreje det', '+ Text box': '+ Tekstboks',

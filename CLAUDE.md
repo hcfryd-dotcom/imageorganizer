@@ -195,6 +195,11 @@ the rest of the repo.
   moment and, until the library is open, every page is a start-up page
   (`startup.go`) with a bar of what it is doing (`store.LoadProgress` steps,
   then face models); the .bat opens the browser 2 s after starting it.
+- Look "Nordic" (the default since 2026-10-22, after he asked for something
+  like Bang & Olufsen's style; no brand marks): light warm off-white and
+  aluminium greys, black main buttons, bronze touches, thin type, small
+  spaced capitals for labels, nearly square corners, hairlines; a block at
+  the end of `web/app.css`, a few lines in `book.html`, and the start-up page.
 - Looks: the macOS-style block in `web/app.css`, and after it the
   "Studio" look (dark and soft, glowing colour behind, frosted glass, no
   hairlines, words in normal case, headings in the Sitka serif, rounded

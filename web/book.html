@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Photo book</title>
-<script>try { document.documentElement.dataset.look = localStorage.getItem("look") || "studio"; } catch (e) { document.documentElement.dataset.look = "studio"; }</script>
+<script>try { document.documentElement.dataset.look = localStorage.getItem("look") || "nordic"; } catch (e) { document.documentElement.dataset.look = "nordic"; }</script>
 <link rel="stylesheet" href="app.css">
 <style>
   /* A photo book (of an album, a person, people together, a year or a
@@ -15,6 +15,16 @@
   html, body { height: auto; overflow: auto; display: block; background: #e8e8ed; }
   html[data-look="studio"], html[data-look="studio"] body { background: radial-gradient(1100px 760px at 92% -12%, rgba(155, 123, 255, .24), transparent 62%), radial-gradient(900px 700px at -12% 112%, rgba(95, 224, 255, .12), transparent 62%), radial-gradient(800px 560px at 55% 125%, rgba(255, 111, 177, .12), transparent 62%), #0d0c13; background-attachment: fixed; }
   @media print { html[data-look="studio"], html[data-look="studio"] body { background: #fff !important; } }
+  /* Nordic: white pages on a warm, light desk; boxes white with a hairline. */
+  html[data-look="nordic"], html[data-look="nordic"] body { background: #e9e6e0; }
+  [data-look="nordic"] .toolbox, [data-look="nordic"] .unused, [data-look="nordic"] .peek { background: #fbfaf8; border-radius: 3px !important; box-shadow: 0 0 0 1px rgba(20, 20, 20, .12), 0 24px 60px rgba(30, 25, 15, .16); }
+  [data-look="nordic"] .toolbox-title, [data-look="nordic"] .unused-head b { font-family: inherit; font-weight: 500; text-transform: uppercase; letter-spacing: .14em; font-size: 12px; }
+  [data-look="nordic"] .tb-part { border-radius: 2px; background: #f4f2ee; }
+  [data-look="nordic"] .tb-head { text-transform: uppercase; letter-spacing: .12em; font-size: 11.5px; }
+  [data-look="nordic"] .tb-head:hover { color: var(--accent-2); }
+  [data-look="nordic"] .toolbox-big.on { background: #161616; color: #fbfaf8; }
+  [data-look="nordic"] .page-wrap.picked > section.page { box-shadow: 0 0 0 2px #161616, 0 10px 30px rgba(30, 25, 15, .12); }
+  [data-look="nordic"] .peek span { color: #55524c; }
   .book-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px;
     background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: saturate(1.8) blur(20px); border-bottom: 1px solid var(--line); }
   .book-bar h1 { font-size: 17px; margin: 0 8px 0 0; }

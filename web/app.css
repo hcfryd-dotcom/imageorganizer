@@ -1412,3 +1412,149 @@ body:has(.sel-bar:not([style*="none"])) .toast { bottom: 84px; }
 .tile-album svg { width: 17px; height: 17px; }
 .tile:hover .tile-album { opacity: 1; }
 .tile-album:hover { background: var(--accent); color: #0b0b0f; }
+
+/* ==========================================================================
+   Nordic look (the default since 2026-10-22; Settings → Look): light and
+   calm in the spirit of Scandinavian hi-fi design. Warm off-white and
+   aluminium greys, black for what matters with a touch of bronze, thin
+   type, small spaced capitals for labels, square-ish shapes, much air,
+   hairlines instead of shadows. Only with <html data-look="nordic">.
+   ========================================================================== */
+:root[data-look="nordic"] {
+  --bg: #f4f2ee;
+  --bg-2: #fbfaf8;
+  --panel: #fbfaf8;
+  --panel-2: #ece9e3;
+  --line: rgba(20, 20, 20, .1);
+  --text: #161616;
+  --muted: #7a766e;
+  --accent: #161616;           /* black: the main action */
+  --accent-2: #a9875a;         /* bronze */
+  --accent-soft: rgba(169, 135, 90, .14);
+  --pink: #b5654d;
+  --cyan: #5f7d8c;
+  --danger: #b4412f;
+  --ok: #4f7a52;
+  --warn: #b3842f;
+  --radius: 4px;
+  --shadow: 0 1px 0 rgba(0, 0, 0, .04), 0 18px 50px rgba(30, 25, 15, .1);
+  --sidebar-bg: #fbfaf8;
+  --select: #ffffff;
+  --fill: rgba(20, 20, 20, .05);
+  --btn: transparent;
+  --btn-edge: 0 0 0 1px rgba(20, 20, 20, .22);
+  --glass: rgba(251, 250, 248, .9);
+  --grad: linear-gradient(90deg, #161616, #161616);
+  --serif: "Segoe UI Variable Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --label: "Segoe UI Variable Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+[data-look="nordic"] body { background: #f4f2ee; color: var(--text); font-family: "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+[data-look="nordic"] ::selection { background: rgba(169, 135, 90, .3); }
+
+/* Headings thin and large; labels small spaced capitals. */
+[data-look="nordic"] h2, [data-look="nordic"] .people-head h2 { font-family: var(--serif); font-weight: 300; font-size: 34px; letter-spacing: -.01em; }
+[data-look="nordic"] .section-head { font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -.005em; padding: 26px 0 12px;
+  background: linear-gradient(#f4f2ee 70%, rgba(244, 242, 238, 0)); }
+
+/* Sidebar: a white column with a hairline; the open item marked by a
+   black bar, words in small capitals. */
+[data-look="nordic"] .sidebar { background: #fbfaf8; border-right: 1px solid var(--line); backdrop-filter: none; }
+[data-look="nordic"] .brand-mark rect { fill: #161616; }
+[data-look="nordic"] .brand-mark path, [data-look="nordic"] .brand-mark circle { fill: #fbfaf8; }
+[data-look="nordic"] .brand-name { font-family: var(--label); font-weight: 400; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; }
+[data-look="nordic"] .nav-item { font-family: var(--label); text-transform: uppercase; letter-spacing: .14em; font-size: 11.5px; font-weight: 500;
+  border-radius: 0; padding: 10px 14px; color: #55524c; position: relative; transition: color .2s, background .2s; }
+[data-look="nordic"] .nav-item:hover { background: rgba(20, 20, 20, .04); color: #161616; }
+[data-look="nordic"] .nav-item.active { background: transparent; color: #161616; font-weight: 600; box-shadow: inset 3px 0 0 #161616; }
+[data-look="nordic"] .nav-icon, [data-look="nordic"] nav .nav-item .nav-icon { color: #8a857c; }
+[data-look="nordic"] .nav-item.active .nav-icon { color: #161616; }
+[data-look="nordic"] .nav-badge { background: transparent; color: #8a857c; font-weight: 400; letter-spacing: .02em; }
+[data-look="nordic"] .scan-card { background: #f4f2ee; border: 1px solid var(--line); border-radius: 2px; }
+[data-look="nordic"] .bar { background: rgba(20, 20, 20, .08); border-radius: 0; height: 3px; }
+[data-look="nordic"] .bar > div { background: #a9875a; border-radius: 0; }
+
+/* Top bar: white, a hairline below. */
+[data-look="nordic"] .topbar { background: rgba(251, 250, 248, .92); backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+[data-look="nordic"] .search-box { background: transparent; border: 0; border-bottom: 1px solid rgba(20, 20, 20, .25); border-radius: 0; height: 38px; }
+[data-look="nordic"] .search-box:focus-within { border-bottom-color: #161616; box-shadow: none; }
+
+/* Buttons: thin outlined rectangles in small capitals; the main one black. */
+[data-look="nordic"] .btn { height: 34px; padding: 0 18px; border-radius: 2px; background: transparent; color: #161616; box-shadow: inset 0 0 0 1px rgba(20, 20, 20, .25);
+  font-family: var(--label); text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 600; transition: background .2s, color .2s, box-shadow .2s; }
+[data-look="nordic"] .btn:hover { filter: none; background: rgba(20, 20, 20, .05); box-shadow: inset 0 0 0 1px #161616; }
+[data-look="nordic"] .btn.primary { background: #161616; color: #fbfaf8; box-shadow: none; }
+[data-look="nordic"] .btn.primary:hover { background: #3a3835; }
+[data-look="nordic"] .btn.ghost { box-shadow: none; }
+[data-look="nordic"] .btn.danger { background: var(--danger); color: #fff; box-shadow: none; }
+[data-look="nordic"] .btn.ghost.danger { background: transparent; color: var(--danger); }
+[data-look="nordic"] .btn.on { background: #161616; color: #fbfaf8; }
+[data-look="nordic"] .btn:disabled { opacity: .35; }
+[data-look="nordic"] .icon-btn { border-radius: 2px; }
+[data-look="nordic"] .icon-btn:hover { background: rgba(20, 20, 20, .06); }
+
+/* Fields: a line beneath, no box. */
+[data-look="nordic"] .select, [data-look="nordic"] .input { background: #fff; color: var(--text); border: 1px solid rgba(20, 20, 20, .16); border-radius: 2px; box-shadow: none; height: 34px; }
+[data-look="nordic"] .input:focus, [data-look="nordic"] .select:focus { border-color: #161616; box-shadow: none; }
+[data-look="nordic"] .seg { background: transparent; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(20, 20, 20, .2); padding: 2px; }
+[data-look="nordic"] .seg button { border-radius: 1px; text-transform: uppercase; letter-spacing: .1em; font-size: 11px; color: #55524c; }
+[data-look="nordic"] .seg button.on { background: #161616; color: #fbfaf8; box-shadow: none; }
+[data-look="nordic"] input[type=checkbox], [data-look="nordic"] input[type=radio], [data-look="nordic"] input[type=range] { accent-color: #161616; }
+[data-look="nordic"] .chip, [data-look="nordic"] .kin-chip { background: #ece9e3; color: #161616; border: 0; border-radius: 2px; }
+[data-look="nordic"] .dq-tab { border-radius: 2px; background: transparent; border: 1px solid rgba(20, 20, 20, .2); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
+[data-look="nordic"] .dq-tab.on { background: #161616; color: #fbfaf8; border-color: #161616; }
+
+/* Cards and panels: white on the warm ground, a hairline, no glow. */
+[data-look="nordic"] .panel, [data-look="nordic"] .set-group, [data-look="nordic"] .group-card, [data-look="nordic"] .match-card,
+[data-look="nordic"] .issue, [data-look="nordic"] .empty-people, [data-look="nordic"] .bulk-bar, [data-look="nordic"] .export-form,
+[data-look="nordic"] .move-bar, [data-look="nordic"] .tree-wrap, [data-look="nordic"] .folder-row, [data-look="nordic"] .stat {
+  background: #fbfaf8; box-shadow: none; border: 1px solid var(--line); border-radius: 2px; }
+[data-look="nordic"] .group-card:hover, [data-look="nordic"] .match-card:hover { border-color: rgba(20, 20, 20, .35); }
+[data-look="nordic"] .group-card.focused, [data-look="nordic"] .group-card.selected, [data-look="nordic"] .match-card.answered { box-shadow: inset 0 0 0 2px #161616; }
+[data-look="nordic"] .person-card { border-radius: 2px; transition: background .2s; }
+[data-look="nordic"] .person-card:hover { background: #fbfaf8; }
+[data-look="nordic"] .avatar { box-shadow: none; }
+[data-look="nordic"] .album-cover { border-radius: 2px; box-shadow: none; border: 1px solid var(--line); }
+[data-look="nordic"] .album-card:hover .album-cover { border-color: #161616; }
+[data-look="nordic"] .album-card b { font-weight: 400; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; }
+
+/* Photos: nearly square corners, air between them. */
+[data-look="nordic"] .tile { border-radius: 2px; clip-path: inset(3px); background: #ece9e3; }
+[data-look="nordic"] .tile:hover img { transform: scale(1.02); }
+[data-look="nordic"] .scrubber button { border-radius: 0; letter-spacing: .06em; color: #8a857c; }
+[data-look="nordic"] .scrubber button.active { background: transparent; color: #161616; font-weight: 700; box-shadow: inset -2px 0 0 #161616; }
+[data-look="nordic"] .badge, [data-look="nordic"] .pin.cluster span { background: #161616; color: #fbfaf8; }
+[data-look="nordic"] .tile-album:hover { background: #fbfaf8; color: #161616; }
+
+/* Windows over the page, menus and messages. */
+[data-look="nordic"] .modal, [data-look="nordic"] ul.suggest, [data-look="nordic"] .conn-banner, [data-look="nordic"] .toast, [data-look="nordic"] .delete-ask {
+  background: #fbfaf8; backdrop-filter: none; border: 1px solid var(--line); border-radius: 2px; box-shadow: 0 30px 80px rgba(30, 25, 15, .18); }
+[data-look="nordic"] .modal-head { border-bottom: 1px solid var(--line); font-weight: 400; text-transform: uppercase; letter-spacing: .12em; font-size: 13px; }
+[data-look="nordic"] .modal-foot { border-top: 1px solid var(--line); }
+[data-look="nordic"] .modal-back { background: rgba(244, 242, 238, .7); backdrop-filter: blur(4px); }
+[data-look="nordic"] .suggest li.on { background: #161616; color: #fbfaf8; }
+
+/* The viewer stays dark, as a picture is best seen; its side panel light. */
+[data-look="nordic"] .lb-info { background: #fbfaf8; color: #161616; border-left: 1px solid var(--line); }
+[data-look="nordic"] .lb-nav:hover { background: #fbfaf8; color: #161616; }
+
+/* The Cleanup and the group window. */
+[data-look="nordic"] .clean-bar { background: #fbfaf8; border: 1px solid var(--line); border-radius: 2px; box-shadow: none; }
+[data-look="nordic"] .clean-item { border-radius: 2px; }
+[data-look="nordic"] .clean-item.chosen { box-shadow: inset 0 0 0 3px #161616; }
+[data-look="nordic"] .clean-item.chosen .clean-check { background: #161616; border-color: #161616; }
+[data-look="nordic"] .clean-keep { background: var(--accent-2); color: #fff; border-radius: 2px; }
+[data-look="nordic"] .group-pop-face img { border-radius: 2px; }
+[data-look="nordic"] .group-pop-face .gp-open:hover img { box-shadow: 0 0 0 2px #161616; }
+
+/* The photo book: white pages on a warm desk. */
+[data-look="nordic"] .book-bar { background: rgba(251, 250, 248, .94); border-bottom: 1px solid var(--line); }
+[data-look="nordic"] .book-bar h1 { font-weight: 400; text-transform: uppercase; letter-spacing: .14em; font-size: 14px; }
+[data-look="nordic"] .book-bar .title-input { background: transparent; border: 0; border-bottom: 1px solid transparent; font-weight: 300; font-size: 22px; }
+[data-look="nordic"] .book-bar .title-input:hover, [data-look="nordic"] .book-bar .title-input:focus { border-bottom-color: rgba(20, 20, 20, .3); }
+[data-look="nordic"] .page-tools > button { border: 0; border-radius: 2px; padding: 5px 11px; background: transparent; color: #161616; box-shadow: inset 0 0 0 1px rgba(20, 20, 20, .2);
+  cursor: pointer; text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px; font-weight: 600; }
+[data-look="nordic"] .page-tools > button:hover { box-shadow: inset 0 0 0 1px #161616; }
+[data-look="nordic"] .page-tools > button.on { background: #161616; color: #fbfaf8; }
+[data-look="nordic"] .filters, [data-look="nordic"] .text-style, [data-look="nordic"] .alts { background: #fbfaf8; border: 1px solid var(--line); border-radius: 2px; box-shadow: none; }
+@media print { [data-look="nordic"] body { background: #fff !important; } }

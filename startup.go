@@ -109,6 +109,13 @@ const startupPage = `<!doctype html>
   #step { color: #f3f1f7; font-size: 16px; }
   .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   #time { font-size: 13px; font-variant-numeric: tabular-nums; }
+  /* The light Nordic look (the default), unless Studio was chosen. */
+  body.light { color-scheme: light; color: #161616; background: #f4f2ee; }
+  body.light h1 { font: 400 15px "Segoe UI Variable Display", "Segoe UI", sans-serif; text-transform: uppercase; letter-spacing: .16em; margin-bottom: 12px; }
+  body.light p { color: #7a766e; }
+  body.light .bar { height: 3px; border-radius: 0; background: rgba(20, 20, 20, .1); }
+  body.light .bar > div { border-radius: 0; background: #161616; }
+  body.light #step { color: #161616; }
 </style></head>
 <body><div class="box">
   <h1>ImageOrganizer</h1>
@@ -120,6 +127,9 @@ const startupPage = `<!doctype html>
 (function () {
   var lang = 'da';
   try { lang = localStorage.getItem('lang') || 'da'; } catch (e) {}
+  var look = 'nordic';
+  try { look = localStorage.getItem('look') || 'nordic'; } catch (e) {}
+  if (look !== 'studio') document.body.classList.add('light');
   var T = {
     da: {lead: 'Programmet starter. Det tager typisk et minut.', starting: 'Starter programmet…', opening: 'Åbner biblioteket…',
       images: 'Læser billederne…', files: 'Finder billedernes filer…', vectors: 'Indlæser søgning efter indhold…', albums: 'Indlæser albums…',
