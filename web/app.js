@@ -386,6 +386,7 @@ document.addEventListener('alpine:init', () => {
       this.clearMapFocus();
       this.fav = !!n.fav;
       this.video = !!n.video;
+      if (this.sort === 'album') this.sort = 'taken_desc';
       this.person = 0;
       this.album = 0;
       if (n.id === 'people') this.openPersonId = 0;
@@ -3056,10 +3057,11 @@ document.addEventListener('alpine:init', () => {
       this.fav = false;
       this.video = false;
       this.person = 0;
+      this.sort = 'album'; // its own order: numbered photos first
       this.setView('photos');
       this.reload();
     },
-    clearAlbum() { this.album = 0; this.reload(); },
+    clearAlbum() { this.album = 0; if (this.sort === 'album') this.sort = 'taken_desc'; this.reload(); },
     // openBook opens the photo book of an album's or a person's photos in a
     // tab of its own, to print or save as a PDF.
     openBook(what) {
@@ -3223,8 +3225,28 @@ document.addEventListener('alpine:init', () => {
     },
     // "Add to album…": pick an album (or make one) for these photos.
     async openAlbumPick(ids) {
-      this.albumPick = {open: true, ids, name: '', busy: false};
+      this.albumPick = {open: true, ids, name: '', busy: false, n: '', title: ''};
       this.loadAlbums();
+    },
+    // saveMark gives photo imageID its number and title in album albumID.
+    async saveMark(albumID, imageID, n, title) {
+      await api(`/api/albums/${albumID}/mark`, {method: 'POST', body: JSON.stringify({image: imageID, n: +n || 0, title: (title || '').trim()})});
+    },
+    // editMark asks for a photo's number and title in the album shown.
+    async editMark(im) {
+      if (!this.album) return;
+      const m = im.mark || {};
+      const n = this.ask('Its number in the album (empty: none)', m.n ? String(m.n) : '');
+      if (n === null) return;
+      const title = this.ask('Its title (empty: none). A title starting with “Chapter” begins a chapter in a photo book.', m.title || '');
+      if (title === null) return;
+      try {
+        await this.saveMark(this.album, im.id, n, title);
+        im.mark = (+n || title.trim()) ? {n: +n || 0, title: title.trim()} : null;
+        if (this.sort === 'album') this.reload();
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 6000);
+      }
     },
     async pickAlbum(a) {
       const p = this.albumPick;
@@ -3240,6 +3262,8 @@ document.addEventListener('alpine:init', () => {
           const r = await api(`/api/albums/${a.id}/add`, {method: 'POST', body: JSON.stringify({ids: p.ids})});
           this.notify(r.changed === 1 ? `Added 1 photo to “${a.name}”` : `Added ${fmtCount(r.changed)} photos to “${a.name}”`, 5000);
         }
+        // One photo: its number and title there, when given.
+        if (p.ids.length === 1 && (+p.n > 0 || (p.title || '').trim())) await this.saveMark(a.id, p.ids[0], p.n, p.title);
         p.open = false;
         await this.loadAlbums();
         if (this.detail && p.ids.includes(this.detail.id)) this.detail = {...this.detail, albums: await api('/api/images/' + this.detail.id + '/albums').catch(() => this.detail.albums)};

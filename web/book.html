@@ -1217,6 +1217,29 @@
       }
       return;
     }
+    // An album whose photos were given numbers or titles: the book goes in
+    // the album's order; a title is the caption under its photo, and one
+    // starting with "Chapter"/"Kapitel" a page of text before it instead.
+    if (src.get('album') && photos.some(p => p.mark)) {
+      // The photos given a number or title are always in it.
+      const have = new Set(list.map(p => p.id));
+      list = list.concat(photos.filter(p => p.mark && !have.has(p.id)));
+      const pos = new Map(photos.map((p, i) => [p.id, i]));
+      list.sort((a, b) => pos.get(a.id) - pos.get(b.id));
+      book.captions = {...(book.captions || {})};
+      let group = [];
+      const flush = () => { if (group.length) book.pages.push(...pack(group, book.per)); group = []; };
+      for (const im of list) {
+        const title = (im.mark && im.mark.title || '').trim();
+        if (/^(chapter|kapitel)\b/i.test(title)) {
+          flush();
+          book.pages.push({n: 0, ids: [], text: title});
+        } else if (title && !book.captions[im.id]) book.captions[im.id] = title;
+        group.push(im);
+      }
+      flush();
+      return;
+    }
     const ch = chapterKind();
     if (ch) {
       for (const [key, group, title] of chapters(list, ch)) {
@@ -3963,7 +3986,9 @@
     $('title').value = rec.title || '';
     document.title = (rec.title || t('Photo book')) + ' – ImageOrganizer';
 
-    const base = new URLSearchParams({sort: 'taken_asc', limit: '2000'});
+    // An album comes in its own order (its numbered photos first), with
+    // each photo's number and title there (im.mark).
+    const base = new URLSearchParams({sort: src.get('album') ? 'album' : 'taken_asc', limit: '2000'});
     for (const k of ['album', 'person', 'people', 'ids', 'from', 'to', 'near', 'km']) if (src.get(k)) base.set(k, src.get(k));
     for (let off = 0; ; off += 2000) {
       base.set('offset', off);

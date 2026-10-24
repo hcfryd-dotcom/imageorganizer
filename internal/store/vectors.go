@@ -221,6 +221,10 @@ func (s *Store) Search(ctx context.Context, q []float32, f Filter) ([]Image, int
 // (the default with search text).
 const SortRelevance = "relevance"
 
+// SortAlbum lists an album's numbered photos first by their numbers
+// (Filter.Order), then the rest oldest first.
+const SortAlbum = "album"
+
 // searchTop is how many of the best matches a search sorted another way
 // keeps.
 const searchTop = 300

@@ -12,41 +12,42 @@ import (
 
 // Image is the API representation of an image.
 type Image struct {
-	ID          int64    `json:"id"`
-	Hash        string   `json:"hash"`
-	Width       int      `json:"w"`
-	Height      int      `json:"h"`
-	FileSize    int64    `json:"size"`
-	Format      string   `json:"format"`
-	TakenAt     *int64   `json:"taken"`
-	CameraTaken *int64   `json:"camera_taken,omitempty"` // the file's date, when the user set another
-	Lat         *float64 `json:"lat,omitempty"`
-	Lon         *float64 `json:"lon,omitempty"`
-	GeoSrc      string   `json:"geo_src,omitempty"` // the position isn't the file's: "user" or "near"
-	CameraMake  string   `json:"make,omitempty"`
-	CameraModel string   `json:"model,omitempty"`
-	Lens        string   `json:"lens,omitempty"`
-	ISO         int      `json:"iso,omitempty"`
-	FNumber     float64  `json:"fnumber,omitempty"`
-	Exposure    string   `json:"exposure,omitempty"`
-	Focal       float64  `json:"focal,omitempty"`
-	HasThumb    bool     `json:"thumb"`
-	Video       bool     `json:"video,omitempty"`
-	Duration    float32  `json:"duration,omitempty"` // seconds
-	Favorite    bool     `json:"fav"`
-	Rating      int      `json:"rating"`
-	Title       string   `json:"title,omitempty"`
-	Notes       string   `json:"notes,omitempty"`
-	Caption     string   `json:"caption,omitempty"`
-	Rot         int      `json:"rot,omitempty"`        // rotation correction, also busts cached thumbnails
-	Nsfw        bool     `json:"nsfw,omitempty"`       // not safe for work (the model's call, or the user's)
-	NsfwScore   float32  `json:"nsfw_score,omitempty"` // the model's estimate, 0..1
-	NsfwUser    *bool    `json:"nsfw_user,omitempty"`  // the user's say, when given
-	Blurry      bool     `json:"blurry,omitempty"`     // looks blurry (little fine detail)
-	Sharp       float32  `json:"sharp,omitempty"`      // the sharpness measured (media.Sharpness)
-	Path        string   `json:"path"`
-	Score       float32  `json:"score,omitempty"` // search relevance
-	PHash       uint64   `json:"-"`               // how it looks, for telling near copies (photo books)
+	ID          int64      `json:"id"`
+	Hash        string     `json:"hash"`
+	Width       int        `json:"w"`
+	Height      int        `json:"h"`
+	FileSize    int64      `json:"size"`
+	Format      string     `json:"format"`
+	TakenAt     *int64     `json:"taken"`
+	CameraTaken *int64     `json:"camera_taken,omitempty"` // the file's date, when the user set another
+	Lat         *float64   `json:"lat,omitempty"`
+	Lon         *float64   `json:"lon,omitempty"`
+	GeoSrc      string     `json:"geo_src,omitempty"` // the position isn't the file's: "user" or "near"
+	CameraMake  string     `json:"make,omitempty"`
+	CameraModel string     `json:"model,omitempty"`
+	Lens        string     `json:"lens,omitempty"`
+	ISO         int        `json:"iso,omitempty"`
+	FNumber     float64    `json:"fnumber,omitempty"`
+	Exposure    string     `json:"exposure,omitempty"`
+	Focal       float64    `json:"focal,omitempty"`
+	HasThumb    bool       `json:"thumb"`
+	Video       bool       `json:"video,omitempty"`
+	Duration    float32    `json:"duration,omitempty"` // seconds
+	Favorite    bool       `json:"fav"`
+	Rating      int        `json:"rating"`
+	Title       string     `json:"title,omitempty"`
+	Notes       string     `json:"notes,omitempty"`
+	Caption     string     `json:"caption,omitempty"`
+	Rot         int        `json:"rot,omitempty"`        // rotation correction, also busts cached thumbnails
+	Nsfw        bool       `json:"nsfw,omitempty"`       // not safe for work (the model's call, or the user's)
+	NsfwScore   float32    `json:"nsfw_score,omitempty"` // the model's estimate, 0..1
+	NsfwUser    *bool      `json:"nsfw_user,omitempty"`  // the user's say, when given
+	Blurry      bool       `json:"blurry,omitempty"`     // looks blurry (little fine detail)
+	Sharp       float32    `json:"sharp,omitempty"`      // the sharpness measured (media.Sharpness)
+	Path        string     `json:"path"`
+	Score       float32    `json:"score,omitempty"` // search relevance
+	Mark        *AlbumMark `json:"mark,omitempty"`  // its number and title in the album listed
+	PHash       uint64     `json:"-"`               // how it looks, for telling near copies (photo books)
 }
 
 // view builds the API image; call with s.mu held.
@@ -106,6 +107,9 @@ type Filter struct {
 	HideNsfw, OnlyNsfw bool
 	Blurry             bool // only photos that look blurry
 	Video              bool // only videos
+	// Order: with Sort "album", these photos first in this order (an
+	// album's numbered ones, AlbumOrder), the rest after them oldest first.
+	Order []int64
 }
 
 // match reports whether im passes f; call with s.mu held.
@@ -219,7 +223,22 @@ func (s *Store) Images(ctx context.Context, f Filter) ([]Image, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	list := s.selectImages(f)
-	sortImages(list, f.Sort)
+	if f.Sort == SortAlbum {
+		sortImages(list, "taken_asc")
+		pos := make(map[int64]int, len(f.Order))
+		for i, id := range f.Order {
+			pos[id] = i + 1
+		}
+		at := func(im *imageRec) int {
+			if p := pos[im.ID]; p > 0 {
+				return p
+			}
+			return len(f.Order) + 1
+		}
+		slices.SortStableFunc(list, func(a, b *imageRec) int { return cmp.Compare(at(a), at(b)) })
+	} else {
+		sortImages(list, f.Sort)
+	}
 	if f.Limit <= 0 || f.Limit > 2000 {
 		f.Limit = 200
 	}

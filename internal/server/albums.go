@@ -26,6 +26,27 @@ func (s *Server) albumRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/albums/{id}", s.deleteAlbum)
 	mux.HandleFunc("POST /api/albums/{id}/add", s.albumPhotos(true))
 	mux.HandleFunc("POST /api/albums/{id}/remove", s.albumPhotos(false))
+	// A photo's number and title in the album: {"image": id, "n": 3, "title": "…"}.
+	mux.HandleFunc("POST /api/albums/{id}/mark", func(w http.ResponseWriter, r *http.Request) {
+		id, err := pathID(r)
+		if err != nil {
+			httpError(w, 400, err)
+			return
+		}
+		var req struct {
+			Image int64 `json:"image"`
+			store.AlbumMark
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			httpError(w, 400, err)
+			return
+		}
+		if err := s.Store.SetAlbumMark(r.Context(), id, req.Image, req.AlbumMark); err != nil {
+			storeError(w, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
+	})
 	mux.HandleFunc("GET /api/images/{id}/albums", func(w http.ResponseWriter, r *http.Request) {
 		id, err := pathID(r)
 		if err != nil {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -23,6 +24,16 @@ type albumRec struct {
 	Name    string  `json:"name"`
 	Created int64   `json:"created"`
 	Images  []int64 `json:"images"` // in the order added
+	// Marks: a photo's number (its place in the album, for a photo book)
+	// and title in this album, by photo id. Only in the library.
+	Marks map[int64]AlbumMark `json:"marks,omitempty"`
+}
+
+// AlbumMark is a photo's number and title in an album; a title starting
+// with "Chapter" or "Kapitel" begins a chapter in a photo book.
+type AlbumMark struct {
+	N     int    `json:"n,omitempty"`
+	Title string `json:"title,omitempty"`
 }
 
 // Album is the API representation: its photos that are present, and the
@@ -210,7 +221,69 @@ func (s *Store) RemoveFromAlbum(ctx context.Context, id int64, ids []int64) (int
 	if n == 0 {
 		return 0, nil
 	}
+	if len(a.Marks) > 0 {
+		c.Marks = maps.Clone(a.Marks)
+		for i := range out {
+			delete(c.Marks, i)
+		}
+	}
 	return n, s.saveAlbum(c)
+}
+
+// SetAlbumMark gives a photo in an album its number (0: none) and title
+// (empty: none).
+func (s *Store) SetAlbumMark(ctx context.Context, id, imageID int64, m AlbumMark) error {
+	m.Title = strings.TrimSpace(m.Title)
+	if m.N < 0 {
+		m.N = 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a, ok := s.albums[id]
+	if !ok || !slices.Contains(a.Images, imageID) {
+		return ErrNotFound
+	}
+	c := *a
+	c.Marks = maps.Clone(a.Marks)
+	if c.Marks == nil {
+		c.Marks = map[int64]AlbumMark{}
+	}
+	if m == (AlbumMark{}) {
+		delete(c.Marks, imageID)
+	} else {
+		c.Marks[imageID] = m
+	}
+	return s.saveAlbum(c)
+}
+
+// AlbumMarks lists an album's marks by photo id (nil: none, or no album).
+func (s *Store) AlbumMarks(id int64) map[int64]AlbumMark {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if a, ok := s.albums[id]; ok {
+		return maps.Clone(a.Marks)
+	}
+	return nil
+}
+
+// AlbumOrder is an album's numbered photos by their numbers (photos with
+// one number by the order they were added): the order a photo list
+// sorted "album" puts first, the rest after them oldest first.
+func (s *Store) AlbumOrder(id int64) []int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	a, ok := s.albums[id]
+	if !ok {
+		return nil
+	}
+	var out []int64
+	for _, im := range a.Images {
+		if a.Marks[im].N > 0 {
+			out = append(out, im)
+		}
+	}
+	slices.SortStableFunc(out, func(x, y int64) int { return cmp.Compare(a.Marks[x].N, a.Marks[y].N) })
+	return out
 }
 
 // AlbumImageIDs lists an album's photos (nil: no such album), for
@@ -251,6 +324,13 @@ func (s *Store) albumsMerged(src, dst int64) error {
 		for i, id := range c.Images {
 			if id == src {
 				c.Images[i] = dst
+			}
+		}
+		if m, ok := a.Marks[src]; ok { // its number and title go with it
+			c.Marks = maps.Clone(a.Marks)
+			delete(c.Marks, src)
+			if _, has := c.Marks[dst]; !has {
+				c.Marks[dst] = m
 			}
 		}
 		c.Images = s.knownNewKeep(c.Images)

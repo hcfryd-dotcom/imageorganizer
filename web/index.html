@@ -113,6 +113,7 @@
       <button class="btn" x-show="view === 'photos'" :class="sel.on && 'primary'" @click="sel.on ? endSelect() : startSelect()" x-text="sel.on ? 'Done' : 'Select'" title="Select photos, e.g. to set their place"></button>
       <select x-model="sort" @change="reload()" class="select" :title="q.trim() && sort !== 'relevance' ? 'The 300 best matches, in this order' : ''">
         <option value="relevance" x-show="q.trim()">Most relevant first</option>
+        <option value="album" x-show="album">Album order (numbers first)</option>
         <option value="taken_desc">Newest first</option>
         <option value="taken_asc">Oldest first</option>
         <option value="added_desc">Recently added</option>
@@ -177,6 +178,9 @@
                 <span class="video-badge" x-show="it.im.video" x-html="icons.play + '<span>' + fmtDuration(it.im.duration) + '</span>'"></span>
                 <span class="sel-mark" x-show="sel.on" x-html="icons.check"></span>
                 <button class="tile-album" x-show="!sel.on" @click.stop="openAlbumPick([it.im.id])" x-html="icons.album" title="Add to album…"></button>
+                <button class="tile-mark" x-show="album && !sel.on" :class="{empty: !it.im.mark}" @click.stop="editMark(it.im)"
+                        :title="it.im.mark ? 'Number and title in the album: click to change' : 'Give it a number and a title in the album'"
+                        x-text="it.im.mark ? [it.im.mark.n ? '#' + it.im.mark.n : '', it.im.mark.title || ''].filter(Boolean).join('  ') : '#'"></button>
                 <span class="geo-badge" x-show="sel.on && it.im.lat != null" :class="it.im.geo_src" x-html="icons.pin"
                       :title="it.im.geo_src === 'near' ? 'Place borrowed from a photo taken around the same time' : it.im.geo_src === 'user' ? 'Place set by you' : 'Place from the camera'"></span>
                 <figcaption><span x-text="fmtDateShort(it.im.taken)"></span></figcaption>
@@ -1735,6 +1739,11 @@
       <b x-text="albumPick.ids.length === 1 ? 'Add the photo to an album' : 'Add ' + fmtCount(albumPick.ids.length) + ' photos to an album'"></b>
       <span class="spacer"></span>
       <button class="icon-btn" title="Close (Esc)" @click="albumPick.open = false" x-html="icons.close"></button>
+    </div>
+    <!-- One photo: its place and title in the album, for a photo book (both may be left empty) -->
+    <div class="album-mark-fields" x-show="albumPick.ids.length === 1">
+      <label>Number <input class="input" type="number" min="1" step="1" x-model.number="albumPick.n" placeholder="—" title="Its place in the album: a photo book made of it puts the photos in this order"></label>
+      <label class="grow">Title <input class="input" x-model="albumPick.title" placeholder="e.g. First day at school, or Chapter 2: The summer" title="Shown under the photo in a photo book; a title starting with “Chapter” begins a chapter there"></label>
     </div>
     <div class="dir-list">
       <template x-for="a in albums" :key="a.id">

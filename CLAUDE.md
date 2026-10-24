@@ -112,6 +112,13 @@ the rest of the repo.
   wish (only his own "Mathilde 18 år" kept); don't make them again unasked.
   An album button on each photo in
   the grid and in the viewer (key A) adds that photo to an album.
+  A photo can have a number and a title in an album (`albumRec.Marks`,
+  `POST /api/albums/{id}/mark`; set when adding one photo, or by the badge
+  on it in the album). An album opens sorted "album" (`store.SortAlbum`:
+  numbered photos by number, then the rest oldest first), and a photo book
+  of an album with marks follows that order: a title is the caption, one
+  starting with "Kapitel"/"Chapter" a page of text before its photo, and
+  marked photos are always in it.
 - Videos: sidebar "Videos" shows only the videos (`video=1`, or `$video`
   typed in the search; `Filter.Video`), where they lie in the folders;
   nothing is moved. The library stats count them (`videos`).

@@ -537,6 +537,11 @@ func (s *Server) parseQuery(r *http.Request) (store.Filter, parsedQuery) {
 	}
 	if aid, err := strconv.ParseInt(q.Get("album"), 10, 64); err == nil && aid > 0 {
 		restrict(s.Store.AlbumImageIDs(aid))
+		if f.Sort == store.SortAlbum {
+			f.Order = s.Store.AlbumOrder(aid)
+		}
+	} else if f.Sort == store.SortAlbum {
+		f.Sort = "" // no album: newest first
 	}
 	if pid, err := strconv.ParseInt(q.Get("person"), 10, 64); err == nil && pid > 0 {
 		restrict(s.Store.PersonImageIDs(pid))
@@ -680,6 +685,18 @@ func (s *Server) listImages(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpError(w, 500, err)
 		return
+	}
+	// In an album, each photo's number and title there.
+	if aid, _ := strconv.ParseInt(r.URL.Query().Get("album"), 10, 64); aid > 0 {
+		if list, ok := items.([]store.Image); ok {
+			if marks := s.Store.AlbumMarks(aid); len(marks) > 0 {
+				for i := range list {
+					if m, ok := marks[list[i].ID]; ok {
+						list[i].Mark = &m
+					}
+				}
+			}
+		}
 	}
 	resp["items"], resp["total"] = items, total
 	writeJSON(w, resp)
