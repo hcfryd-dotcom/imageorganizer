@@ -110,6 +110,7 @@ document.addEventListener('alpine:init', () => {
     albums: [],         // the Albums page
     albumPick: {open: false, ids: [], name: '', busy: false}, // "Add to album…" for these photos
     defaultAlbum: (() => { try { return +localStorage.getItem('defaultAlbum') || 0; } catch (e) { return 0; } })(), // see albumButton
+    defaultAlbumIDs: new Set(), defaultAlbumIDsFor: 0, // the photos in it, and which album that was (loadDefaultAlbumIDs)
     books: [],          // the Photo books page
     bookNew: {open: false, kind: 'person', people: [], places: [], place: null, placeQ: '', title: '', calFrom: 'person', error: ''}, // "New photo book" (openBookNew)
     personName: '',
@@ -234,7 +235,7 @@ document.addEventListener('alpine:init', () => {
     // ---------- lifecycle ----------
     init() {
       this.readHash();
-      if (this.defaultAlbum) this.loadAlbums(); // its name in the top bar
+      if (this.defaultAlbum) { this.loadAlbums(); this.loadDefaultAlbumIDs(); } // its name in the top bar, the mark on its photos
       try { this.rowHeight = +localStorage.getItem('rowHeight') || this.rowHeight; } catch (e) {}
       try { this.lightbox.faces = localStorage.getItem('showFaces') === '1'; } catch (e) {}
       try { this.lightbox.strip = localStorage.getItem('showStrip') === '1'; } catch (e) {}
@@ -3235,7 +3236,24 @@ document.addEventListener('alpine:init', () => {
     setDefaultAlbum(id) {
       this.defaultAlbum = this.defaultAlbum === id ? 0 : id;
       try { localStorage.setItem('defaultAlbum', String(this.defaultAlbum)); } catch (e) {}
+      this.loadDefaultAlbumIDs();
     },
+    // defaultAlbumIDs: the photos in the default album, so they show a
+    // mark on them (inDefaultAlbum).
+    async loadDefaultAlbumIDs() {
+      const id = this.defaultAlbum, ids = new Set();
+      if (this.defaultAlbumIDsFor !== id) { this.defaultAlbumIDsFor = id; this.defaultAlbumIDs = new Set(); }
+      if (id) {
+        for (let off = 0; ; off += 2000) {
+          const r = await api(`/api/images?album=${id}&limit=2000&offset=${off}`).catch(() => null);
+          for (const im of (r && r.items) || []) ids.add(im.id);
+          if (!r || !r.items || r.items.length < 2000) break;
+        }
+      }
+      // Photos added while it loaded are kept.
+      if (this.defaultAlbum === id) this.defaultAlbumIDs = new Set([...ids, ...this.defaultAlbumIDs]);
+    },
+    inDefaultAlbum(id) { return !!this.defaultAlbum && this.defaultAlbumIDs.has(id); },
     defaultAlbumRec() { return this.defaultAlbum ? this.albums.find(a => a.id === this.defaultAlbum) || null : null; },
     async albumButton(ids, e) {
       if (!this.defaultAlbum || (e && e.shiftKey)) return this.openAlbumPick(ids);
@@ -3244,6 +3262,9 @@ document.addEventListener('alpine:init', () => {
       if (!a) { this.setDefaultAlbum(0); return this.openAlbumPick(ids); } // it was deleted
       try {
         const r = await api(`/api/albums/${a.id}/add`, {method: 'POST', body: JSON.stringify({ids})});
+        const s = new Set(this.defaultAlbumIDs);
+        ids.forEach(i => s.add(i));
+        this.defaultAlbumIDs = s; // the mark shows on them at once
         this.notify(r.changed ? `Added to “${a.name}”` : `Already in “${a.name}”`, 4000, {label: 'Another album…', fn: () => this.openAlbumPick(ids)});
         this.loadAlbums();
         if (this.detail && ids.includes(this.detail.id)) this.detail = {...this.detail, albums: await api('/api/images/' + this.detail.id + '/albums').catch(() => this.detail.albums)};
@@ -3287,6 +3308,7 @@ document.addEventListener('alpine:init', () => {
         }
         // One photo: its number and title there, when given.
         if (p.ids.length === 1 && (+p.n > 0 || (p.title || '').trim())) await this.saveMark(a.id, p.ids[0], p.n, p.title);
+        if (a.id === this.defaultAlbum) { const s = new Set(this.defaultAlbumIDs); p.ids.forEach(i => s.add(i)); this.defaultAlbumIDs = s; }
         p.open = false;
         await this.loadAlbums();
         if (this.detail && p.ids.includes(this.detail.id)) this.detail = {...this.detail, albums: await api('/api/images/' + this.detail.id + '/albums').catch(() => this.detail.albums)};
@@ -3300,6 +3322,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const r = await api(`/api/albums/${albumID}/remove`, {method: 'POST', body: JSON.stringify({ids})});
         this.notify(r.changed === 1 ? 'Took 1 photo out of the album' : `Took ${fmtCount(r.changed)} photos out of the album`, 4000);
+        if (albumID === this.defaultAlbum) { const s = new Set(this.defaultAlbumIDs); ids.forEach(i => s.delete(i)); this.defaultAlbumIDs = s; }
         if (this.detail && ids.includes(this.detail.id)) this.detail = {...this.detail, albums: (this.detail.albums || []).filter(x => x.id !== albumID)};
         if (this.album === albumID) {
           this.sel.ids = {};

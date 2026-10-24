@@ -613,6 +613,7 @@
     [/^They are all (.*)\.$/, (m, w) => 'De er alle ' + w + '.'],
     [/^(\d+) faces are now (.*)$/, (m, n, w) => n + ' ansigter er nu ' + w],
     [/^Added to “(.*)”$/, (m, a) => 'Tilføjet til “' + a + '”'],
+    [/^In “(.*)”$/, (m, a) => 'I “' + a + '”'],
     [/^Already in “(.*)”$/, (m, a) => 'Er allerede i “' + a + '”'],
     [/^Add to “(.*)” \(Shift: another album\)$/, (m, a) => 'Tilføj til “' + a + '” (Shift: andet album)'],
     [/^Add to “(.*)” \(A; Shift: another album\)$/, (m, a) => 'Tilføj til “' + a + '” (A; Shift: andet album)'],

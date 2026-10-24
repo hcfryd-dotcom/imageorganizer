@@ -1580,3 +1580,10 @@ body:has(.sel-bar:not([style*="none"])) .toast { bottom: 84px; }
 .default-album button { border: 0; background: none; color: inherit; cursor: pointer; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; padding: 0; }
 .default-album button:hover { background: rgba(127, 127, 127, .2); }
 [data-look="nordic"] .default-album { border-radius: 2px; background: #ece9e3; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+/* A photo in the default album: a small album mark in its corner. */
+.in-album-badge { position: absolute; top: 7px; left: 7px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent-2, var(--accent)); color: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); pointer-events: none; transition: opacity .15s; }
+.in-album-badge svg { width: 15px; height: 15px; }
+.tile:hover .in-album-badge { opacity: 0; } /* the album button is there then */
+[data-look="nordic"] .in-album-badge { border-radius: 2px; background: #a9875a; }
+.lb-top .icon-btn.active, .icon-btn.active { color: var(--accent-2, var(--accent)); }

@@ -179,6 +179,7 @@
               <figure class="tile" :class="{picking: sel.on, picked: sel.ids[it.im.id]}" :data-id="it.im.id" :style="`width:${it.w}px`" @click="sel.on ? toggleSel(it, $event) : openLightbox(it.idx)">
                 <img :src="thumbURL(it.im)" loading="lazy" decoding="async" alt="" @load="$el.classList.add('in')">
                 <span class="fav-badge" x-show="it.im.fav" x-html="icons.heartFill"></span>
+                <span class="in-album-badge" x-show="inDefaultAlbum(it.im.id)" x-html="icons.album" :title="'In “' + (defaultAlbumRec() || {}).name + '”'"></span>
                 <span class="video-badge" x-show="it.im.video" x-html="icons.play + '<span>' + fmtDuration(it.im.duration) + '</span>'"></span>
                 <span class="sel-mark" x-show="sel.on" x-html="icons.check"></span>
                 <button class="tile-album" x-show="!sel.on" @click.stop="albumButton([it.im.id], $event)" x-html="icons.album"
@@ -1581,7 +1582,7 @@
       <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(90)" x-html="icons.rotate" title="Turn right (R)"></button>
       <button class="icon-btn" :class="{active: lightbox.faces}" @click="toggleFaces()" x-html="icons.people" title="Show who is in the photo (F)"></button>
       <button class="icon-btn" :class="{on: current()?.fav}" @click="toggleFav(current())" x-html="current()?.fav ? icons.heartFill : icons.heart" title="Favorite (H)"></button>
-      <button class="icon-btn" @click="current() && albumButton([current().id], $event)" x-html="icons.album"
+      <button class="icon-btn" :class="{active: current() && inDefaultAlbum(current().id)}" @click="current() && albumButton([current().id], $event)" x-html="icons.album"
               :title="defaultAlbumRec() ? 'Add to “' + defaultAlbumRec().name + '” (A; Shift: another album)' : 'Add to album… (A)'"></button>
       <a class="icon-btn" :href="current() && '/original/' + current().id + '?download'" x-html="icons.download" title="Download original"></a>
       <button class="icon-btn" @click="askDelete()" x-html="icons.trash" title="Delete: move to the deleted-photos folder (Del)"></button>
