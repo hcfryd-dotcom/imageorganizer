@@ -109,6 +109,7 @@ document.addEventListener('alpine:init', () => {
     album: 0,           // photos filtered to this album
     albums: [],         // the Albums page
     albumPick: {open: false, ids: [], name: '', busy: false}, // "Add to album…" for these photos
+    defaultAlbum: (() => { try { return +localStorage.getItem('defaultAlbum') || 0; } catch (e) { return 0; } })(), // see albumButton
     books: [],          // the Photo books page
     bookNew: {open: false, kind: 'person', people: [], places: [], place: null, placeQ: '', title: '', calFrom: 'person', error: ''}, // "New photo book" (openBookNew)
     personName: '',
@@ -233,6 +234,7 @@ document.addEventListener('alpine:init', () => {
     // ---------- lifecycle ----------
     init() {
       this.readHash();
+      if (this.defaultAlbum) this.loadAlbums(); // its name in the top bar
       try { this.rowHeight = +localStorage.getItem('rowHeight') || this.rowHeight; } catch (e) {}
       try { this.lightbox.faces = localStorage.getItem('showFaces') === '1'; } catch (e) {}
       try { this.lightbox.strip = localStorage.getItem('showStrip') === '1'; } catch (e) {}
@@ -2627,7 +2629,7 @@ document.addEventListener('alpine:init', () => {
         else if (e.key === 'r') this.rotateCurrent(90);
         else if (e.key === 'R') this.rotateCurrent(-90);
         else if (e.key === 'h') this.toggleFav(this.current());
-        else if (e.key === 'a' && this.current()) this.openAlbumPick([this.current().id]);
+        else if ((e.key === 'a' || e.key === 'A') && this.current()) this.albumButton([this.current().id], e);
         else if (e.key === 'i') this.lightbox.info = !this.lightbox.info;
         else if (e.key === 'Delete') this.askDelete();
         else if (e.key === 't') this.toggleStrip();
@@ -3227,6 +3229,27 @@ document.addEventListener('alpine:init', () => {
     async openAlbumPick(ids) {
       this.albumPick = {open: true, ids, name: '', busy: false, n: '', title: ''};
       this.loadAlbums();
+    },
+    // The default album (this browser): the album button on a photo, and
+    // A in the viewer, put the photo straight in it; Shift chooses another.
+    setDefaultAlbum(id) {
+      this.defaultAlbum = this.defaultAlbum === id ? 0 : id;
+      try { localStorage.setItem('defaultAlbum', String(this.defaultAlbum)); } catch (e) {}
+    },
+    defaultAlbumRec() { return this.defaultAlbum ? this.albums.find(a => a.id === this.defaultAlbum) || null : null; },
+    async albumButton(ids, e) {
+      if (!this.defaultAlbum || (e && e.shiftKey)) return this.openAlbumPick(ids);
+      if (!this.albums.length) await this.loadAlbums();
+      const a = this.defaultAlbumRec();
+      if (!a) { this.setDefaultAlbum(0); return this.openAlbumPick(ids); } // it was deleted
+      try {
+        const r = await api(`/api/albums/${a.id}/add`, {method: 'POST', body: JSON.stringify({ids})});
+        this.notify(r.changed ? `Added to “${a.name}”` : `Already in “${a.name}”`, 4000, {label: 'Another album…', fn: () => this.openAlbumPick(ids)});
+        this.loadAlbums();
+        if (this.detail && ids.includes(this.detail.id)) this.detail = {...this.detail, albums: await api('/api/images/' + this.detail.id + '/albums').catch(() => this.detail.albums)};
+      } catch (err) {
+        this.notify(`Couldn’t save: ${err.message}`, 6000);
+      }
     },
     // saveMark gives photo imageID its number and title in album albumID.
     async saveMark(albumID, imageID, n, title) {

@@ -111,6 +111,10 @@
     </div>
     <div class="topbar-tools" x-show="view === 'photos' || view === 'table'">
       <button class="btn" x-show="view === 'photos'" :class="sel.on && 'primary'" @click="sel.on ? endSelect() : startSelect()" x-text="sel.on ? 'Done' : 'Select'" title="Select photos, e.g. to set their place"></button>
+      <span class="default-album" x-show="defaultAlbumRec()" :title="'The album button on a photo puts it in “' + (defaultAlbumRec() || {}).name + '” (Shift: another album)'">
+        <span x-html="icons.album"></span><span x-text="(defaultAlbumRec() || {}).name"></span>
+        <button @click="setDefaultAlbum(defaultAlbum)" title="No default album" x-html="icons.close"></button>
+      </span>
       <select x-model="sort" @change="reload()" class="select" :title="q.trim() && sort !== 'relevance' ? 'The 300 best matches, in this order' : ''">
         <option value="relevance" x-show="q.trim()">Most relevant first</option>
         <option value="album" x-show="album">Album order (numbers first)</option>
@@ -177,7 +181,8 @@
                 <span class="fav-badge" x-show="it.im.fav" x-html="icons.heartFill"></span>
                 <span class="video-badge" x-show="it.im.video" x-html="icons.play + '<span>' + fmtDuration(it.im.duration) + '</span>'"></span>
                 <span class="sel-mark" x-show="sel.on" x-html="icons.check"></span>
-                <button class="tile-album" x-show="!sel.on" @click.stop="openAlbumPick([it.im.id])" x-html="icons.album" title="Add to album…"></button>
+                <button class="tile-album" x-show="!sel.on" @click.stop="albumButton([it.im.id], $event)" x-html="icons.album"
+                        :title="defaultAlbumRec() ? 'Add to “' + defaultAlbumRec().name + '” (Shift: another album)' : 'Add to album…'"></button>
                 <button class="tile-mark" x-show="album && !sel.on" :class="{empty: !it.im.mark}" @click.stop="editMark(it.im)"
                         :title="it.im.mark ? 'Number and title in the album: click to change' : 'Give it a number and a title in the album'"
                         x-text="it.im.mark ? [it.im.mark.n ? '#' + it.im.mark.n : '', it.im.mark.title || ''].filter(Boolean).join('  ') : '#'"></button>
@@ -1576,7 +1581,8 @@
       <button class="icon-btn" x-show="!current()?.video" :disabled="rotating" @click="rotateCurrent(90)" x-html="icons.rotate" title="Turn right (R)"></button>
       <button class="icon-btn" :class="{active: lightbox.faces}" @click="toggleFaces()" x-html="icons.people" title="Show who is in the photo (F)"></button>
       <button class="icon-btn" :class="{on: current()?.fav}" @click="toggleFav(current())" x-html="current()?.fav ? icons.heartFill : icons.heart" title="Favorite (H)"></button>
-      <button class="icon-btn" @click="current() && openAlbumPick([current().id])" x-html="icons.album" title="Add to album… (A)"></button>
+      <button class="icon-btn" @click="current() && albumButton([current().id], $event)" x-html="icons.album"
+              :title="defaultAlbumRec() ? 'Add to “' + defaultAlbumRec().name + '” (A; Shift: another album)' : 'Add to album… (A)'"></button>
       <a class="icon-btn" :href="current() && '/original/' + current().id + '?download'" x-html="icons.download" title="Download original"></a>
       <button class="icon-btn" @click="askDelete()" x-html="icons.trash" title="Delete: move to the deleted-photos folder (Del)"></button>
       <button class="icon-btn" :class="{active: lightbox.strip}" @click="toggleStrip()" x-html="icons.strip" title="Photos taken around the same time (T)"></button>
@@ -1747,11 +1753,15 @@
     </div>
     <div class="dir-list">
       <template x-for="a in albums" :key="a.id">
-        <button class="dir" :disabled="albumPick.busy" @click="pickAlbum(a)">
-          <span class="album-mini"><img x-show="a.cover" :src="a.cover ? thumbURL({thumb: true, hash: a.cover, rot: a.cover_rot}) : ''" alt=""></span>
-          <span x-text="a.name"></span>
-          <small class="muted" x-text="fmtCount(a.photos)"></small>
-        </button>
+        <div class="album-row">
+          <button class="dir" :disabled="albumPick.busy" @click="pickAlbum(a)">
+            <span class="album-mini"><img x-show="a.cover" :src="a.cover ? thumbURL({thumb: true, hash: a.cover, rot: a.cover_rot}) : ''" alt=""></span>
+            <span x-text="a.name"></span>
+            <small class="muted" x-text="fmtCount(a.photos)"></small>
+          </button>
+          <button class="album-star" :class="{on: defaultAlbum === a.id}" @click="setDefaultAlbum(a.id)" x-text="defaultAlbum === a.id ? '★' : '☆'"
+                  :title="defaultAlbum === a.id ? 'The default album: the album button puts photos straight in it. Click to stop.' : 'Make it the default album: the album button then puts photos straight in it'"></button>
+        </div>
       </template>
       <div class="muted pad" x-show="!albums.length">No albums yet: make the first below.</div>
     </div>

@@ -111,7 +111,9 @@ the rest of the repo.
   `E:\Onedrive\Billeder\Billeder`, then deleted again the same day at his
   wish (only his own "Mathilde 18 år" kept); don't make them again unasked.
   An album button on each photo in
-  the grid and in the viewer (key A) adds that photo to an album.
+  the grid and in the viewer (key A) adds that photo to an album; with a
+  default album (☆ in "Add to album…", localStorage `defaultAlbum`, its
+  name in the top bar) it goes straight in, Shift chooses another.
   A photo can have a number and a title in an album (`albumRec.Marks`,
   `POST /api/albums/{id}/mark`; set when adding one photo, or by the badge
   on it in the album). An album opens sorted "album" (`store.SortAlbum`:
