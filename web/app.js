@@ -3229,7 +3229,7 @@ document.addEventListener('alpine:init', () => {
         : 'The folder to copy this album’s photos to, e.g. E:\\Album\\Mathilde. Photos you put in the album later are copied there too.', cur);
       if (folder === null || folder.trim() === cur) return;
       try {
-        const r = await api(`/api/albums/${this.album}/copy-to`, {method: 'POST', body: JSON.stringify({folder: folder.trim()})});
+        const r = await api(`/api/albums/${this.album}/copy-to`, {method: 'POST', body: JSON.stringify({folder: folder.trim(), lang: this.lang()})});
         await this.loadAlbums();
         this.notify(r.folder ? `Copying ${fmtCount(r.copying)} photos to ${r.folder}` : 'This album’s photos are no longer copied to a folder', 6000);
       } catch (e) {

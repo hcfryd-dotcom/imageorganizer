@@ -10,8 +10,9 @@ import (
 )
 
 // An album can have a folder of its own on this computer: each photo put
-// in the album is copied there as well (flat, under its own file name; a
-// file of the same name and size already there is taken to be it).
+// in the album is copied there as well, sorted by year and month like a
+// tidy copy (<dir>/2024/05 May/IMG_1234.HEIC; a file of the same name and
+// size already there is taken to be it).
 // Taking a photo out of the album, or deleting the album, leaves the
 // copies alone. The library's folders are only read.
 
@@ -25,6 +26,7 @@ func (s *Server) setAlbumCopyTo(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Folder string `json:"folder"`
+		Lang   string `json:"lang"` // of the year and month folder names
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpError(w, 400, err)
@@ -45,7 +47,7 @@ func (s *Server) setAlbumCopyTo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := s.Store.SetAlbumCopyTo(r.Context(), id, dir); err != nil {
+	if err := s.Store.SetAlbumCopyTo(r.Context(), id, dir, req.Lang); err != nil {
 		storeError(w, err)
 		return
 	}
@@ -57,7 +59,11 @@ func (s *Server) setAlbumCopyTo(w http.ResponseWriter, r *http.Request) {
 // album's folder, if it has one, in the background, one album copy at a
 // time. It returns how many photos it will look at.
 func (s *Server) copyAlbumPhotos(id int64, ids []int64) int {
-	dir, items := s.Store.AlbumCopyItems(context.Background(), id, ids)
+	dir, lang, items := s.Store.AlbumCopyItems(context.Background(), id, ids)
+	names, ok := tidyLang[lang]
+	if !ok {
+		names = tidyLang["en"]
+	}
 	if dir == "" || len(items) == 0 {
 		return 0
 	}
@@ -69,7 +75,7 @@ func (s *Server) copyAlbumPhotos(id int64, ids []int64) int {
 			if s.scanCtx.Err() != nil {
 				return
 			}
-			ok, err := s.copyInto(s.scanCtx, dir, it)
+			ok, err := s.copyInto(s.scanCtx, names.dated(dir, it.Taken), it)
 			if err != nil {
 				failed++
 				s.Log.Warn("copying a photo to the album's folder failed", "path", it.Path, "dir", dir, "err", err)

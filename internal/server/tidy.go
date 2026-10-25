@@ -57,11 +57,17 @@ func (n tidyNames) folder(dir string, it store.TidyItem) string {
 	case "":
 		src = n.noCamera
 	}
-	if it.Taken == nil {
-		return filepath.Join(dir, n.noYear, src)
+	return filepath.Join(n.dated(dir, it.Taken), src)
+}
+
+// dated is the year and month folder in dir for a photo taken at taken
+// (Unix seconds): <dir>/2024/05 May, or <dir>/Unknown year.
+func (n tidyNames) dated(dir string, taken *int64) string {
+	if taken == nil {
+		return filepath.Join(dir, n.noYear)
 	}
-	t := time.Unix(*it.Taken, 0).UTC()
-	return filepath.Join(dir, fmt.Sprint(t.Year()), fmt.Sprintf("%02d %s", int(t.Month()), n.months[t.Month()-1]), src)
+	t := time.Unix(*taken, 0).UTC()
+	return filepath.Join(dir, fmt.Sprint(t.Year()), fmt.Sprintf("%02d %s", int(t.Month()), n.months[t.Month()-1]))
 }
 
 // startTidy counts what a tidy copy would hold (dry) or starts it.

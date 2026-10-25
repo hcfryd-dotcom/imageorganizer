@@ -30,6 +30,8 @@ type albumRec struct {
 	// CopyTo: a folder on this computer each photo put in the album is
 	// copied to as well ("": none). Copies are never taken back.
 	CopyTo string `json:"copy_to,omitempty"`
+	// CopyLang: the language of the year and month folder names there.
+	CopyLang string `json:"copy_lang,omitempty"`
 }
 
 // AlbumMark is a photo's number and title in an album; a title starting
@@ -175,8 +177,9 @@ func (s *Store) RenameAlbum(ctx context.Context, id int64, name string) error {
 	return s.saveAlbum(c)
 }
 
-// SetAlbumCopyTo sets the folder an album's photos are copied to ("": none).
-func (s *Store) SetAlbumCopyTo(ctx context.Context, id int64, dir string) error {
+// SetAlbumCopyTo sets the folder an album's photos are copied to ("": none)
+// and the language of its folder names.
+func (s *Store) SetAlbumCopyTo(ctx context.Context, id int64, dir, lang string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, ok := s.albums[id]
@@ -184,33 +187,32 @@ func (s *Store) SetAlbumCopyTo(ctx context.Context, id int64, dir string) error 
 		return ErrNotFound
 	}
 	c := *a
-	c.CopyTo = dir
+	c.CopyTo, c.CopyLang = dir, lang
 	return s.saveAlbum(c)
 }
 
 // AlbumCopyItems lists the photos ids of album id (all of its photos when
 // ids is nil) for copying to its CopyTo folder, which it returns too ("":
-// none set).
-func (s *Store) AlbumCopyItems(ctx context.Context, id int64, ids []int64) (string, []ExportItem) {
+// none set), with the language of the folder names.
+func (s *Store) AlbumCopyItems(ctx context.Context, id int64, ids []int64) (dir, lang string, items []ExportItem) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	a, ok := s.albums[id]
 	if !ok || a.CopyTo == "" {
-		return "", nil
+		return "", "", nil
 	}
 	if ids == nil {
 		ids = a.Images
 	}
-	var out []ExportItem
 	for _, i := range ids {
 		im := s.images[i]
 		file := s.primaryFile(i)
 		if im == nil || file == nil || !slices.Contains(a.Images, i) {
 			continue
 		}
-		out = append(out, ExportItem{ImageID: im.ID, FolderID: file.FolderID, Path: file.Path, Taken: im.TakenAt, Lat: im.Lat, Lon: im.Lon})
+		items = append(items, ExportItem{ImageID: im.ID, FolderID: file.FolderID, Path: file.Path, Taken: im.TakenAt, Lat: im.Lat, Lon: im.Lon})
 	}
-	return a.CopyTo, out
+	return a.CopyTo, a.CopyLang, items
 }
 
 // DeleteAlbum removes an album; its photos stay where they are.

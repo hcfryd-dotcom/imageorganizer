@@ -117,7 +117,8 @@ the rest of the repo.
   An album can have a folder of its own ("Copy to folder…" on the album
   page, `albumRec.CopyTo`, `POST /api/albums/{id}/copy-to`,
   `server/albumcopy.go`): its photos, and each one added later, are copied
-  there flat in the background; copies are never taken back.
+  there in the background, into <year>/<MM Month>/ folders like the tidy
+  copy (names in the UI's language, `CopyLang`); copies are never taken back.
   A photo can have a number and a title in an album (`albumRec.Marks`,
   `POST /api/albums/{id}/mark`; set when adding one photo, or by the badge
   on it in the album). An album opens sorted "album" (`store.SortAlbum`:
