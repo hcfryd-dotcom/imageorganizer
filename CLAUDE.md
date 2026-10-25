@@ -114,6 +114,10 @@ the rest of the repo.
   the grid and in the viewer (key A) adds that photo to an album; with a
   default album (☆ in "Add to album…", localStorage `defaultAlbum`, its
   name in the top bar) it goes straight in, Shift chooses another.
+  An album can have a folder of its own ("Copy to folder…" on the album
+  page, `albumRec.CopyTo`, `POST /api/albums/{id}/copy-to`,
+  `server/albumcopy.go`): its photos, and each one added later, are copied
+  there flat in the background; copies are never taken back.
   A photo can have a number and a title in an album (`albumRec.Marks`,
   `POST /api/albums/{id}/mark`; set when adding one photo, or by the badge
   on it in the album). An album opens sorted "album" (`store.SortAlbum`:
