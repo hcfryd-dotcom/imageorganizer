@@ -313,8 +313,6 @@
       'Kopierer alle billeder fra mapperne ovenfor til én mappe, sorteret efter år, måned og hvad der tog dem (iPhone, Canon, Skærmbilleder …). Hvert billede kommer kun med én gang: kopier af det samme billede springes over. Dine mapper ændres ikke, og kopierer du igen, tilføjes kun det nye.',
     'Next: look through the new folder. When you’re happy with it, add it above and remove the old folders: the photos are recognised, so names and places stay. The old folders are left for you to delete or keep.':
       'Næste skridt: kig den nye mappe igennem. Når du er tilfreds, tilføjer du den ovenfor og fjerner de gamle mapper: billederne bliver genkendt, så navne og steder bliver. De gamle mapper lader programmet være, så du selv kan slette eller gemme dem.',
-    'Not in photos before…': 'Ikke på billeder før…', 'Write the date as day-month-year, e.g. 10-11-2008': 'Skriv datoen som dag-måned-år, fx 10-11-2008',
-    'Take this person out of every photo taken before a date, such as their birth: those faces become one group to name in Review': 'Fjern personen fra alle billeder taget før en dato, fx fødselsdagen: de ansigter samles i én gruppe under Gennemse, så du kan navngive dem',
     // Slideshow and photo book
     'Slideshow: one photo after another, full screen': 'Diasshow: ét billede ad gangen, i fuld skærm', 'Stop the slideshow (Esc)': 'Stop diasshowet (Esc)',
     'Make photo book': 'Lav fotobog', 'Photo book': 'Fotobog', 'Title': 'Titel', 'Page': 'Side',
@@ -690,12 +688,6 @@
     [/^For example: (.*)$/, (m, p) => 'Fx: ' + p],
     [/^Fetch from, e\.g\. (.*)$/, (m, p) => 'Hent fra, fx ' + p],
     [/^Main folder: (.*)$/, (m, p) => 'Hovedmappe: ' + p],
-    // A person not in photos before a date
-    [/^(.*) isn’t in photos taken before \(day-month-year\)$/, (m, n) => n + ' er ikke på billeder taget før (dag-måned-år)'],
-    [/^(.*) isn’t in any photo taken before then$/, (m, n) => n + ' er ikke på nogen billeder taget før den dato'],
-    [/^Take (.*) out of (\d[\d., ]*) faces in photos taken before (.*)\?\n\nThe photos stay\. The faces become one group in Review, known not to be (.*), to name as who they are\.$/,
-      (m, n, c, d, n2) => 'Fjern ' + n + ' fra ' + c + ' ansigter på billeder taget før ' + d + '?\n\nBillederne bliver. Ansigterne bliver samlet i én gruppe under Gennemse, mærket som ikke ' + n2 + ', så du kan sætte de rigtige navne på.'],
-    [/^Took (.*) out of (\d[\d., ]*) faces: they wait in Review$/, (m, n, c) => 'Fjernede ' + n + ' fra ' + c + ' ansigter: de venter under Gennemse'],
     [/^(\d+) left out$/, (m, n) => n + ' fravalgt'],
     [/^Page (\d+)$/, (m, n) => 'Side ' + n],
     [/^Move the photo to page number \(1–(\d+)\):$/, (m, n) => 'Flyt billedet til side nummer (1–' + n + '):'],
@@ -799,7 +791,6 @@
     [/^no data folder to remember fetched files in$/, () => 'ingen datamappe at huske hentede filer i'],
     [/^the library has no photos to copy$/, () => 'biblioteket har ingen billeder at kopiere'],
     [/^give the album a name$/, () => 'giv albummet et navn'],
-    [/^give the date as day-month-year$/, () => 'skriv datoen som dag-måned-år'],
     [/^videos can’t be turned here$/, () => 'videoer kan ikke drejes her'],
     [/^give the picture a name$/, () => 'giv billedet et navn'],
     [/^that isn’t a video$/, () => 'det er ikke en video'],

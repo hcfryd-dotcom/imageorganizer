@@ -3465,30 +3465,6 @@ document.addEventListener('alpine:init', () => {
       }
       this.peopleChanged();
     },
-    // notBefore takes the open person out of every photo taken before a
-    // date the user gives (their birth): those faces become one group,
-    // known not to be them, to name in Review.
-    async notBefore() {
-      const p = this.openedPerson();
-      if (!p) return;
-      const typed = (this.ask(`${p.name} isn’t in photos taken before (day-month-year)`, p.birth_year ? `01-01-${p.birth_year}` : '') || '').trim();
-      const m = typed.match(/^(\d{1,2})[-./ ](\d{1,2})[-./ ](\d{4})$/);
-      if (!typed) return;
-      if (!m) { this.notify('Write the date as day-month-year, e.g. 10-11-2008', 6000); return; }
-      const date = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-      const url = `/api/people/${p.id}/not-before`;
-      try {
-        const c = await api(url, {method: 'POST', body: JSON.stringify({date, count: true})});
-        if (!c.faces) { this.notify(`${p.name} isn’t in any photo taken before then`, 5000); return; }
-        if (!confirm(`Take ${p.name} out of ${fmtCount(c.faces)} faces in photos taken before ${typed}?\n\nThe photos stay. The faces become one group in Review, known not to be ${p.name}, to name as who they are.`)) return;
-        const r = await api(url, {method: 'POST', body: JSON.stringify({date})});
-        this.notify(`Took ${p.name} out of ${fmtCount(r.faces)} faces: they wait in Review`, 8000);
-        this.peopleChanged();
-        this.loadPerson();
-      } catch (e) {
-        this.notify(`Couldn’t save: ${e.message}`, 6000);
-      }
-    },
     async updatePerson(patch) {
       await api('/api/people/' + this.openPersonId, {method: 'PATCH', body: JSON.stringify(patch)}, {retry: true});
       this.peopleData = await api('/api/people');
