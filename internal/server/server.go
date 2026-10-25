@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lkarlslund/imageorganizer/internal/embed"
@@ -64,6 +65,8 @@ type Server struct {
 	scanCtx context.Context
 	disc    discoverQueue
 	export  exporter // copying a person's photos out, one at a time
+	// albumCopy: copies to albums' own folders run one at a time.
+	albumCopy sync.Mutex
 }
 
 func New(ctx context.Context, c Config) *Server {

@@ -3220,6 +3220,22 @@ document.addEventListener('alpine:init', () => {
         this.notify(`Couldn’t save: ${e.message}`, 6000);
       }
     },
+    albumCopyDir() { return this.albums.find(a => a.id === this.album)?.copy_to || ''; },
+    // albumCopyTo chooses the album's own folder: its photos, and each one
+    // put in it later, are copied there too (empty: stop copying).
+    async albumCopyTo() {
+      const cur = this.albumCopyDir();
+      const folder = this.ask(cur ? 'The folder this album’s photos are copied to (empty it to stop copying; copies already made stay)'
+        : 'The folder to copy this album’s photos to, e.g. E:\\Album\\Mathilde. Photos you put in the album later are copied there too.', cur);
+      if (folder === null || folder.trim() === cur) return;
+      try {
+        const r = await api(`/api/albums/${this.album}/copy-to`, {method: 'POST', body: JSON.stringify({folder: folder.trim()})});
+        await this.loadAlbums();
+        this.notify(r.folder ? `Copying ${fmtCount(r.copying)} photos to ${r.folder}` : 'This album’s photos are no longer copied to a folder', 6000);
+      } catch (e) {
+        this.notify(`Couldn’t save: ${e.message}`, 8000);
+      }
+    },
     async deleteAlbum() {
       if (!confirm(`Delete the album “${this.albumLabel()}”?\n\nThe photos in it are not deleted.`)) return;
       await api('/api/albums/' + this.album, {method: 'DELETE'}).catch(e => this.notify(`Couldn’t remove: ${e.message}`, 6000));

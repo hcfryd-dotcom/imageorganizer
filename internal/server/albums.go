@@ -26,6 +26,7 @@ func (s *Server) albumRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/albums/{id}", s.deleteAlbum)
 	mux.HandleFunc("POST /api/albums/{id}/add", s.albumPhotos(true))
 	mux.HandleFunc("POST /api/albums/{id}/remove", s.albumPhotos(false))
+	mux.HandleFunc("POST /api/albums/{id}/copy-to", s.setAlbumCopyTo)
 	// A photo's number and title in the album: {"image": id, "n": 3, "title": "…"}.
 	mux.HandleFunc("POST /api/albums/{id}/mark", func(w http.ResponseWriter, r *http.Request) {
 		id, err := pathID(r)
@@ -215,6 +216,9 @@ func (s *Server) albumPhotos(add bool) http.HandlerFunc {
 		if err != nil {
 			storeError(w, err)
 			return
+		}
+		if add && n > 0 {
+			s.copyAlbumPhotos(id, req.IDs) // to the album's own folder, if it has one
 		}
 		writeJSON(w, map[string]int{"changed": n})
 	}

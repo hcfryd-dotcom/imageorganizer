@@ -152,6 +152,8 @@
       <span class="muted" x-text="fmtCount(total) + (total === 1 ? ' photo' : ' photos')"></span>
       <button class="btn ghost" @click="openBook({album, title: albumLabel()})" x-html="icons.book + '<span>Make photo book</span>'"></button>
       <button class="btn ghost" @click="renameAlbum()">Rename</button>
+      <button class="btn ghost album-copy" @click="albumCopyTo()" :title="albumCopyDir() ? 'Photos put in this album are copied to ' + albumCopyDir() + ' too. Click to change or stop it.' : 'Copy the photos put in this album to a folder you choose, too'"
+              x-text="albumCopyDir() ? 'Copied to: ' + albumCopyDir() : 'Copy to folder…'"></button>
       <button class="btn ghost danger" @click="deleteAlbum()">Delete album</button>
       <button class="btn ghost" @click="setView('albums'); album = 0">All albums</button>
     </div>

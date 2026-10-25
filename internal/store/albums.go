@@ -27,6 +27,9 @@ type albumRec struct {
 	// Marks: a photo's number (its place in the album, for a photo book)
 	// and title in this album, by photo id. Only in the library.
 	Marks map[int64]AlbumMark `json:"marks,omitempty"`
+	// CopyTo: a folder on this computer each photo put in the album is
+	// copied to as well ("": none). Copies are never taken back.
+	CopyTo string `json:"copy_to,omitempty"`
 }
 
 // AlbumMark is a photo's number and title in an album; a title starting
@@ -45,6 +48,7 @@ type Album struct {
 	Photos    int    `json:"photos"`
 	CoverHash string `json:"cover,omitempty"`
 	CoverRot  int    `json:"cover_rot,omitempty"`
+	CopyTo    string `json:"copy_to,omitempty"`
 }
 
 // AlbumRef names an album a photo is in.
@@ -72,7 +76,7 @@ func (s *Store) loadAlbums(tx *bolt.Tx) error {
 
 // view builds the API album; call with s.mu held.
 func (s *Store) albumView(a *albumRec) Album {
-	v := Album{ID: a.ID, Name: a.Name, Created: a.Created}
+	v := Album{ID: a.ID, Name: a.Name, Created: a.Created, CopyTo: a.CopyTo}
 	for _, id := range a.Images {
 		im, ok := s.images[id]
 		if !ok || !s.present(id) {
@@ -169,6 +173,44 @@ func (s *Store) RenameAlbum(ctx context.Context, id int64, name string) error {
 	c := *a
 	c.Name = name
 	return s.saveAlbum(c)
+}
+
+// SetAlbumCopyTo sets the folder an album's photos are copied to ("": none).
+func (s *Store) SetAlbumCopyTo(ctx context.Context, id int64, dir string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a, ok := s.albums[id]
+	if !ok {
+		return ErrNotFound
+	}
+	c := *a
+	c.CopyTo = dir
+	return s.saveAlbum(c)
+}
+
+// AlbumCopyItems lists the photos ids of album id (all of its photos when
+// ids is nil) for copying to its CopyTo folder, which it returns too ("":
+// none set).
+func (s *Store) AlbumCopyItems(ctx context.Context, id int64, ids []int64) (string, []ExportItem) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	a, ok := s.albums[id]
+	if !ok || a.CopyTo == "" {
+		return "", nil
+	}
+	if ids == nil {
+		ids = a.Images
+	}
+	var out []ExportItem
+	for _, i := range ids {
+		im := s.images[i]
+		file := s.primaryFile(i)
+		if im == nil || file == nil || !slices.Contains(a.Images, i) {
+			continue
+		}
+		out = append(out, ExportItem{ImageID: im.ID, FolderID: file.FolderID, Path: file.Path, Taken: im.TakenAt, Lat: im.Lat, Lon: im.Lon})
+	}
+	return a.CopyTo, out
 }
 
 // DeleteAlbum removes an album; its photos stay where they are.
