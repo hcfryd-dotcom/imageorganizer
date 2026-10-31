@@ -180,7 +180,18 @@
   .toolbox .filters > b:first-child, .toolbox .bs-head { display: none; }
   .toolbox .book-settings section:first-of-type { padding-top: 0; }
   /* Their old buttons in the bar: the toolbox has them. */
-  #settingsBtn, #filtersBtn, #findBtn, #checkBtn, #shopBtn { display: none; }
+  #settingsBtn, #filtersBtn, #findBtn, #checkBtn, #optimizeBtn, #shopBtn { display: none; }
+  .opt-list { display: flex; flex-direction: column; gap: 12px; }
+  #optReset[hidden] { display: none; }
+  .opt-group { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line, rgba(0,0,0,.1)); }
+  .opt-photos { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opt-photo { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .opt-photo img { width: 84px; height: 84px; object-fit: cover; border-radius: 6px; cursor: pointer; }
+  .opt-photo.best img { outline: 3px solid var(--accent, #a57c4f); outline-offset: 1px; }
+  .opt-photo > button { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; cursor: pointer; }
+  .opt-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opt-actions button { border: 1px solid var(--line, rgba(0,0,0,.2)); background: none; padding: 4px 10px; border-radius: 4px; font: inherit; cursor: pointer; color: var(--text); }
+  .opt-actions button.on { background: var(--text, #111); color: var(--bg, #fff); }
   @media print { #pages section.zoomed { zoom: 1 !important; } }
   .toolbox-body { overflow: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
   .toolbox-body .page-tools { justify-content: flex-start; }
@@ -608,6 +619,7 @@
   <button class="btn" id="flipBtn" title="Look at the book as it opens, turning the pages">Turn the pages</button>
   <button class="btn" id="findBtn" title="Search the whole library and drag photos into the book">Find photos…</button>
   <button class="btn" id="checkBtn" title="Look the book through for what may go wrong in print">Check the book</button>
+  <button class="btn" id="optimizeBtn" title="Photos that look alike, each on a page of their own: choose what is to happen">Optimise the book</button>
   <button class="btn" id="shopBtn" title="Print files (PDF) for Lasertryk.dk">For Lasertryk.dk…</button>
   <button class="btn" id="unusedBtn" title="The album’s photos not in the book, of the year you are at: drag them into the book">Unused photos</button>
   <button class="btn" id="overview" title="All pages small, to find one or move whole pages">Pages</button>
@@ -709,6 +721,13 @@
 <div class="filters" id="check" hidden>
   <b>Check before printing</b>
   <div id="checkList" class="check-list"></div>
+</div>
+<div class="filters" id="optimize" hidden>
+  <b>Optimise the book</b>
+  <p class="muted small">Photos that look alike should not each fill a page. Choose for each group what is to happen.</p>
+  <p class="small" id="optNote"></p>
+  <div id="optList" class="opt-list"></div>
+  <button class="btn" id="optReset" type="button" hidden title="Show the groups you chose to keep as they are again">Show the kept groups again</button>
 </div>
 <div class="filters" id="shop" hidden>
   <b>Print files for Lasertryk.dk</b>
@@ -1292,6 +1311,7 @@
     lastTyped = 0;
     showSettings();
     render();
+    if (tbOpen.optimize) renderOptimize();
   }
   function showUndo() {
     $('undo').disabled = !undo.length;
@@ -2451,6 +2471,160 @@
     showChecks(el, checkBook());
   }
 
+  // ---------- optimising the book ----------
+
+  // Photos in the book that look nearly the same (perceptual hashes within
+  // 10 bits and taken within half an hour, or within 2 bits and of the
+  // same shape at any time: the same photo in two files) make a group. A
+  // group is shown when its photos fill pages of their own (on several
+  // pages, or one alone on a page) or it holds the same photo twice, for
+  // the user to choose: keep the
+  // best, put them together on one page, or keep them as they are
+  // (remembered in book.optKeep).
+  const OPT_TIME = 1800, OPT_MOST = 6;
+  function similarGroups() {
+    const ims = seq().map(id => byId.get(id)).filter(im => im && !im.video);
+    const bits = new Map();
+    for (const im of ims) {
+      const h = (info.get(im.id) || {}).ph;
+      if (h) bits.set(im.id, [parseInt(h.slice(0, 8), 16), parseInt(h.slice(8), 16)]);
+    }
+    const pop = x => { x >>>= 0; let d = 0; while (x) { x &= x - 1; d++; } return d; };
+    const shape = im => im.w && im.h ? im.w / im.h : 0;
+    const parent = new Map(ims.map(im => [im.id, im.id]));
+    const root = id => { while (parent.get(id) !== id) id = parent.get(id); return id; };
+    const twins = new Set(); // the same photo twice, shown wherever it is
+    for (let i = 0; i < ims.length; i++) {
+      const a = ims[i], x = bits.get(a.id);
+      if (!x) continue;
+      for (let j = i + 1; j < ims.length; j++) {
+        const b = ims[j], y = bits.get(b.id);
+        if (!y) continue;
+        const d = pop(x[0] ^ y[0]) + pop(x[1] ^ y[1]);
+        const near = a.taken && b.taken && Math.abs(a.taken - b.taken) <= OPT_TIME;
+        const twin = d <= 2 && Math.abs(shape(a) - shape(b)) < .03;
+        if (twin) twins.add(a.id).add(b.id);
+        if ((d <= 10 && near) || twin) parent.set(root(a.id), root(b.id));
+      }
+    }
+    const groups = new Map();
+    for (const im of ims) {
+      const r = root(im.id);
+      if (!groups.has(r)) groups.set(r, []);
+      groups.get(r).push(im.id);
+    }
+    const kept = new Set(book.optKeep || []);
+    return [...groups.values()].filter(g => {
+      if (g.length < 2 || kept.has(optKey(g))) return false;
+      g.twin = g.some(id => twins.has(id));
+      const pages = g.map(id => locate(id)[0]);
+      return new Set(pages).size > 1 || pages.some(pi => book.pages[pi].ids.length === 1) || g.twin;
+    });
+  }
+  const optKey = g => g.slice().sort((a, b) => a - b).join(',');
+  // quality ranks photos of a group: favourite, stars, sharpness, and
+  // open eyes.
+  function quality(id) {
+    const im = byId.get(id) || {}, f = info.get(id) || {};
+    const judged = (f.list || []).filter(x => x.w > .04 && x.eyes > 0), shut = judged.filter(x => x.eyes < .16).length;
+    return (im.fav ? 3 : 0) + (im.rating || 0) * .6 + Math.log10(1 + (im.sharp || 0)) + (judged.length ? (judged.length - shut * 3) / judged.length * .5 : 0);
+  }
+  const bestOf = g => g.slice().sort((a, b) => quality(b) - quality(a));
+  // pull takes photos off their pages so the other pages stay as they
+  // are: a page holds as many fewer, and one left empty goes (or stays
+  // as a page of its text).
+  function pull(ids) {
+    for (const id of ids) {
+      const [pi, k] = locate(id);
+      if (pi < 0) continue;
+      const pg = book.pages[pi];
+      pg.ids.splice(k, 1);
+      if (pg.n > 0 && pg.month == null) pg.n = pg.ids.length;
+      if (pg.pos) delete pg.pos[id];
+    }
+    book.pages = book.pages.filter(p => p.n > 0 || p.month != null || p.map || p.ids.length || p.text != null);
+  }
+  function leaveOut(ids) {
+    pull(ids);
+    for (const id of ids) if (!book.out.includes(id)) book.out.push(id);
+  }
+  function optBest(g) {
+    const [best, ...rest] = bestOf(g);
+    if (rest.includes(book.cover)) book.cover = best;
+    leaveOut(rest);
+  }
+  // optTogether puts the group (its best OPT_MOST, the others left out) on
+  // a page of its own where the first of them was.
+  function optTogether(g) {
+    const s = seq();
+    const keep = new Set(bestOf(g).slice(0, OPT_MOST));
+    const ids = g.filter(id => keep.has(id)).sort((a, b) => s.indexOf(a) - s.indexOf(b));
+    const before = s.slice(0, s.indexOf(ids[0])).filter(id => !g.includes(id)).pop();
+    const [firstPi] = locate(ids[0]);
+    const run = runOf(firstPi);
+    leaveOut(g.filter(id => !keep.has(id)));
+    pull(ids);
+    // After the page of the photo before them, if it is in the same run
+    // of pages; else first in the run.
+    const bp = before != null ? locate(before)[0] : -1;
+    let at = bp >= 0 && runOf(bp) === run ? bp + 1 : book.pages.findIndex((p, pi) => p.n > 0 && runOf(pi) === run);
+    if (at < 0) at = book.pages.length;
+    book.pages.splice(at, 0, {n: ids.length, ids, text: null});
+  }
+  async function renderOptimize() {
+    const el = $('optList');
+    el.textContent = '';
+    await needInfo(seq()).catch(() => {});
+    const groups = similarGroups();
+    $('optNote').textContent = groups.length ? t(groups.length === 1 ? '1 group of photos that look alike, each on a page of its own:' : groups.length + ' groups of photos that look alike, each on a page of its own:')
+      : t('No photos that look alike fill pages of their own.');
+    $('optReset').hidden = !(book.optKeep || []).length;
+    const label = pi => t('Page ' + pageNumbers[pi]);
+    const act = fn => () => { fn(); render(); renderOptimize(); };
+    for (const g of groups) {
+      const box = document.createElement('div');
+      box.className = 'opt-group';
+      const strip = document.createElement('div');
+      strip.className = 'opt-photos';
+      const best = bestOf(g)[0];
+      for (const id of g) {
+        const im = byId.get(id), [pi] = locate(id);
+        const fig = document.createElement('div');
+        fig.className = 'opt-photo' + (id === best ? ' best' : '');
+        const img = document.createElement('img');
+        img.src = thumb(im);
+        img.dataset.big = imgSrc(im);
+        img.title = fmtDate(im.taken) + ' · ' + label(pi) + (id === best ? ' · ' + t('the best of them') : '') + ' · ' + t('click to go to it');
+        img.addEventListener('click', () => {
+          cropping = id;
+          picked = locate(id)[0];
+          render();
+          document.querySelector(`.page-wrap[data-pi="${picked}"]`)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+        });
+        const cap = document.createElement('span');
+        cap.className = 'muted small';
+        cap.textContent = label(pi);
+        const out = tool('×', 'Leave it out of the book', act(() => leaveOut([id])));
+        fig.append(img, out, cap);
+        strip.appendChild(fig);
+      }
+      const row = document.createElement('div');
+      row.className = 'opt-actions';
+      row.append(
+        tool('Keep the best', 'Keep only the best of them (marked); the others go under the last page', act(() => optBest(g)), true),
+        ...(book.calendar || g.twin ? [] : [tool('Together on one page', g.length > OPT_MOST ? 'The best ' + OPT_MOST + ' on one page; the others go under the last page' : 'Put them all on one page, where the first of them is', act(() => optTogether(g)))]),
+        tool('Keep as it is', 'Leave them as they are; they are not shown here again', act(() => { book.optKeep = [...(book.optKeep || []), optKey(g)]; })));
+      if (g.twin) {
+        const note = document.createElement('span');
+        note.className = 'muted small';
+        note.textContent = t('The same photo more than once (in two files, say).');
+        box.append(note);
+      }
+      box.append(strip, row);
+      el.appendChild(box);
+    }
+  }
+
   // spineGuess is about how thick the pages inside are: half as many
   // sheets as pages, about 0.16 mm each on 170 g silk paper, and the
   // glue; Lasertryk's price calculator gives the exact width.
@@ -2713,8 +2887,8 @@
 
   // The toolbox's parts: [id, heading, element moved into it].
   const TB_PARTS = [['page', 'The page', null], ['book', 'Book settings', 'bookSettings'], ['filters', 'Which photos', 'filters'],
-    ['find', 'Find photos', 'find'], ['check', 'Check the book', 'check'], ['shop', 'For Lasertryk.dk', 'shop']];
-  const TB_BUTTONS = {filters: 'filtersBtn', find: 'findBtn', check: 'checkBtn', shop: 'shopBtn'};
+    ['find', 'Find photos', 'find'], ['check', 'Check the book', 'check'], ['optimize', 'Optimise the book', 'optimize'], ['shop', 'For Lasertryk.dk', 'shop']];
+  const TB_BUTTONS = {filters: 'filtersBtn', find: 'findBtn', check: 'checkBtn', optimize: 'optimizeBtn', shop: 'shopBtn'};
   let tbOpen = {page: true};
   try { tbOpen = {page: true, ...JSON.parse(localStorage.getItem('toolboxParts') || '{}')}; } catch (e) {}
   // tbShow opens or closes a part of the toolbox; opened, the box is
@@ -4167,6 +4341,8 @@
   // the bar, so the bar itself stays one light line.
   $('settingsBtn').addEventListener('click', () => tbShow('book', !tbOpen.book));
   $('checkBtn').addEventListener('click', () => { if (panel('check')) runChecks($('checkList')); });
+  $('optimizeBtn').addEventListener('click', () => { if (panel('optimize')) renderOptimize(); });
+  $('optReset').addEventListener('click', () => { book.optKeep = []; save(); renderOptimize(); });
   $('findBtn').addEventListener('click', () => { if (panel('find')) $('findQ').focus(); });
   $('flipBtn').addEventListener('click', flipView);
   $('findQ').addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(findPhotos, 400); });
