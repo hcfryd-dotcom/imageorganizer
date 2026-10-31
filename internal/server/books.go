@@ -104,6 +104,9 @@ type photoInfo struct {
 	List    []faceBit  `json:"list,omitempty"`
 	PH      string     `json:"ph,omitempty"` // the perceptual hash, in hex (64 bits are too many for JavaScript numbers)
 	Look    *photoLook `json:"look,omitempty"`
+	// Frame is a dark frame round the photo (a scanned print's edge):
+	// left, top, right, bottom, as shares of it, to be cut off in a book.
+	Frame *[4]float32 `json:"frame,omitempty"`
 }
 
 type faceBit struct {
@@ -126,15 +129,22 @@ type photoLook struct {
 // reach before the face counts as cut off.
 const cutEdge = 0.004
 
-// looks keeps photoLooks by image hash: measuring means reading the
+// thumbLook is what a photo's thumbnail tells: how light it is, and its
+// dark frame if it has one.
+type thumbLook struct {
+	look  photoLook
+	frame [4]float32
+}
+
+// looks keeps thumbLooks by image hash: measuring means reading the
 // thumbnail.
 var (
 	looksMu sync.Mutex
-	looks   = map[string]photoLook{}
+	looks   = map[string]thumbLook{}
 )
 
 // lookOf measures a photo from its thumbnail (nil if there is none).
-func (s *Server) lookOf(hash string) *photoLook {
+func (s *Server) lookOf(hash string) *thumbLook {
 	looksMu.Lock()
 	l, ok := looks[hash]
 	looksMu.Unlock()
@@ -151,7 +161,10 @@ func (s *Server) lookOf(hash string) *photoLook {
 		return nil
 	}
 	m := media.Looks(img)
-	l = photoLook{Light: math.Round(m.Light*100) / 100}
+	l.look = photoLook{Light: math.Round(m.Light*100) / 100}
+	for i, v := range media.Frame(img) {
+		l.frame[i] = float32(math.Round(v*1000) / 1000)
+	}
 	looksMu.Lock()
 	looks[hash] = l
 	looksMu.Unlock()
@@ -202,23 +215,31 @@ func (s *Server) bookInfo(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, pi)
 	}
-	if req.Look {
-		// Thumbnails are read side by side; a book has hundreds or thousands.
-		var wg sync.WaitGroup
-		next := make(chan int)
-		for range max(1, runtime.NumCPU()-1) {
-			wg.Go(func() {
-				for i := range next {
-					out[i].Look = s.lookOf(ims[i].Hash)
+	// Thumbnails are read side by side, for frames and (look) light; a book
+	// has hundreds or thousands.
+	var wg sync.WaitGroup
+	next := make(chan int)
+	for range max(1, runtime.NumCPU()-1) {
+		wg.Go(func() {
+			for i := range next {
+				l := s.lookOf(ims[i].Hash)
+				if l == nil {
+					continue
 				}
-			})
-		}
-		for i := range out {
-			next <- i
-		}
-		close(next)
-		wg.Wait()
+				if req.Look {
+					out[i].Look = &l.look
+				}
+				if l.frame != [4]float32{} {
+					out[i].Frame = &l.frame
+				}
+			}
+		})
 	}
+	for i := range out {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
 	writeJSON(w, out)
 }
 

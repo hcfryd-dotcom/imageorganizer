@@ -1142,6 +1142,21 @@
       burst.push(im);
     }
     end();
+    // The same photo in two files (a scan as TIF and as JPG, dated
+    // apart): hashes within 2 bits and the same shape. The best is kept.
+    if (bursts) {
+      const shape = im => im.w && im.h ? im.w / im.h : 0;
+      const bits = new Map(kept.map(im => { const h = ph(im); return [im.id, h ? [parseInt(h.slice(0, 8), 16), parseInt(h.slice(8), 16)] : null]; }));
+      const pop = x => { x >>>= 0; let d = 0; while (x) { x &= x - 1; d++; } return d; };
+      const twin = (a, b) => {
+        const x = bits.get(a.id), y = bits.get(b.id);
+        return x && y && pop(x[0] ^ y[0]) + pop(x[1] ^ y[1]) <= 2 && Math.abs(shape(a) - shape(b)) < .03;
+      };
+      const left = [];
+      for (const im of kept.slice().sort(better)) if (!left.some(o => twin(o, im))) left.push(im);
+      const stay = new Set(left.map(im => im.id));
+      kept.splice(0, kept.length, ...kept.filter(im => stay.has(im.id)));
+    }
     if (kept.length <= n) return kept;
     const ch = chapterKind();
     let groups;
@@ -3276,6 +3291,9 @@
           img._focus = pos;
         }
       }
+      // A dark frame round the photo (a scanned print's edge) is cut off.
+      const fr = f.frame;
+      img.style.objectViewBox = fr ? `inset(${fr[1] * 100}% ${fr[2] * 100}% ${fr[3] * 100}% ${fr[0] * 100}%)` : '';
       const l = f.look && f.look.light;
       const lift = book.enhance && l != null
         ? `brightness(${l < .42 ? Math.min(1.35, 1 + (.45 - l) * 1.3) : l > .78 ? .96 : 1}) contrast(1.07) saturate(1.06)` : '';
