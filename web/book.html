@@ -439,6 +439,7 @@
   .unused-grid .hit.dragging { opacity: .4; }
   .unused-grid img { display: block; width: 100%; height: auto !important; max-height: calc(var(--unused-thumb, 130px) * 1.5); object-fit: cover; border-radius: 10px; }
   .unused-grid .hit.was-out img { opacity: .6; }
+  .unused-grid .hit.near img { outline: 3px solid var(--accent, #a57c4f); outline-offset: 2px; }
   .unused-add { position: absolute; top: 5px; right: 5px; width: 26px; height: 26px; border: 0; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; cursor: pointer; opacity: 0; transition: opacity .15s; }
   .unused-grid .hit:hover .unused-add { opacity: 1; }
   @media print { .unused { display: none !important; } }
@@ -3683,8 +3684,20 @@
     renderUnused();
     enlarge(boxFrom, false); // the pages' room changed
   }
-  // pickedYear: the year of the last dated photo on the page picked.
+  // pickedPhoto: the photo clicked in the book (its cover photo too), if
+  // it has a date: the panel then goes to its time.
+  function pickedPhoto() {
+    if (cropping == null) return null;
+    const id = typeof cropping === 'string' && cropping[0] === 'c' ? +cropping.slice(1) : cropping;
+    const im = byId.get(id);
+    return im && im.taken ? im : null;
+  }
+  let unusedAnchor = null; // the photo the panel went to last
+  // pickedYear: the year of the photo clicked, or of the last dated photo
+  // on the page picked.
   function pickedYear() {
+    const im = pickedPhoto();
+    if (im) return yearOf(im);
     let ids = [];
     if (typeof picked === 'number' && book.pages[picked]) ids = book.pages[picked].ids;
     else if (picked === 'cover' && book.cover) ids = [book.cover];
@@ -3775,6 +3788,8 @@
     const have = inBook();
     const rest = photos.filter(im => !have.has(im.id) && !im.video);
     const years = [...new Set(rest.map(yearOf))].sort((a, b) => a - b);
+    const anchor = pickedPhoto();
+    if (anchor && anchor.id !== unusedAnchor) unusedYear = null; // a photo clicked: go to its time
     const follow = unusedYear == null;
     let year = follow ? pickedYear() : unusedYear;
     // The nearest year that has any.
@@ -3782,7 +3797,7 @@
     if (year == null) year = years[years.length - 1] ?? null;
     const list = rest.filter(im => yearOf(im) === year).sort((a, b) => (a.taken || 0) - (b.taken || 0));
     const key = year + '|' + follow + '|' + list.map(im => im.id).join(',');
-    if (key === unusedShown) return;
+    if (key === unusedShown) return unusedGoTo(body, follow ? anchor : null);
     unusedShown = key;
     body.textContent = '';
     const nav = document.createElement('div');
@@ -3821,6 +3836,7 @@
     for (const im of list) {
       const hit = document.createElement('div');
       hit.className = 'hit' + (book.out.includes(im.id) ? ' was-out' : '');
+      hit.dataset.taken = im.taken || 0;
       hit.title = fmtDate(im.taken) + (book.out.includes(im.id) ? ' · ' + t('left out of the book') : '');
       const img = document.createElement('img');
       img.src = thumb(im);
@@ -3843,6 +3859,23 @@
       grid.appendChild(hit);
     }
     body.append(nav, note, grid);
+    if (follow) unusedAnchor = null; // drawn anew: go to the photo again
+    unusedGoTo(body, follow ? anchor : null);
+  }
+  // unusedGoTo scrolls the panel to the photos taken nearest the photo
+  // clicked in the book, and marks the nearest, once per photo clicked.
+  function unusedGoTo(body, anchor) {
+    if (!anchor || anchor.id === unusedAnchor) return;
+    unusedAnchor = anchor.id;
+    const grid = body.querySelector('.unused-grid'), hits = grid ? [...grid.querySelectorAll('.hit')] : [];
+    hits.forEach(h => h.classList.remove('near'));
+    if (!hits.length) return;
+    const best = hits.reduce((b, h) => Math.abs(h.dataset.taken - anchor.taken) < Math.abs(b.dataset.taken - anchor.taken) ? h : b);
+    best.classList.add('near');
+    requestAnimationFrame(() => {
+      const g = grid.getBoundingClientRect(), r = best.getBoundingClientRect();
+      grid.scrollTo({top: grid.scrollTop + r.top - g.top - (g.height - r.height) / 2, behavior: 'smooth'});
+    });
   }
 
   // renderOverview draws every page small in the side panel: a click
