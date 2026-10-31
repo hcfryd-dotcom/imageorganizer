@@ -201,6 +201,11 @@ the rest of the repo.
   (moved, folded and sized like the toolbox) with the source's photos not in the book, of the year of the
   page picked (or one chosen), with a size slider; they are dragged onto
   a photo or a page, or put in by date (＋).
+  A dark frame all round a photo (a scan's edge; `media.Frame`, sent by
+  `/api/books/info`) is cut off with object-view-box. "Optimise the book"
+  (toolbox part) lists look-alike photos filling pages of their own, or
+  the same photo twice: keep the best, together on one page, or keep
+  (`book.optKeep`); the best-of choice also drops the same photo twice.
 - Cleanup (sidebar "Cleanup", `store/cleanup.go`, `server/cleanup.go`,
   `/api/cleanup/{receipts|papers|shots|blurry|copies}`): receipts and
   papers by meaning (mean likeness to a few texts minus likeness to
